@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ping</string>
+
+    <!-- Bottom nav -->
+    <string name="nav_home">Home</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_contacts">Contacts</string>
+
+    <!-- Home -->
+    <string name="home_tagline">Do the same gesture, swap contacts.</string>
+    <string name="home_greeting">Hey, %1$s</string>
+    <string name="home_greeting_no_profile">Set up your card to get started</string>
+    <string name="home_contact_count">%1$d contacts</string>
+    <string name="home_share_button">Share</string>
+    <string name="home_share_hint">Agree on a gesture, then both tap Share.</string>
+
+    <!-- Exchange -->
+    <string name="someone">someone</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_done">Done</string>
+    <string name="exchange_show_gesture">Hold your gesture up to the camera</string>
+    <string name="exchange_gesture_locked">Gesture locked: %1$s</string>
+    <string name="exchange_waiting_peer">Waiting for someone doing the same gesture…</string>
+    <string name="status_connecting">Found a match! Connecting…</string>
+    <string name="status_exchanging">Swapping cards…</string>
+    <string name="exchange_completed">Swapped with %1$s!</string>
+    <string name="exchange_cancelled">Cancelled</string>
+    <string name="exchange_error_generic">Something went wrong. Try again.</string>
+    <string name="exchange_no_match">No match found nearby. Both do the same gesture and try again.</string>
+    <string name="exchange_waiting_peer_countdown">Waiting for the same gesture nearby… %1$ds</string>
+    <string name="exchange_retry">Try again</string>
+
+    <!-- Gesture camera states -->
+    <string name="gesture_no_hand">No hand detected — point the camera at your hand</string>
+    <string name="gesture_detecting">%1$s — %2$d%% steady</string>
+    <string name="gesture_stable">%1$s — hold steady…</string>
+    <string name="gesture_model_error">Camera model failed to load — restart the app.</string>
+    <string name="gesture_stability_desc">Gesture steadiness</string>
+    <string name="gesture_camera_preview_desc">Camera preview for gesture detection</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Your card</string>
+    <string name="hint_name">Name</string>
+    <string name="hint_phone">Phone</string>
+    <string name="hint_email">Email</string>
+    <string name="hint_social">Social / handle</string>
+    <string name="hint_note">Note (2 lines)</string>
+    <string name="profile_save">Save card</string>
+    <string name="profile_saved">Card saved</string>
+    <string name="profile_name_required">Enter a name first.</string>
+
+    <!-- Contacts -->
+    <string name="empty_contacts">No contacts yet.\nTap Share to swap with someone.</string>
+    <string name="contact_unknown_name">Unknown</string>
+    <string name="contact_label_phone">Phone</string>
+    <string name="contact_label_email">Email</string>
+    <string name="contact_label_social">Social</string>
+    <string name="contact_label_note">Note</string>
+    <string name="action_call">Call</string>
+    <string name="action_email_verb">Email</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_close">Close</string>
+    <string name="contact_copied">Copied</string>
+    <string name="contact_toggle_favourite_initial">Toggle favourite</string>
+
+    <!-- Exchange success sheet -->
+    <string name="exchange_success_title">New contact</string>
+    <string name="exchange_success_subtitle">Tap to view the full card.</string>
+
+    <!-- Permissions -->
+    <string name="perm_rationale_title">Ping needs a few permissions</string>
+    <string name="perm_rationale_subtitle">These let Ping find and swap cards with people right next to you. Nothing leaves your device.</string>
+    <string name="perm_rationale_open_settings">Open Settings</string>
+    <string name="perm_rationale_not_now">Not now</string>
+
+    <!-- Foreground service notification -->
+    <string name="notif_channel_name">Ping Exchange</string>
+    <string name="notif_channel_desc">Active contact swap in progress</string>
+    <string name="notif_title">Ping</string>
+    <string name="notif_starting">Looking for a match…</string>
+</resources>

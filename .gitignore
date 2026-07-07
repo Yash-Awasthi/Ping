@@ -1,0 +1,27 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.jks
+*.keystore
+google-services.json
+
+# Prompt-9: release outputs belong in GitHub Releases, not source control.
+# APKs/AABs are large binaries that bloat the repo and the committed APK was
+# unsigned — installing it directly from source is unsafe. CI publishes the
+# signed AAB to Play Console; GitHub Releases hosts the signed APK for sideload.
+app/release/
+*.apk
+*.aab
+*.dm
+keystore.properties
+keystore/
+
+# MediaPipe model — auto-downloaded by the downloadHandModel Gradle task
+app/src/main/assets/*.task
+.directory
