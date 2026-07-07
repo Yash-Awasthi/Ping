@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/homeFragment">
+
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.ping.app.ui.home.HomeFragment"
+        android:label="@string/nav_home">
+        <action
+            android:id="@+id/action_home_to_exchange"
+            app:destination="@id/exchangeFragment"
+            app:enterAnim="@anim/slide_up"
+            app:exitAnim="@anim/fade_out"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/slide_down" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/profileFragment"
+        android:name="com.ping.app.ui.profile.ProfileFragment"
+        android:label="@string/nav_profile" />
+
+    <fragment
+        android:id="@+id/contactsFragment"
+        android:name="com.ping.app.ui.contacts.ContactsFragment"
+        android:label="@string/nav_contacts" />
+
+    <fragment
+        android:id="@+id/exchangeFragment"
+        android:name="com.ping.app.ui.exchange.ExchangeFragment"
+        android:label="@string/home_share_button">
+        <action
+            android:id="@+id/action_exchange_to_contacts"
+            app:destination="@id/contactsFragment"
+            app:popUpTo="@id/homeFragment" />
+    </fragment>
+
+</navigation>
