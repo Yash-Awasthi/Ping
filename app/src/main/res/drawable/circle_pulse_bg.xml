@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PR-18: solid circle used as the background of the pulse_ring View. The
+  colour is overridden at runtime via setBackgroundColor() to switch
+  between the idle (ping_purple) and active-session (ping_cyan) palettes.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/ping_purple" />
+</shape>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Rounded-rectangle background for camera PreviewViews.
+  Applied to gesture_preview and gesture_preview_profile so
+  clipToOutline=true actually produces visible rounded corners.
+  Corner radius matches Material card radius (12dp).
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/surface_variant" />
+    <corners android:radius="12dp" />
+</shape>

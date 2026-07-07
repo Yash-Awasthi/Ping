@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Round variant of the launcher icon. Same <circle>-to-<path> fix
+     as ic_launcher.xml. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#7C4DFF"
+        android:pathData="M54,0 A54,54 0 1,1 53.999,0 Z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M20,54 Q30,30 44,54 Q58,78 72,54 Q86,30 96,54"
+        android:fillColor="@android:color/transparent" />
+    <!-- Centre dot: circle of radius 6 at (54, 54) expressed as two arcs. -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M48,54 a6,6 0 1,1 12,0 a6,6 0 1,1 -12,0 Z" />
+</vector>

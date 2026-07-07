@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PR-11: rounded-rect background for each segment of the gesture-strength
+  meter. The fill colour is set programmatically from ProfileFragment so
+  the same drawable serves both the unlit and lit state.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="4dp" />
+    <solid android:color="@color/surface_variant" />
+</shape>

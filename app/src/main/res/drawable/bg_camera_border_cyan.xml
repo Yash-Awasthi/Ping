@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cyan camera border overlay for gesture enrollment preview.
+     State-driven tinting (green=capturing, red=error) is applied in code
+     via setColorFilter; this drawable provides the default/idle cyan state. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="8dp" />
+    <solid android:color="@android:color/transparent" />
+    <stroke
+        android:width="3dp"
+        android:color="#FF00BCD4" />
+</shape>
