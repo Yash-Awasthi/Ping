@@ -2,131 +2,94 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/surface"
-    android:padding="24dp">
+    android:padding="20dp">
 
-    <!-- Gesture confirmation section (hidden if no pattern set) -->
-    <LinearLayout
-        android:id="@+id/gesture_confirm_section"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp"
-        android:background="@drawable/gesture_section_bg"
-        app:layout_constraintEnd_toEndOf="parent"
+    <androidx.camera.view.PreviewView
+        android:id="@+id/gesturePreview"
+        android:layout_width="280dp"
+        android:layout_height="280dp"
+        android:contentDescription="@string/gesture_camera_preview_desc"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.28" />
 
-        <TextView
-            android:id="@+id/tv_gesture_hint"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/gesture_show_to_auth"
-            android:textColor="@color/on_surface"
-            android:textSize="16sp"
-            android:gravity="center" />
-
-        <!-- Camera live preview — auto-detects hand shape for authentication -->
-        <androidx.camera.view.PreviewView
-            android:id="@+id/gesture_preview"
-            android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:layout_marginTop="12dp"
-            android:clipToOutline="true"
-            android:background="@drawable/camera_preview_bg"
-            android:contentDescription="@string/gesture_camera_preview_desc" />
-
-        <!--
-          Stability progress bar: 0..100 as consecutive stable frames
-          accumulate. Wired to liveGestureState in ExchangeFragment.
-          importantForAccessibility=no — tv_gesture_status carries the
-          same information verbally for TalkBack users.
-        -->
-        <ProgressBar
-            android:id="@+id/pb_gesture_stability"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="8dp"
-            android:layout_marginTop="10dp"
-            android:max="100"
-            android:progress="0"
-            android:progressTint="@color/aura_cyan"
-            android:progressBackgroundTint="@color/surface"
-            android:importantForAccessibility="no" />
-
-        <TextView
-            android:id="@+id/tv_gesture_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:accessibilityLiveRegion="polite"
-            android:textColor="@color/on_surface_secondary"
-            android:textSize="13sp" />
-    </LinearLayout>
-
-
-    <!--
-      NFC indicator chip — visible only when the exchange was initiated via an
-      NFC tap (pendingNfcBootstrap was set before ExchangeFragment opened).
-      Hidden by default; ExchangeFragment shows it in onViewCreated when the
-      NFC bootstrap is present.
-    -->
-    <com.google.android.material.chip.Chip
-        android:id="@+id/chip_nfc_active"
-        style="@style/Widget.Material3.Chip.Assist"
-        android:layout_width="wrap_content"
+    <ProgressBar
+        android:id="@+id/pbStability"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="280dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="@string/exchange_nfc_active"
-        android:contentDescription="@string/exchange_nfc_active_desc"
-        android:visibility="gone"
-        app:chipIconTint="@color/aura_cyan"
-        app:chipIcon="@drawable/ic_nfc"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:max="100"
+        android:contentDescription="@string/gesture_stability_desc"
+        app:layout_constraintTop_toBottomOf="@id/gesturePreview"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/gesture_confirm_section" />
-
-    <!-- Progress indicator -->
-    <ProgressBar
-        android:id="@+id/progress_bar"
-        style="?android:attr/progressBarStyleLarge"
-        android:layout_width="80dp"
-        android:layout_height="80dp"
-        android:importantForAccessibility="no"
-        android:indeterminateTint="@color/aura_purple"
-        app:layout_constraintBottom_toTopOf="@id/tv_status"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/chip_nfc_active"
-        app:layout_constraintVertical_chainStyle="packed" />
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <TextView
-        android:id="@+id/tv_status"
+        android:id="@+id/tvGestureCode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:background="@drawable/bg_pill_surface"
+        android:textColor="@color/aura_cyan"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:visibility="invisible"
+        app:layout_constraintTop_toBottomOf="@id/pbStability"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="✊ pointing up" />
+
+    <TextView
+        android:id="@+id/tvStatus"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="16dp"
         android:gravity="center"
-        android:accessibilityLiveRegion="polite"
         android:textColor="@color/on_surface"
         android:textSize="18sp"
-        app:layout_constraintBottom_toTopOf="@id/btn_cancel"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvGestureCode"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/progress_bar" />
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="Hold your gesture up to the camera" />
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/tvStatus"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_cancel"
+        android:id="@+id/btnRetry"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:text="@string/exchange_retry"
+        android:visibility="gone"
+        app:backgroundTint="@color/aura_purple"
+        app:layout_constraintBottom_toTopOf="@id/btnCancel"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnCancel"
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="48dp"
         android:text="@string/action_cancel"
-        android:contentDescription="@string/action_cancel"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/surface">
+    android:background="@color/surface"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -12,41 +12,22 @@
         android:orientation="vertical"
         android:padding="24dp">
 
-        <!-- Avatar (PR-10) — tap to pick a profile photo -->
-        <FrameLayout
-            android:layout_width="96dp"
-            android:layout_height="96dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="16dp"
-            android:contentDescription="@string/profile_change_avatar_desc"
-            android:clickable="true"
-            android:focusable="true">
-            <ImageView
-                android:id="@+id/iv_avatar"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/circle_avatar_bg"
-                android:contentDescription="@string/profile_avatar_desc"
-                android:scaleType="centerCrop" />
-            <ImageView
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:layout_gravity="bottom|end"
-                android:background="@drawable/circle_avatar_bg"
-                android:contentDescription="@null"
-                android:importantForAccessibility="no"
-                android:padding="4dp"
-                android:src="@android:drawable/ic_menu_camera" />
-        </FrameLayout>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/profile_title"
+            android:textColor="@color/on_surface"
+            android:textSize="24sp"
+            android:textStyle="bold" />
 
-        <!-- Profile fields -->
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/hint_name"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:layout_marginTop="20dp"
+            android:hint="@string/hint_name">
+
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_name"
+                android:id="@+id/etName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textPersonName" />
@@ -56,10 +37,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:hint="@string/hint_phone"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:hint="@string/hint_phone">
+
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_phone"
+                android:id="@+id/etPhone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="phone" />
@@ -69,10 +50,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:hint="@string/hint_email"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:hint="@string/hint_email">
+
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_email"
+                android:id="@+id/etEmail"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textEmailAddress" />
@@ -82,36 +63,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:hint="@string/hint_company"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_company"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textCapWords" />
-        </com.google.android.material.textfield.TextInputLayout>
+            android:hint="@string/hint_social">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="@string/hint_title"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textCapWords" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="@string/hint_website"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_website"
+                android:id="@+id/etSocial"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textUri" />
@@ -121,155 +76,23 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:hint="@string/hint_bio"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:hint="@string/hint_note">
+
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/et_bio"
+                android:id="@+id/etNote"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textMultiLine"
-                android:minLines="2" />
+                android:maxLines="2" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Share field toggles -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/profile_fields_to_share_header"
-            android:textColor="@color/on_surface"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <CheckBox android:id="@+id/cb_share_phone" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/profile_share_phone"
-            android:checked="true" android:textColor="@color/on_surface" />
-        <CheckBox android:id="@+id/cb_share_email" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/profile_share_email"
-            android:checked="true" android:textColor="@color/on_surface" />
-        <CheckBox android:id="@+id/cb_share_company" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/profile_share_company"
-            android:checked="true" android:textColor="@color/on_surface" />
-        <CheckBox android:id="@+id/cb_share_title" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/profile_share_title"
-            android:checked="true" android:textColor="@color/on_surface" />
-        <CheckBox android:id="@+id/cb_share_website" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/profile_share_website"
-            android:checked="false" android:textColor="@color/on_surface" />
-        <CheckBox android:id="@+id/cb_share_bio" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/profile_share_bio"
-            android:checked="false" android:textColor="@color/on_surface" />
-
-        <!-- Gesture section -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/label_gesture"
-            android:textColor="@color/on_surface"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/gesture_status"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:accessibilityLiveRegion="polite"
-            android:text="@string/profile_gesture_status_none"
-            android:textColor="@color/on_surface_secondary"
-            android:textSize="13sp" />
-
-        <!-- Camera preview — visible while recording, gone otherwise -->
-        <androidx.camera.view.PreviewView
-            android:id="@+id/gesture_preview_profile"
-            android:layout_width="match_parent"
-            android:layout_height="220dp"
-            android:layout_marginTop="12dp"
-            android:clipToOutline="true"
-            android:background="@drawable/camera_preview_bg"
-            android:visibility="gone"
-            android:contentDescription="@string/gesture_camera_preview_desc" />
-
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_record_gesture"
+            android:id="@+id/btnSave"
             android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:layout_marginTop="8dp"
-            android:text="@string/btn_record_gesture"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/profile_save"
             app:backgroundTint="@color/aura_purple" />
-
-        <!--
-          PR-11: gesture strength indicator.
-          Five rounded segments + a text label that becomes visible only
-          while a gesture is actively being recorded.
-        -->
-        <LinearLayout
-            android:id="@+id/gesture_strength_bars"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:visibility="gone"
-            android:importantForAccessibility="no">
-            <View android:id="@+id/gesture_bar_1"
-                android:layout_width="8dp" android:layout_height="24dp"
-                android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
-                android:background="@drawable/gesture_strength_bar"
-                android:importantForAccessibility="no" />
-            <View android:id="@+id/gesture_bar_2"
-                android:layout_width="8dp" android:layout_height="24dp"
-                android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
-                android:background="@drawable/gesture_strength_bar"
-                android:importantForAccessibility="no" />
-            <View android:id="@+id/gesture_bar_3"
-                android:layout_width="8dp" android:layout_height="24dp"
-                android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
-                android:background="@drawable/gesture_strength_bar"
-                android:importantForAccessibility="no" />
-            <View android:id="@+id/gesture_bar_4"
-                android:layout_width="8dp" android:layout_height="24dp"
-                android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
-                android:background="@drawable/gesture_strength_bar"
-                android:importantForAccessibility="no" />
-            <View android:id="@+id/gesture_bar_5"
-                android:layout_width="8dp" android:layout_height="24dp"
-                android:layout_marginStart="4dp" android:layout_marginEnd="4dp"
-                android:background="@drawable/gesture_strength_bar"
-                android:importantForAccessibility="no" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/tv_variance_label"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:gravity="center"
-            android:text="@string/profile_gesture_strength_label"
-            android:textColor="@color/on_surface_secondary"
-            android:textSize="11sp"
-            android:visibility="gone" />
-
-        <!-- Save button -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_save"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:text="@string/profile_btn_save_profile"
-            app:backgroundTint="@color/aura_cyan_dark" />
-
-        <!-- Share card link (Phase 6.8) -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_share_card"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="@string/action_share_card"
-            app:strokeColor="@color/aura_cyan_dark" />
 
     </LinearLayout>
 </ScrollView>

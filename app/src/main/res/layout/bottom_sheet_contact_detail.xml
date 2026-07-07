@@ -1,220 +1,89 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:background="@color/surface_variant">
+    android:background="@color/surface"
+    android:padding="24dp">
 
-    <!-- Drag handle -->
-    <View
-        android:layout_width="40dp"
-        android:layout_height="4dp"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="16dp"
-        android:background="#555566"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <!-- Avatar (PR-10) — hidden when the contact has no photo -->
-    <ImageView
-        android:id="@+id/iv_avatar"
-        android:layout_width="72dp"
-        android:layout_height="72dp"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="8dp"
-        android:background="@drawable/circle_avatar_bg"
-        android:contentDescription="@null"
-        android:scaleType="centerCrop"
-        android:visibility="gone" />
-
-    <!--
-      Phase 6.9: Cryptographic identity fingerprint identicon.
-      Always shown — derived from identityKeyHash so the user can visually
-      verify this contact's fingerprint didn't change across exchanges.
-      Intentionally smaller than the avatar (48 dp) and centred below it.
-    -->
-    <ImageView
-        android:id="@+id/iv_identicon"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="2dp"
-        android:contentDescription="@string/contact_identicon_desc"
-        android:scaleType="fitCenter" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginBottom="8dp"
-        android:text="@string/contact_identicon_label"
-        android:textColor="@color/on_surface_secondary"
-        android:textSize="10sp" />
-
-    <!--
-      PR-12: name row gains a favourite-toggle star. Wrapped in a horizontal
-      LinearLayout so the existing block stays a vertical LinearLayout child.
-      The star is a 48x48 ImageButton (accessibility touch-target minimum).
-    -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical">
+
         <TextView
-            android:id="@+id/tv_name"
+            android:id="@+id/tvName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textColor="@color/on_surface"
             android:textSize="22sp"
-            android:textStyle="bold" />
+            android:textStyle="bold"
+            tools:text="Alex Rivera" />
+
         <ImageButton
-            android:id="@+id/btn_favourite"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:id="@+id/btnFavourite"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/contact_toggle_favourite_initial"
-            android:src="@drawable/ic_star_border" />
+            android:src="@drawable/ic_star_border"
+            app:tint="@color/aura_cyan" />
     </LinearLayout>
 
     <TextView
-        android:id="@+id/tv_title"
+        android:id="@+id/tvDetails"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textColor="@color/aura_purple_light"
-        android:textSize="14sp" />
+        android:layout_marginTop="12dp"
+        android:textColor="@color/on_surface_secondary"
+        android:textSize="15sp"
+        android:lineSpacingMultiplier="1.3"
+        tools:text="Phone: +1 555 0100\nEmail: alex@example.com" />
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginVertical="16dp"
-        android:background="#333344" />
-
-    <!-- Contact rows -->
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="horizontal" android:layout_marginBottom="8dp">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="@string/contact_label_phone" android:textColor="@color/on_surface_secondary"
-            android:textSize="13sp" android:layout_marginEnd="8dp" />
-        <TextView android:id="@+id/tv_phone" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:textColor="@color/on_surface" android:textSize="14sp" />
-    </LinearLayout>
-
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="horizontal" android:layout_marginBottom="8dp">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="@string/contact_label_email" android:textColor="@color/on_surface_secondary"
-            android:textSize="13sp" android:layout_marginEnd="8dp" />
-        <TextView android:id="@+id/tv_email" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:textColor="@color/on_surface" android:textSize="14sp" />
-    </LinearLayout>
-
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="horizontal" android:layout_marginBottom="8dp">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="@string/contact_label_website" android:textColor="@color/on_surface_secondary"
-            android:textSize="13sp" android:layout_marginEnd="8dp" />
-        <TextView android:id="@+id/tv_website" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:textColor="@color/on_surface" android:textSize="14sp" />
-    </LinearLayout>
-
-    <TextView android:id="@+id/tv_bio" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:layout_marginTop="8dp" android:textColor="@color/on_surface_secondary" android:textSize="13sp" />
-
-    <!--
-      PR-12: inline notes editor. The Save button stays gone until the user
-      types something; it surfaces only when the text actually changes.
-    -->
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:hint="@string/contact_note_hint"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/et_notes"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="textMultiLine|textCapSentences"
-            android:minLines="2"
-            android:gravity="top|start" />
-    </com.google.android.material.textfield.TextInputLayout>
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_save_note"
-        style="@style/Widget.MaterialComponents.Button.TextButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="end"
-        android:layout_marginTop="4dp"
-        android:text="@string/contact_save_note"
-        android:visibility="gone" />
-
-    <!-- Action buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
         android:orientation="horizontal"
-        android:gravity="center">
+        android:layout_marginTop="24dp">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_call"
+            android:id="@+id/btnCall"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
             android:text="@string/action_call" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_email"
+            android:id="@+id/btnEmail"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
             android:text="@string/action_email_verb" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_copy"
+            android:id="@+id/btnCopy"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
             android:text="@string/action_copy" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_export"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:text="@string/action_export" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_delete"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/action_delete"
-            app:strokeColor="@color/error" />
-
     </LinearLayout>
 
-    <!--
-      PR-14: block this device. Stays a low-emphasis text button so it
-      doesn't compete visually with the primary actions row above.
-    -->
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_block"
+        android:id="@+id/btnDelete"
         style="@style/Widget.MaterialComponents.Button.TextButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/contact_block_button"
+        android:layout_marginTop="4dp"
+        android:text="@string/action_delete"
         android:textColor="@color/error" />
 
 </LinearLayout>

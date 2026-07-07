@@ -2,10 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- ================================================================= -->
-    <!-- Bluetooth permissions                                              -->
-    <!-- ================================================================= -->
-    <!-- Android 12+ (API 31+): fine-grained BLE permissions -->
+    <!-- Bluetooth (Nearby Connections uses BLE + Wi-Fi Direct under the hood) -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation"
         tools:targetApi="s" />
@@ -13,89 +10,48 @@
         tools:targetApi="s" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
         tools:targetApi="s" />
-    <!-- Legacy BLE (< API 31) -->
     <uses-permission android:name="android.permission.BLUETOOTH"
         android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
         android:maxSdkVersion="30" />
 
-    <!-- Wi-Fi Aware / P2P (used by Nearby Connections) -->
+    <!-- Wi-Fi (Nearby Connections Wi-Fi Direct path) -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <!-- BLE scanning on API < 31 requires location. We declare both COARSE
-         and FINE because lint requires the pair, and to satisfy older OEM
-         BLE stacks that fall back to network-location when FINE is denied.
-         AURA never reads geographic location; see PRIVACY_POLICY.md. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Android 13+ (API 33+): required for Wi-Fi P2P / Wi-Fi Aware used by Nearby -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:usesPermissionFlags="neverForLocation"
         tools:targetApi="33" />
 
-    <!-- NFC â tap-to-exchange bootstrap transport (NfcExchangeHelper).
-         required="false" keeps the app installable on NFC-less devices;
-         NfcExchangeHelper no-ops gracefully when NFC is unavailable. -->
-    <uses-permission android:name="android.permission.NFC" />
-    <uses-feature
-        android:name="android.hardware.nfc"
-        android:required="false" />
-
-    <!-- INTERNET is required for the QR relay path: after ECDH key agreement
-         via QR code swap, each device POSTs its AES-256-GCM encrypted profile
-         to a relay slot and polls for the peer's slot. No plaintext ever leaves
-         the device â the relay sees only ciphertext. Nearby Connections (BLE /
-         Wi-Fi P2P) paths remain fully offline; only QR relay uses the network. -->
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Camera — MediaPipe hand-gesture detection -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <!-- Vibration for gesture feedback -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- Camera â used for two purposes:
-         1. MediaPipe hand-gesture authentication (all exchange paths).
-         2. QR fallback scanner (PR-08).
-         Marked not required so the app installs on camera-less devices;
-         both features will degrade gracefully in that case. -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature
-        android:name="android.hardware.camera"
-        android:required="false" />
-
-    <!-- Foreground service (volume-button listener) -->
+    <!-- Foreground service for the live exchange session -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"
         tools:targetApi="34" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"
         tools:targetApi="33" />
 
-    <!-- NFC HCE â AURA can act as an NFC card (AuraHceService). required=false
-         keeps the app installable on NFC-less devices. -->
-    <uses-feature
-        android:name="android.hardware.nfc.hce"
-        android:required="false" />
-
-    <!-- Hardware features -->
-    <uses-feature
-        android:name="android.hardware.bluetooth_le"
-        android:required="true" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
 
     <application
-        android:name=".AuraApplication"
+        android:name=".PingApplication"
         android:allowBackup="false"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
-        android:hasFragileUserData="true"
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
-        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@drawable/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Aura"
+        android:theme="@style/Theme.Ping"
         tools:targetApi="31">
 
-        <!-- Main entry point -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
@@ -105,99 +61,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- NFC tap-to-exchange â routes AURA NFC taps to MainActivity
-                 when the app is not in the foreground. While in the foreground,
-                 NfcExchangeHelper.enable() registers a higher-priority foreground
-                 dispatch that intercepts taps before this filter fires. Both paths
-                 converge in onNewIntent â NfcExchangeHelper.handleIntent(). -->
-            <intent-filter>
-                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/vnd.aura.key-bootstrap" />
-            </intent-filter>
-                    <!-- Phase 6.8 â Share AURA deeplink: https://aura.app/c/{base64-payload}
-                 autoVerify enables App Links so the OS routes these URLs
-                 directly to AURA without an app-chooser dialog. -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="aura.app" android:pathPrefix="/c/" />
-            </intent-filter>
         </activity>
 
-        <!-- Nearby Connections Exchange Service -->
         <service
             android:name=".service.NearbyExchangeService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
-
-        <!--
-          NFC Host Card Emulation (Phase 6.1) â lets AURA respond as an NFC
-          card when another AURA device taps it.  The proprietary AID
-          F0415552410001 is in the "other" category so it never conflicts with
-          payment apps.  requireDeviceUnlock="false" allows tap-exchange even
-          from the lock screen (the gesture-auth gate is still enforced in-app).
-        -->
-        <service
-            android:name=".service.AuraHceService"
-            android:exported="true"
-            android:permission="android.permission.BIND_NFC_SERVICE">
-            <intent-filter>
-                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-            <meta-data
-                android:name="android.nfc.cardemulation.host_apdu_service"
-                android:resource="@xml/aura_apdu_service" />
-        </service>
-
-
-        <!-- PR-07: FileProvider used to share generated .vcf files. -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="com.showerideas.aura.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_provider_paths" />
-        </provider>
-
-
-        <!--
-          Phase 6.11 – Quick Settings tile.
-          Users add it from the QS panel edit mode.
-          Tile state mirrors NearbyExchangeService.sessionState (blue=active, grey=idle).
-        -->
-        <service
-            android:name=".service.AuraQsTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_launcher"
-            android:label="@string/app_name"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-
-        <!-- Task 83 — FIDO2 CredentialProvider service (Android 14+ / API 34+) -->
-        <service
-            android:name=".fido.AuraCredentialProviderService"
-            android:exported="true"
-            android:permission="android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.credentials.CredentialProviderService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.credentials.provider"
-                android:resource="@xml/credential_provider_config" />
-        </service>
-
-        <!-- Task 83 — Gesture gate activity for FIDO2 passkey operations -->
-        <activity
-            android:name=".ui.fido.PasskeyGestureGateActivity"
-            android:exported="false" />
 
     </application>
 

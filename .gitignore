@@ -19,3 +19,9 @@ app/release/
 *.apk
 *.aab
 *.dm
+keystore.properties
+keystore/
+
+# MediaPipe model — auto-downloaded by the downloadHandModel Gradle task
+app/src/main/assets/*.task
+.directory

@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- T35 — Wear OS SAS PIN confirmation activity -->
-    <string name="sas_wear_prompt">Compare with your peer</string>
-    <string name="sas_wear_confirm">Match ✓</string>
-    <string name="sas_wear_reject">Different ✗</string>
-    <string name="sas_wear_timeout">Timed out</string>
-</resources>

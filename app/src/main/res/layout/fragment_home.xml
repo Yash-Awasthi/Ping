@@ -2,141 +2,72 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/surface"
     android:padding="24dp">
 
     <TextView
-        android:id="@+id/tv_greeting"
+        android:id="@+id/tvGreeting"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:textColor="@color/on_surface"
-        android:textSize="24sp"
+        android:textSize="26sp"
         android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="Hey, Yash" />
 
     <TextView
-        android:id="@+id/tv_contact_count"
-        android:layout_width="wrap_content"
+        android:id="@+id/tvTagline"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="6dp"
+        android:text="@string/home_tagline"
+        android:textColor="@color/on_surface_secondary"
+        android:textSize="15sp"
+        app:layout_constraintTop_toBottomOf="@id/tvGreeting"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnShare"
+        android:layout_width="220dp"
+        android:layout_height="220dp"
+        android:text="@string/home_share_button"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        app:cornerRadius="110dp"
+        app:backgroundTint="@color/aura_purple"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/tvShareHint"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="center"
+        android:text="@string/home_share_hint"
         android:textColor="@color/on_surface_secondary"
         android:textSize="14sp"
+        app:layout_constraintTop_toBottomOf="@id/btnShare"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tv_greeting" />
-
-    <!--
-      Phase 6.4: Profile switcher chip — shows current active profile type.
-      Tap opens ProfileSwitcherBottomSheet to switch between Personal / Work cards.
-    -->
-    <com.google.android.material.chip.Chip
-        android:id="@+id/chip_active_profile"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:contentDescription="@string/profile_switcher_hint"
-        android:text="@string/profile_type_personal"
-        android:textSize="13sp"
-        app:chipBackgroundColor="@color/surface_variant"
-        app:chipStrokeColor="@color/aura_purple"
-        app:chipStrokeWidth="1dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tv_greeting" />
-
-    <!--
-      PR-18: pulsing activate button. The FrameLayout holds two layers:
-        - pulse_ring  decorative ring animated by HomeFragment (scale + alpha).
-        - btn_activate  the actual tappable AURA button on top.
-      The ring lives behind the button and is flagged importantForAccessibility=no
-      so TalkBack ignores it.
-    -->
-    <FrameLayout
-        android:id="@+id/activate_container"
-        android:layout_width="200dp"
-        android:layout_height="200dp"
-        android:layout_marginTop="48dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tv_contact_count">
-
-        <View
-            android:id="@+id/pulse_ring"
-            android:layout_width="200dp"
-            android:layout_height="200dp"
-            android:layout_gravity="center"
-            android:alpha="0"
-            android:background="@drawable/circle_pulse_bg"
-            android:importantForAccessibility="no" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_activate"
-            android:layout_width="200dp"
-            android:layout_height="200dp"
-            android:layout_gravity="center"
-            android:contentDescription="@string/btn_activate"
-            android:text="@string/home_aura_button"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            app:backgroundTint="@color/aura_purple"
-            app:cornerRadius="100dp" />
-    </FrameLayout>
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <TextView
-        android:id="@+id/tv_activate_hint"
+        android:id="@+id/tvContactCount"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/home_activate_hint"
         android:textColor="@color/on_surface_secondary"
-        android:textSize="12sp"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:textSize="14sp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/activate_container" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_qr_fallback"
-        style="@style/Widget.MaterialComponents.Button.TextButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/home_qr_fallback"
-        android:textColor="@color/aura_cyan"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tv_activate_hint" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_room_mode"
-        style="@style/Widget.MaterialComponents.Button.TextButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="@string/home_room_mode"
-        android:textColor="@color/aura_cyan"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btn_qr_fallback" />
-
-    <!--
-      Phase 6.8: Share card deeplink button.
-      Generates an https://aura.app/c/<base64url-json> URL and fires the
-      Android share sheet. Disabled until a profile with a display name is loaded.
-    -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_share_card"
-        style="@style/Widget.MaterialComponents.Button.TextButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:contentDescription="@string/action_share_card"
-        android:enabled="false"
-        android:text="@string/action_share_card"
-        android:textColor="@color/aura_cyan"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btn_room_mode" />
+        tools:text="3 contacts" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

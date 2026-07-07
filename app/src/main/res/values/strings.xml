@@ -1,586 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Aura</string>
+    <string name="app_name">Ping</string>
+
+    <!-- Bottom nav -->
     <string name="nav_home">Home</string>
     <string name="nav_profile">Profile</string>
     <string name="nav_contacts">Contacts</string>
-    <string name="btn_activate">Activate AURA</string>
-    <string name="btn_cancel">Cancel</string>
-    <string name="btn_save">Save</string>
-    <string name="btn_record_gesture">Hold to Record Gesture</string>
-    <string name="hint_name">Display Name *</string>
-    <string name="hint_phone">Phone</string>
-    <string name="hint_email">Email</string>
-    <string name="hint_company">Company</string>
-    <string name="hint_title">Title / Role</string>
-    <string name="hint_website">Website</string>
-    <string name="hint_bio">Bio</string>
-    <string name="label_share">Share this field</string>
-    <string name="label_gesture">Gesture Authentication</string>
-    <string name="status_advertising">Broadcasting presence\u2026</string>
-    <string name="status_discovering">Looking for nearby AURA users\u2026</string>
-    <string name="status_connecting">Found someone! Connecting\u2026</string>
-    <string name="status_verifying">Verify the code with your contact\u2026</string>
-    <string name="status_exchanging">Exchanging contact info securely\u2026</string>
-    <string name="empty_contacts">No contacts yet.\nTap Exchange to share.</string>
-    <string name="search_hint">Search contacts\u2026</string>
 
-    <!-- Exchange screen / gesture gate (PR-01) -->
+    <!-- Home -->
+    <string name="home_tagline">Do the same gesture, swap contacts.</string>
+    <string name="home_greeting">Hey, %1$s</string>
+    <string name="home_greeting_no_profile">Set up your card to get started</string>
+    <string name="home_contact_count">%1$d contacts</string>
+    <string name="home_share_button">Share</string>
+    <string name="home_share_hint">Agree on a gesture, then both tap Share.</string>
+
+    <!-- Exchange -->
     <string name="someone">someone</string>
     <string name="action_cancel">Cancel</string>
-    <string name="action_continue">Continue</string>
     <string name="action_done">Done</string>
-    <string name="exchange_gesture_hint">Hold and perform your gesture to confirm</string>
-    <string name="exchange_gesture_confirmed">Gesture confirmed!</string>
-    <string name="exchange_gesture_failed_retry">Gesture didn\'t match. %1$d attempt(s) left.</string>
-    <string name="exchange_gesture_failed_max">Too many failed gesture attempts. Exchange cancelled.</string>
-    <string name="exchange_unprotected_title">No gesture set</string>
-    <string name="exchange_unprotected_message">No gesture set â exchange is unprotected. Continue?</string>
-    <string name="exchange_completed">Exchanged with %1$s!</string>
-    <string name="exchange_cancelled">Exchange cancelled</string>
+    <string name="exchange_show_gesture">Hold your gesture up to the camera</string>
+    <string name="exchange_gesture_locked">Gesture locked: %1$s</string>
+    <string name="exchange_waiting_peer">Waiting for someone doing the same gesture…</string>
+    <string name="status_connecting">Found a match! Connecting…</string>
+    <string name="status_exchanging">Swapping cards…</string>
+    <string name="exchange_completed">Swapped with %1$s!</string>
+    <string name="exchange_cancelled">Cancelled</string>
     <string name="exchange_error_generic">Something went wrong. Try again.</string>
-    <string name="exchange_error_bluetooth">Exchange failed. Make sure Bluetooth and location are on.</string>
+    <string name="exchange_no_match">No match found nearby. Both do the same gesture and try again.</string>
+    <string name="exchange_waiting_peer_countdown">Waiting for the same gesture nearby… %1$ds</string>
+    <string name="exchange_retry">Try again</string>
 
-    <!-- SAS (Short Authentication String) verification dialog â Prompt-8 UI integration -->
-    <string name="sas_dialog_title">Verify Security Code</string>
-    <string name="sas_dialog_message">Both you and your contact should see the same 6-digit code.\n\nYour code: %1$s\n\nAsk your contact to read their code aloud. If the codes match, tap \'Match\'.</string>
-    <string name="sas_dialog_confirm">Match â</string>
-    <string name="sas_dialog_mismatch">Mismatch â abort</string>
+    <!-- Gesture camera states -->
+    <string name="gesture_no_hand">No hand detected — point the camera at your hand</string>
+    <string name="gesture_detecting">%1$s — %2$d%% steady</string>
+    <string name="gesture_stable">%1$s — hold steady…</string>
+    <string name="gesture_model_error">Camera model failed to load — restart the app.</string>
+    <string name="gesture_stability_desc">Gesture steadiness</string>
+    <string name="gesture_camera_preview_desc">Camera preview for gesture detection</string>
 
-    <!-- Permission rationale (PR-03) -->
-    <string name="perm_rationale_title">AURA needs a few permissions</string>
-    <string name="perm_rationale_subtitle">These let AURA find and exchange contacts with people nearby. Nothing leaves your device.</string>
-    <string name="perm_rationale_open_settings">Open Settings</string>
-    <string name="perm_rationale_not_now">Not now</string>
-    <string name="perm_label_bluetooth_scan">Nearby scanning</string>
-    <string name="perm_reason_bluetooth_scan">To find people around you over Bluetooth.</string>
-    <string name="perm_label_bluetooth_advertise">Broadcast presence</string>
-    <string name="perm_reason_bluetooth_advertise">So others nearby can find you when you activate AURA.</string>
-    <string name="perm_label_bluetooth_connect">Bluetooth connect</string>
-    <string name="perm_reason_bluetooth_connect">To exchange the encrypted contact payload with the chosen device.</string>
-    <string name="perm_label_location">Approximate location</string>
-    <string name="perm_reason_location">Android requires this for Bluetooth scanning on older versions.</string>
-    <string name="perm_label_nearby_wifi">Nearby Wi-Fi devices</string>
-    <string name="perm_reason_nearby_wifi">For higher-speed exchange over Wi-Fi P2P when available.</string>
-    <string name="perm_label_camera">Camera</string>
-    <string name="perm_reason_camera">To read your hand gesture for secure exchange authentication.</string>
-    <string name="perm_label_notifications">Notifications</string>
-    <string name="perm_reason_notifications">So you see live status while an exchange is running.</string>
-    <string name="perm_label_generic">Permission required</string>
-    <string name="perm_reason_generic">AURA needs this permission to function correctly.</string>
+    <!-- Profile -->
+    <string name="profile_title">Your card</string>
+    <string name="hint_name">Name</string>
+    <string name="hint_phone">Phone</string>
+    <string name="hint_email">Email</string>
+    <string name="hint_social">Social / handle</string>
+    <string name="hint_note">Note (2 lines)</string>
+    <string name="profile_save">Save card</string>
+    <string name="profile_saved">Card saved</string>
+    <string name="profile_name_required">Enter a name first.</string>
 
-    <!-- Onboarding (PR-05) -->
-    <string name="onboarding_welcome_tagline">Trade contacts with a shake.</string>
-    <string name="onboarding_welcome_body">AURA exchanges your contact card with anyone nearby using an end-to-end encrypted Bluetooth handshake. No accounts, no servers, nothing leaves your device unless you choose to share it.</string>
-    <string name="onboarding_profile_title">Who are you?</string>
-    <string name="onboarding_profile_subtitle">Just the essentials. You can fill in the rest later from the Profile screen.</string>
-    <string name="onboarding_gesture_title">Set an unlock gesture</string>
-    <string name="onboarding_gesture_subtitle">Pick a quick motion only you would make. AURA will use it to confirm every exchange.</string>
-    <string name="onboarding_gesture_skip">Skip for now</string>
-    <string name="onboarding_gesture_skipped">Skipped â you can add a gesture later from the Profile screen.</string>
-    <string name="onboarding_get_started">Get started</string>
-    <string name="onboarding_name_required">Please enter your name to continue.</string>
-    <string name="onboarding_email_invalid">Please enter a valid email address.</string>
-    <string name="gesture_recording">Perform your gesture nowâ¦</string>
-    <string name="gesture_saved">Gesture saved!</string>
-    <string name="gesture_status_no_gesture">No gesture set yet</string>
-
-    <!-- vCard export (PR-07) -->
-    <string name="action_export">Export</string>
-    <string name="action_export_all">Export all</string>
-    <string name="export_all_empty">No contacts to export yet.</string>
-
-    <!-- QR fallback exchange (PR-08) -->
-    <string name="home_qr_fallback">Canât connect? Use QR</string>
-    <string name="qr_title">Scan to pair</string>
-    <string name="qr_subtitle">Have the other person scan this code, then scan theirs.</string>
-    <string name="qr_code_image_desc">Your single-use pairing QR code</string>
-    <string name="qr_scan_button">Scan their QR</string>
-    <string name="qr_scan_prompt">Point at the other phoneâs QR code</string>
-    <string name="qr_countdown_template">Refreshes in %1$ds</string>
-    <string name="qr_refreshing">Refreshingâ¦</string>
-    <string name="qr_render_failed">Could not render the QR code.</string>
-    <string name="qr_scan_cancelled">Scan cancelled.</string>
-    <string name="qr_invalid">That code isnât a valid AURA pairing payload.</string>
-    <string name="qr_expired">That pairing code has expired. Ask the other person to refresh it.</string>
-    <string name="qr_pairing_ok">Contact saved: %1$s</string>
-    <string name="qr_relay_timeout">The other phone didn\'t respond in time. Try again.</string>
-    <string name="qr_sas_mismatch_abort">Security code mismatch â exchange aborted. No contact was saved.</string>
-    <string name="qr_unencrypted_warning">Profiles exchanged end-to-end via encrypted relay. Both phones must scan each other\'s QR.</string>
-
-    <!-- Room exchange (PR-09) -->
-    <string name="home_room_mode">Room mode</string>
-    <string name="room_mode_host">Host a room</string>
-    <string name="room_mode_guest">Join a room</string>
-    <string name="room_host_idle_status">Open a room</string>
-    <string name="room_host_subtitle">Up to 10 nearby people can join and share their card with you.</string>
-    <string name="room_guest_idle_status">Join a nearby room</string>
-    <string name="room_guest_subtitle">Youâll receive the hostâs card. Your card is sent in return.</string>
-    <string name="room_open_action">Open room</string>
-    <string name="room_close_action">Close room</string>
-    <string name="room_join_action">Join</string>
-    <string name="room_guest_done">Got the hostâs card!</string>
-    <string name="room_hold_to_confirm">Hold the action button to confirm with your gesture.</string>
-
-    <!-- Avatar sharing (PR-10) -->
-    <string name="profile_change_avatar_desc">Change profile photo</string>
-    <string name="profile_avatar_desc">Tap to pick a profile photo</string>
-    <string name="profile_avatar_too_large">Image was too large â try a smaller picture.</string>
-
-    <!--
-      ============================================================
-      TRANSLATION GUIDE (PR-20)
-      - Format strings use %1$s / %1$d positional placeholders so
-        translators can re-order arguments per language. Keep the
-        placeholders intact in every translation.
-      - Sections are grouped by screen for context.
-      - URLs and brand names ("AURA") are NOT to be translated.
-      ============================================================
-    -->
-
-    <!-- PR-20: Home -->
-    <string name="home_greeting">Hey, %1$s</string>
-    <string name="home_greeting_no_profile">Set up your profile to get started</string>
-    <string name="home_contact_count">%1$d contacts exchanged</string>
-    <string name="home_aura_button">AURA</string>
-
-    <!-- PR-20: Profile -->
-    <string name="profile_btn_record">Record Gesture</string>
-    <string name="profile_btn_recording">Hold your gesture steadyâ¦</string>
-    <string name="profile_btn_rerecord">Re-record Gesture</string>
-
-    <!-- Camera gesture auth strings -->
-    <string name="gesture_show_to_auth">Show your saved hand gesture to authenticate</string>
-    <string name="gesture_camera_preview_desc">Camera preview for gesture authentication</string>
-    <string name="gesture_no_hand">No hand detected â point camera at your hand</string>
-    <string name="gesture_detecting">%1$s %2$s â %3$d%% stable</string>
-    <string name="gesture_stable">%1$s %2$s â hold steadyâ¦</string>
-    <string name="gesture_saved_embedding">Hand shape saved â gesture authentication ready</string>
-    <string name="profile_gesture_status_perform">Perform your gesture now</string>
-    <string name="profile_gesture_status_saved">Gesture saved!</string>
-    <string name="profile_gesture_status_saved_idle">Gesture saved</string>
-    <string name="profile_gesture_status_none">No gesture set</string>
-    <!-- Sequence mode: step 1 captured, waiting for the user to perform step 2 -->
-    <string name="profile_gesture_status_step2">Step 1 saved â now perform your second gesture</string>
-    <string name="profile_saved">Profile saved</string>
-    <string name="profile_gesture_strength_label">gesture strength</string>
-    <string name="profile_gesture_strength_a11y">Gesture strength: %1$d out of 5</string>
-
-    <!-- PR-20: Contact detail bottom sheet -->
-    <string name="contact_copied">Copied to clipboard</string>
+    <!-- Contacts -->
+    <string name="empty_contacts">No contacts yet.\nTap Share to swap with someone.</string>
     <string name="contact_unknown_name">Unknown</string>
-    <string name="contact_block_button">Block this device</string>
-    <string name="contact_block_dialog_title">Block this device?</string>
-    <string name="contact_block_dialog_message">Future exchanges from this device will be silently rejected. You can unblock it later in Settings.</string>
-    <string name="contact_block_dialog_confirm">Block</string>
-    <string name="contact_a11y_call">Call %1$s</string>
-    <string name="contact_a11y_email">Email %1$s</string>
-    <string name="contact_a11y_copy">Copy %1$s to clipboard</string>
-    <string name="contact_a11y_export">Export %1$s as vCard</string>
-    <string name="contact_a11y_delete">Delete contact %1$s</string>
-    <string name="contact_a11y_mark_favourite">Mark %1$s as favourite</string>
-    <string name="contact_a11y_unmark_favourite">Unmark %1$s as favourite</string>
-    <string name="contact_a11y_block">Block this device</string>
-    <string name="contact_a11y_row">%1$s, %2$s, double tap to view details</string>
-    <string name="contact_a11y_row_favourite">%1$s, favourite, %2$s, double tap to view details</string>
-    <string name="contact_note_hint">Add a noteâ¦</string>
-    <string name="contact_save_note">Save note</string>
-
-    <!-- PR-20: Settings -->
-    <string name="settings_title">Settings</string>
-    <string name="settings_section_auth">Authentication</string>    <string name="settings_section_data">Data</string>
-    <string name="settings_section_about">About</string>
-    <string name="settings_section_wear">Wear OS</string>
-    <string name="settings_auth_method">Auth method</string>
-    <string name="settings_auth_gesture">Gesture</string>
-    <string name="settings_auth_biometric">Biometric</string>
-    <string name="settings_biometric_unavailable">Not available on this device</string>    <string name="settings_blocked_devices">Blocked devices</string>
-    <string name="settings_clear_gesture">Clear gesture</string>
-    <string name="settings_clear_contacts">Clear all contacts</string>
-    <string name="settings_version">Version</string>
-    <string name="settings_privacy">Privacy policy</string>
-    <string name="settings_clear_gesture_title">Delete your recorded gesture?</string>
-    <string name="settings_clear_gesture_message">You\'ll need to record a new gesture in Profile before any future exchange can use gesture authentication.</string>
-    <string name="settings_clear_gesture_confirm">Delete</string>
-    <string name="settings_clear_gesture_done">Gesture cleared</string>
-    <string name="settings_clear_contacts_title">Delete all %1$d contacts?</string>
-    <string name="settings_clear_contacts_message">This cannot be undone.</string>
-    <string name="settings_clear_contacts_confirm">Delete all</string>
-    <string name="settings_clear_contacts_done">Contacts cleared</string>
-    <string name="settings_privacy_fallback">Privacy policy: %1$s</string>
-    <!-- v1.3: live privacy policy URL â translatable="false" because URLs are
-         language-independent. All locale files fall back to this value. -->
-    <string name="privacy_url" translatable="false">https://showerideas.app/aura/privacy</string>
-
-    <!-- Prompt-2: Volume-button reliability disclaimer -->
-    <!-- PR-20: Blocked devices -->
-    <string name="blocked_devices_title">Blocked devices</string>
-    <string name="blocked_devices_empty">No blocked devices</string>
-    <string name="blocked_devices_unblock">Unblock</string>
-
-    <!-- PR-20: Biometric prompt copy -->
-    <string name="biometric_title">Confirm identity</string>
-    <string name="biometric_subtitle">Share your contact with the person nearby</string>
-    <string name="biometric_negative">Cancel</string>
-    <string name="biometric_unavailable_fallback">Biometric unavailable, using gesture</string>
-    <string name="biometric_auth_failed">Authentication failed</string>
-    <plurals name="room_host_count">
-        <item quantity="zero">Waiting for people to joinâ¦</item>
-        <item quantity="one">%d person joined</item>
-        <item quantity="other">%d people joined</item>
-    </plurals>
-
-    <!-- ================================================================
-         Strings previously hardcoded in layouts â centralised here so
-         every locale gets a translation automatically.
-         ================================================================ -->
-
-    <!-- Home screen -->
-    <string name="home_activate_hint">Tap Start to share your contact</string>
-
-    <!-- Profile screen â share-field section -->
-    <string name="profile_fields_to_share_header">Fields to share</string>
-    <string name="profile_share_phone">Phone</string>
-    <string name="profile_share_email">Email</string>
-    <string name="profile_share_company">Company</string>
-    <string name="profile_share_title">Title / Role</string>
-    <string name="profile_share_website">Website</string>
-    <string name="profile_share_bio">Bio</string>
-    <string name="profile_btn_save_profile">Save Profile</string>
-
-    <!-- Contacts screen -->
-    <string name="contacts_chip_favourites">â  Favourites</string>
-    <string name="contact_subtitle_aura">AURA contact</string>
-
-    <!-- Contact detail sheet -->
     <string name="contact_label_phone">Phone</string>
     <string name="contact_label_email">Email</string>
-    <string name="contact_label_website">Web</string>
+    <string name="contact_label_social">Social</string>
+    <string name="contact_label_note">Note</string>
     <string name="action_call">Call</string>
     <string name="action_email_verb">Email</string>
     <string name="action_copy">Copy</string>
     <string name="action_delete">Delete</string>
+    <string name="action_close">Close</string>
+    <string name="contact_copied">Copied</string>
     <string name="contact_toggle_favourite_initial">Toggle favourite</string>
 
-    <!-- Gesture / camera -->
-    <string name="gesture_model_error">Camera model failed to load â try restarting the app.</string>
-    <string name="gesture_stability_desc">Gesture stability</string>
+    <!-- Exchange success sheet -->
+    <string name="exchange_success_title">New contact</string>
+    <string name="exchange_success_subtitle">Tap to view the full card.</string>
 
-    <!-- NearbyExchangeService foreground notification -->
-    <string name="notif_channel_name">AURA Exchange</string>
-    <string name="notif_channel_desc">Active contact exchange in progress</string>
-    <string name="notif_title">AURA Exchange</string>
-    <string name="notif_starting">Starting exchange\u2026</string>
-    <!-- NFC tap-to-exchange indicator (Phase 6.1) -->
-    <string name="exchange_nfc_active">NFC tap active â faster key exchange</string>
-    <string name="exchange_nfc_active_desc">This exchange was initiated via NFC tap â the ECDH handshake is pre-seeded</string>
+    <!-- Permissions -->
+    <string name="perm_rationale_title">Ping needs a few permissions</string>
+    <string name="perm_rationale_subtitle">These let Ping find and swap cards with people right next to you. Nothing leaves your device.</string>
+    <string name="perm_rationale_open_settings">Open Settings</string>
+    <string name="perm_rationale_not_now">Not now</string>
 
-    <!-- Contact merge review bottom sheet (Phase 6.3) -->
-    <string name="merge_title">Card Updated</string>
-    <string name="merge_action_accept">Accept changes</string>
-    <string name="merge_action_revert">Revert all</string>
-    <string name="merge_field_toggle_desc">Toggle whether to keep the new value for %1$s</string>
-
-    <!-- merge_subtitle plural: "{name} sent a new card. {n} field(s) changed." -->
-    <plurals name="merge_subtitle">
-        <item quantity="one">%1$s sent a new card. 1 field changed.</item>
-        <item quantity="other">%1$s sent a new card. %2$d fields changed.</item>
-    </plurals>
-
-    <!-- Profile switcher (Phase 6.4) -->
-    <string name="profile_type_personal">Personal</string>
-    <string name="profile_type_work">Work</string>
-    <string name="profile_type_custom">Custom</string>
-    <string name="profile_switcher_title">Active profile</string>
-    <string name="profile_switcher_hint">Tap to switch your active card</string>
-    <string name="profile_add">Add profile</string>
-    <string name="profile_add_work">Add Work profile</string>
-    <string name="profile_delete">Delete profile</string>
-    <string name="profile_delete_confirm_title">Delete this profile?</string>
-    <string name="profile_delete_confirm_message">This will remove the profile permanently. Your contacts are not affected.</string>
-    <string name="profile_set_active">Set as active</string>
-    <string name="profile_active">Active</string>
-    <string name="profile_card_hint">This card will be shared on your next exchange</string>
-
-    <!-- Key rotation â Settings > Security (Phase 6.5) -->
-    <string name="settings_section_security">Security</string>
-    <string name="settings_rotate_key">Rotate identity key</string>
-    <string name="settings_rotate_key_subtitle">Generate a new signing key. Known peers will learn of the rotation at your next exchange.</string>
-    <string name="settings_rotate_key_confirm_title">Rotate your identity key?</string>
-    <string name="settings_rotate_key_confirm_message">A new key will be generated. Your existing contacts are not affected, but peers will see a new key on your next exchange.</string>
-    <string name="settings_rotate_key_done">Identity key rotated</string>
-    <string name="settings_rotate_key_error">Key rotation failed â please try again</string>
-
-    <!-- Exchange history â Settings + Audit screen (Phase 6.6) -->
-    <string name="settings_exchange_history">Exchange history</string>
-    <string name="audit_title">Exchange history</string>
-    <string name="audit_empty">No exchanges recorded yet</string>
-    <string name="audit_outcome_success">Exchanged</string>
-    <string name="audit_outcome_failed">Failed</string>
-    <string name="audit_outcome_blocked">Blocked</string>
-    <string name="audit_outcome_spoof">Spoof detected</string>
-    <string name="audit_outcome_timeout">Timed out</string>
-    <string name="audit_outcome_sas_confirmed">SAS confirmed</string>
-    <string name="audit_channel_nearby">Nearby</string>
-    <string name="audit_channel_nfc">NFC</string>
-    <string name="audit_channel_qr">QR</string>
-    <string name="audit_channel_room_host">Room (host)</string>
-    <string name="audit_channel_room_guest">Room (guest)</string>
-    <string name="audit_peer_unknown">Unknown peer</string>
-    <string name="audit_export_csv">Export log</string>
-    <string name="audit_export_done">Log saved to Downloads</string>
-    <string name="audit_clear">Clear log</string>
-    <string name="audit_clear_confirm_title">Clear exchange history?</string>
-    <string name="audit_clear_confirm_message">All exchange history will be permanently deleted.</string>
-    <string name="audit_clear_done">Exchange history cleared</string>
-
-    <!-- Phase 6.9 â SAS identicon accessibility + dialog strings -->
-    <string name="sas_identicon_desc">Security identicon â visual fingerprint of this exchange session</string>
-    <string name="sas_code_desc">Security code</string>
-    <string name="sas_dialog_instruction">Both you and your contact must see the same code and identicon</string>
-
-    <!-- Phase 6.7 â profile version bump banner -->
-    <string name="contact_card_updated">%1$s updated their card since your last exchange.</string>
-    <!-- Phase 6.9 â contact detail identicon fingerprint -->
-    <string name="contact_identicon_desc">Identity fingerprint â visual representation of this contact\'s cryptographic identity key</string>
-    <string name="contact_identicon_label">Identity fingerprint</string>
-
-    <!-- Phase 6.8 â share card deeplink -->
-    <string name="action_share_card">Share card link</string>
-    <string name="share_card_chooser_title">Share your AURA card</string>
-    <string name="share_card_text">Here\'s my AURA card: %1$s</string>
-
-    <!-- Phase 6.8 / C1 — Deeplink contact import sheet -->
-    <string name="deeplink_sheet_title">Add Contact</string>
-    <string name="deeplink_sheet_subtitle">Someone shared their AURA card with you</string>
-    <string name="deeplink_sheet_save">Save Contact</string>
-    <string name="deeplink_sheet_name_required">Name is required</string>
-    <string name="deeplink_sheet_saved">Contact saved</string>
-
-    <!-- Phase F1 — Wear OS companion pairing -->
-    <string name="wear_pairing_title">Wear OS Companion</string>
-    <string name="wear_pairing_scanning">Scanning for connected watches…</string>
-    <string name="wear_pairing_not_available">Wear OS pairing is not available on this build.</string>
-    <string name="wear_pairing_no_watches">No Wear OS watch connected.\nPair your watch in the Wear OS app first.</string>
-    <string name="wear_pairing_how_to">1. Install the Wear OS app on your phone\n2. Pair your watch\n3. Install AURA on your watch\n4. Return here to verify the connection</string>
-    <string name="wear_pairing_refresh">Refresh</string>
-    <string name="settings_wear_row_title">Wear OS</string>
-    <string name="settings_wear_row_subtitle">Manage watch companion pairing</string>
-    <plurals name="wear_pairing_connected">
-        <item quantity="one">%1$d watch connected\n%2$s</item>
-        <item quantity="other">%1$d watches connected\n%2$s</item>
-    </plurals>
-
-    <!-- Phase 5.3 â Accessibility content descriptions for icon-only buttons -->
-    <string name="cd_btn_exchange">Start exchange</string>
-    <string name="cd_btn_nfc">NFC tap exchange</string>
-    <string name="cd_btn_qr_scan">Scan QR code</string>
-    <string name="cd_fab_export_audit">Export audit log</string>
-    <string name="cd_btn_profile_switch">Switch profile</string>
-
-    <string name="shortcut_start_exchange_short">Exchange</string>
-    <string name="shortcut_start_exchange_long">Start AURA Exchange</string>
-    <string name="shortcut_disabled">AURA is not available</string>
-    <string name="shortcut_last_exchange_short">Exchange w/ %1$s</string>
-    <string name="shortcut_last_exchange_long">Exchange with %1$s</string>
-
-    <!-- Phase 7.4 — Enterprise MDM restriction descriptions -->
-    <string name="mdm_desc_allowed_auth_methods">Restrict which authentication methods employees may use.</string>
-    <string name="mdm_desc_qr_relay_enabled">Allow QR code relay for contact exchange.</string>
-    <string name="mdm_desc_min_gesture_similarity">Float 0.0&#8211;1.0. Higher values require stricter gesture match.</string>
-    <string name="mdm_desc_audit_log_retention_days">Number of days to retain exchange audit log entries.</string>
-    <string name="mdm_desc_force_key_rotation_days">Force identity key rotation after N days. 0 = disabled.</string>
-
-    <!-- Phase 8.3 — Tor/Orbot proxy settings -->
-    <string name="settings_tor_proxy">Route relay via Tor</string>
-    <string name="settings_tor_proxy_subtitle">Requires Orbot. Routes QR relay traffic anonymously via Tor.</string>
-    <string name="settings_tor_proxy_orbot_missing">Orbot app not installed — install it from F-Droid to enable Tor routing.</string>
-
-
-    <!-- Phase 9.2 — On-device analytics screen -->
-    <string name="analytics_title">Analytics</string>
-    <string name="analytics_total">Total exchanges</string>
-    <string name="analytics_success_rate">Success rate</string>
-    <string name="analytics_weekly_header">Last 7 days</string>
-    <string name="analytics_top_contacts_header">Top contacts</string>
-    <string name="analytics_empty">No exchange data yet.</string>
-    <string name="analytics_no_data_this_week">No exchanges this week.</string>
-    <string name="analytics_no_recurring">No recurring contacts yet.</string>
-    <string name="analytics_export_csv">Export CSV</string>
-    <string name="analytics_export_done">Analytics CSV saved to Downloads</string>
-    <string name="analytics_export_empty">No data to export.</string>
-    <string name="analytics_export_failed">Export failed — check storage permission.</string>
-
-    <plurals name="analytics_exchanges_count">
-        <item quantity="one">1 exchange</item>
-        <item quantity="other">%d exchanges</item>
-    </plurals>
-
-    <!-- Phase 9.3 — Gesture Library screen -->
-    <string name="gesture_library_title">Gesture Library</string>
-    <string name="gesture_library_enrolled">Enrolled</string>
-    <string name="gesture_library_empty_slot">Empty</string>
-    <string name="gesture_library_enroll">Enroll gesture</string>
-    <string name="gesture_library_enroll_hint">Go to Profile to record gesture %1$d.</string>
-    <string name="gesture_library_test">Test</string>
-    <string name="gesture_library_test_coming_soon">Live test coming in a future update.</string>
-    <string name="gesture_library_rename">Rename</string>
-    <string name="gesture_library_rename_title">Rename gesture</string>
-    <string name="gesture_library_delete">Delete</string>
-    <string name="gesture_library_delete_title">Delete gesture?</string>
-    <string name="gesture_library_delete_message">Delete "%1$s"? You will need to re-enroll to use this slot again.</string>
-    <string name="gesture_library_deleted">Gesture deleted</string>
-    <string name="gesture_library_enrolled_at">Enrolled %1$s</string>
-
-
-    <!-- Phase 6.10 — Encrypted backup / restore -->
-    <string name="backup_title">Backup &amp; Restore</string>
-    <string name="backup_description">Export your contacts as an encrypted file. Choose a strong passphrase — lost passphrases cannot be recovered.</string>
-    <string name="backup_export_title">Export backup</string>
-    <string name="backup_export_subtitle">Save all contacts to an encrypted .aurbak file.</string>
-    <string name="backup_restore_title">Restore backup</string>
-    <string name="backup_restore_subtitle">Import contacts from a previously exported .aurbak file. Existing contacts with the same ID will be updated.</string>
-    <string name="backup_action_export">Export encrypted backup</string>
-    <string name="backup_action_restore">Import from backup</string>
-    <string name="backup_passphrase_export_title">Set backup passphrase</string>
-    <string name="backup_passphrase_export_message">Choose a strong passphrase to encrypt your backup. You will need it to restore.</string>
-    <string name="backup_passphrase_restore_title">Enter backup passphrase</string>
-    <string name="backup_passphrase_restore_message">Enter the passphrase you used when creating this backup.</string>
-    <string name="backup_passphrase_empty">Passphrase cannot be empty.</string>
-    <string name="settings_backup_restore">Backup &amp; restore</string>
-
-
-<!-- Phase 7.4 Enterprise/MDM -->
-    <string name="enterprise_managed">Device managed by your organisation</string>
-    <string name="enterprise_unmanaged">No MDM policy active</string>
-    <string name="enterprise_enforced">Enforced by policy</string>
-    <string name="enterprise_not_enforced">Not enforced</string>
-    <string name="enterprise_settings_title">Enterprise Policy</string>
-    <string name="enterprise_max_attempts">Max auth attempts</string>
-    <string name="enterprise_retention_days">Audit log retention (days)</string>
-    <string name="enterprise_require_sas">Require SAS verification</string>
-    <string name="enterprise_backup_disabled">Backup disabled</string>
-    <string name="enterprise_tor_disabled">Tor proxy disabled</string>
-    <string name="enterprise_pin_lock">PIN lock before exchange</string>
-
-    <!-- Phase 10.4 — Backup/restore polish -->
-    <string name="backup_passphrase_hint">Passphrase</string>
-    <string name="backup_passphrase_confirm_hint">Confirm passphrase</string>
-    <string name="backup_passphrase_mismatch">Passphrases do not match — please try again.</string>
-    <string name="backup_restore_confirm_title">Restore contacts?</string>
-    <string name="backup_status_no_contacts">No contacts to export.</string>
-    <string name="backup_status_export_failed">Export failed: %1$s</string>
-    <string name="backup_status_read_failed">Could not read backup file.</string>
-    <string name="backup_status_restore_wrong_passphrase">Restore failed — check your passphrase and try again.</string>
-    <string name="backup_status_restore_failed">Restore failed: %1$s</string>
-
-    <plurals name="backup_status_export_success">
-        <item quantity="one">Backup saved — %1$d contact exported.</item>
-        <item quantity="other">Backup saved — %1$d contacts exported.</item>
-    </plurals>
-    <plurals name="backup_status_restore_success">
-        <item quantity="one">Restored %1$d contact successfully.</item>
-        <item quantity="other">Restored %1$d contacts successfully.</item>
-    </plurals>
-    <plurals name="backup_restore_confirm_message">
-        <item quantity="one">This will merge %1$d contact from the backup into your current contacts. Existing contacts with the same ID will be updated.</item>
-        <item quantity="other">This will merge %1$d contacts from the backup into your current contacts. Existing contacts with the same IDs will be updated.</item>
-    </plurals>
-    <plurals name="backup_contact_count">
-        <item quantity="one">%1$d contact</item>
-        <item quantity="other">%1$d contacts</item>
-    </plurals>
-
-
-    <!-- T10 — Room exchange service notifications -->
-    <string name="room_service_notification_title">AURA Room Active</string>
-    <string name="room_service_notification_body">Multi-party exchange in progress…</string>
-
-    <!-- Exchange success bottom sheet -->
-    <string name="exchange_success_title">Contact Shared</string>
-    <string name="exchange_success_subtitle">Tap a contact to view their full profile.</string>
-
-    <!-- Contacts screen tabs -->
-    <string name="tab_my_contacts">My Contacts</string>
-    <string name="tab_history">History</string>
-
-    <!-- Exchange history tab -->
-    <string name="exchange_history_empty">No exchange history yet.\nContacts shared via AURA will appear here.</string>
-    <string name="history_view_contact">View</string>
-    <string name="history_add_to_phone">Add to Phone</string>
-
-    <!-- Generic actions -->
-    <string name="action_close">Close</string>
-
-    <!-- Phase 5 (T71) — Gesture enrollment UI -->
-    <string name="enrollment_title">Set Up Gesture</string>
-    <string name="enrollment_hint_waiting_for_palm">Hold your palm open and flat to begin.</string>
-    <string name="enrollment_hint_anchor_failed">Start with your palm open and flat.</string>
-    <string name="enrollment_hint_capturing">Hold your gesture\u2026</string>
-    <string name="enrollment_hint_processing">Saving your gesture\u2026</string>
-    <string name="enrollment_success_title">Gesture saved.</string>
-    <string name="enrollment_success_body">Your gesture has been enrolled. Use it to authorise exchanges.</string>
-    <string name="enrollment_btn_start">Start</string>
-    <string name="enrollment_btn_done">Done</string>
-    <string name="enrollment_btn_try_now">Try it now</string>
-    <string name="enrollment_couldnt_recognise">Couldn\'t recognise your gesture. Please try again.</string>
-    <string name="enrollment_legacy_prompt_title">Gesture update required</string>
-    <string name="enrollment_legacy_prompt_body">Your gesture enrollment needs to be updated for improved security. This takes 2 seconds.</string>
-
-    <!-- Phase 9 (T98-103) — AR Exchange -->
-    <string name="ar_scanning_label">Looking for nearby AURA users\u2026</string>
-    <string name="ar_rssi_fallback_label">UWB unavailable — using Bluetooth range estimate</string>
-    <string name="ar_close_description">Close AR exchange</string>
-    <string name="ar_privacy_title">AR Exchange uses your camera</string>
-    <string name="ar_privacy_body">AR Exchange uses ARCore to detect faces and show contact cards for nearby AURA users. All face processing happens on your device — no face images or face data are sent anywhere. You still use your enrolled gesture to confirm each exchange.</string>
-    <string name="ar_privacy_accept">Enable AR Exchange</string>
-    <string name="ar_privacy_decline">Not now</string>
-    <string name="ar_settings_title">AR Exchange</string>
-    <string name="ar_settings_range_label">Detection range</string>
-    <string name="ar_settings_range_1m">1 metre</string>
-    <string name="ar_settings_range_1_5m">1.5 metres (default)</string>
-    <string name="ar_settings_range_2m">2 metres</string>
-    <string name="ar_settings_xr_ambient_label">XR ambient mode</string>
-    <string name="ar_settings_xr_ambient_summary">Show contact cards automatically on XR headsets without explicit activation</string>
-
-    <!-- Phase 6.11 — Launcher shortcut labels (shortcuts.xml) -->
-    <string name="shortcut_my_card_short">My card</string>
-    <string name="shortcut_my_card_long">View my AURA profile card</string>
-
-    <!-- Phase 7.4 — MDM app_restrictions.xml description strings (must be @string refs, not inline) -->
-    <string name="restriction_desc_max_gesture_attempts">Number of failed gesture attempts before lockout. Range: 1\u201310.</string>
-    <string name="restriction_desc_require_sas">When enabled, exchanges cannot complete without SAS code confirmation.</string>
-    <string name="restriction_desc_disable_backup">Hides and blocks the backup/restore feature.</string>
-    <string name="restriction_desc_audit_log_retention">Number of days to keep exchange audit records. 0 = keep forever.</string>
-    <string name="restriction_desc_disable_tor">Hides the Tor anonymisation toggle and prevents proxy use.</string>
-    <string name="restriction_desc_enforce_pin_lock">Requires the user to re-authenticate with device PIN before each exchange.</string>
-    <string name="restriction_desc_pre_fill_name">User\'s full name pre-populated from the corporate directory.</string>
-    <string name="restriction_desc_pre_fill_email">User\'s work email pre-populated from the corporate directory.</string>
-    <string name="restriction_desc_pre_fill_org">Department or company name pre-populated.</string>
-    <string name="restriction_desc_pre_fill_job_title">User job title pre-populated.</string>
-    <string name="restriction_desc_pre_fill_phone">Work phone number pre-populated.</string>
-    <string name="restriction_desc_pre_fill_profile_type">Profile type: WORK or PERSONAL. Default: WORK for managed devices.</string>
-
-
-    <!-- R&D-D: did:web publishing -->
-    <string name="did_web_publish_title">Publish DID Document</string>
-    <string name="did_web_publish_subtitle">Make your AURA identity resolvable at https://yourdomain.com/.well-known/did.json</string>
-    <string name="did_web_domain_hint">Domain (e.g. yash.dev)</string>
-    <string name="did_web_domain_error">Enter a valid domain (e.g. yash.dev)</string>
-    <string name="did_web_btn_publish">Publish DID Document</string>
-    <string name="did_web_btn_copy_did">Copy DID</string>
-    <string name="did_web_success">Published successfully</string>
-    <string name="did_web_no_key">No identity key found. Complete profile setup first.</string>
-    <string name="did_web_copied">DID copied to clipboard</string>
-    <string name="settings_publish_did">Publish DID Document</string>
-
-    <!-- R&D-H/P: Satellite transport settings -->
-    <string name="settings_section_satellite">Satellite Transport</string>
-    <string name="settings_satellite_transport">Satellite Fallback</string>
-    <string name="settings_satellite_transport_subtitle">Use Android SatelliteManager / Garmin inReach as last-resort transport when all other channels are unavailable</string>
-
-    <!-- R&D-Q: Address book import -->
-    <string name="action_import_from_contacts">Import from Address Book</string>
-    <string name="contact_imported">%1$s added to contacts</string>
-
+    <!-- Foreground service notification -->
+    <string name="notif_channel_name">Ping Exchange</string>
+    <string name="notif_channel_desc">Active contact swap in progress</string>
+    <string name="notif_title">Ping</string>
+    <string name="notif_starting">Looking for a match…</string>
 </resources>

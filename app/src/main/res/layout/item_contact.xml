@@ -17,28 +17,15 @@
         android:padding="16dp"
         android:gravity="center_vertical">
 
-        <!-- Avatar slot: initials by default, overlaid by a photo when present (PR-10) -->
-        <FrameLayout
+        <TextView
+            android:id="@+id/tvInitials"
             android:layout_width="48dp"
-            android:layout_height="48dp">
-            <TextView
-                android:id="@+id/tv_initials"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/circle_avatar_bg"
-                android:gravity="center"
-                android:textColor="@color/white"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-            <ImageView
-                android:id="@+id/iv_avatar"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/circle_avatar_bg"
-                android:contentDescription="@null"
-                android:scaleType="centerCrop"
-                android:visibility="gone" />
-        </FrameLayout>
+            android:layout_height="48dp"
+            android:background="@drawable/circle_avatar_bg"
+            android:gravity="center"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -47,38 +34,16 @@
             android:layout_marginStart="16dp"
             android:orientation="vertical">
 
-            <!--
-              PR-12: name + favourite badge live in the same horizontal row
-              so the star can sit flush to the right of the name without
-              pushing the subtitle around.
-            -->
-            <LinearLayout
+            <TextView
+                android:id="@+id/tvName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-                <TextView
-                    android:id="@+id/tv_name"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="@color/on_surface"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-                <ImageView
-                    android:id="@+id/iv_favourite_badge"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:layout_marginStart="6dp"
-                    android:contentDescription="@null"
-                    android:importantForAccessibility="no"
-                    android:src="@drawable/ic_star"
-                    app:tint="@color/aura_cyan"
-                    android:visibility="gone" />
-            </LinearLayout>
+                android:textColor="@color/on_surface"
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tv_subtitle"
+                android:id="@+id/tvSubtitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"

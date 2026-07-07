@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Aura" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+    <style name="Theme.Ping" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/aura_purple</item>
         <item name="colorPrimaryVariant">@color/aura_purple_dark</item>
         <item name="colorOnPrimary">@color/white</item>
@@ -8,19 +8,9 @@
         <item name="colorOnSecondary">@color/black</item>
         <item name="android:statusBarColor">@color/aura_purple_dark</item>
         <item name="android:navigationBarColor">@color/surface</item>
-        <!-- Explicitly provide Material3 text appearance bridge attributes so
-             Material3 components (e.g. Widget.Material3.Chip.Assist in
-             fragment_exchange.xml) can resolve textAppearanceLabelLarge on all
-             API levels. Theme.MaterialComponents is supposed to bridge these
-             via MDC 1.5+ but on API 30 emulators the attribute resolves to
-             null, causing a NullPointerException in TextAppearance.getTextSize(). -->
+        <item name="android:colorBackground">@color/surface</item>
         <item name="textAppearanceLabelLarge">@style/TextAppearance.Material3.LabelLarge</item>
         <item name="textAppearanceLabelMedium">@style/TextAppearance.Material3.LabelMedium</item>
         <item name="textAppearanceLabelSmall">@style/TextAppearance.Material3.LabelSmall</item>
-    </style>
-
-    <style name="Theme.Aura.NoActionBar">
-        <item name="windowActionBar">false</item>
-        <item name="windowNoTitle">true</item>
     </style>
 </resources>

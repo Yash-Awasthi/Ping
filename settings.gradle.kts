@@ -19,8 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Aura"
+rootProject.name = "Ping"
 include(":app")
-include(":wearos")
-include(":automotive")
-include(":desktop")   // T40 — Desktop companion (Compose Desktop + KMP)

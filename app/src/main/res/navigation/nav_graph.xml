@@ -5,20 +5,9 @@
     app:startDestination="@id/homeFragment">
 
     <fragment
-        android:id="@+id/onboardingFragment"
-        android:name="com.showerideas.aura.ui.onboarding.OnboardingFragment"
-        android:label="Welcome">
-        <action
-            android:id="@+id/action_onboarding_to_home"
-            app:destination="@id/homeFragment"
-            app:popUpTo="@id/onboardingFragment"
-            app:popUpToInclusive="true" />
-    </fragment>
-
-    <fragment
         android:id="@+id/homeFragment"
-        android:name="com.showerideas.aura.ui.home.HomeFragment"
-        android:label="Home">
+        android:name="com.ping.app.ui.home.HomeFragment"
+        android:label="@string/nav_home">
         <action
             android:id="@+id/action_home_to_exchange"
             app:destination="@id/exchangeFragment"
@@ -26,125 +15,26 @@
             app:exitAnim="@anim/fade_out"
             app:popEnterAnim="@anim/fade_in"
             app:popExitAnim="@anim/slide_down" />
-        <action
-            android:id="@+id/action_home_to_qr"
-            app:destination="@id/qrExchangeFragment" />
-        <action
-            android:id="@+id/action_home_to_room"
-            app:destination="@id/roomExchangeFragment" />
     </fragment>
-
-    <fragment
-        android:id="@+id/roomExchangeFragment"
-        android:name="com.showerideas.aura.ui.room.RoomExchangeFragment"
-        android:label="Room Exchange" />
-
-    <fragment
-        android:id="@+id/qrExchangeFragment"
-        android:name="com.showerideas.aura.ui.qr.QRExchangeFragment"
-        android:label="QR Exchange" />
 
     <fragment
         android:id="@+id/profileFragment"
-        android:name="com.showerideas.aura.ui.profile.ProfileFragment"
-        android:label="Profile">
-        <action
-            android:id="@+id/action_profile_to_gesture_library"
-            app:destination="@id/gestureLibraryFragment" />
-    </fragment>
+        android:name="com.ping.app.ui.profile.ProfileFragment"
+        android:label="@string/nav_profile" />
 
     <fragment
         android:id="@+id/contactsFragment"
-        android:name="com.showerideas.aura.ui.contacts.ContactsFragment"
-        android:label="Contacts">
-        <action
-            android:id="@+id/action_contacts_to_audit"
-            app:destination="@id/auditFragment" />
-    </fragment>
+        android:name="com.ping.app.ui.contacts.ContactsFragment"
+        android:label="@string/nav_contacts" />
 
     <fragment
         android:id="@+id/exchangeFragment"
-        android:name="com.showerideas.aura.ui.exchange.ExchangeFragment"
-        android:label="Exchange">
+        android:name="com.ping.app.ui.exchange.ExchangeFragment"
+        android:label="@string/home_share_button">
         <action
             android:id="@+id/action_exchange_to_contacts"
             app:destination="@id/contactsFragment"
             app:popUpTo="@id/homeFragment" />
     </fragment>
-
-    <!-- Settings + Blocked devices + Security destinations -->
-    <fragment
-        android:id="@+id/settingsFragment"
-        android:name="com.showerideas.aura.ui.settings.SettingsFragment"
-        android:label="Settings">
-        <action
-            android:id="@+id/action_settings_to_blocked_devices"
-            app:destination="@id/blockedDevicesFragment" />
-        <action
-            android:id="@+id/action_settings_to_audit"
-            app:destination="@id/auditFragment" />
-        <action
-            android:id="@+id/action_settings_to_backup"
-            app:destination="@id/backupFragment" />
-        <action
-            android:id="@+id/action_settings_to_did_web_publish"
-            app:destination="@id/didWebPublishFragment" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/blockedDevicesFragment"
-        android:name="com.showerideas.aura.ui.settings.BlockedDevicesFragment"
-        android:label="Blocked devices" />
-
-    <!-- Phase 6.6: Exchange audit log screen -->
-    <fragment
-        android:id="@+id/auditFragment"
-        android:name="com.showerideas.aura.ui.audit.AuditFragment"
-        android:label="Exchange history">
-        <action
-            android:id="@+id/action_audit_to_analytics"
-            app:destination="@id/analyticsFragment" />
-    </fragment>
-
-
-    <!-- Phase 9.2: On-device analytics screen -->
-    <fragment
-        android:id="@+id/analyticsFragment"
-        android:name="com.showerideas.aura.ui.audit.AnalyticsFragment"
-        android:label="Analytics" />
-
-
-    <!-- Phase 9.3: Gesture Library -->
-    <fragment
-        android:id="@+id/gestureLibraryFragment"
-        android:name="com.showerideas.aura.ui.profile.GestureLibraryFragment"
-        android:label="Gesture Library">
-        <action
-            android:id="@+id/action_gesture_library_to_enrollment"
-            app:destination="@id/gestureEnrollmentFragment"
-            app:enterAnim="@anim/slide_up"
-            app:exitAnim="@anim/fade_out"
-            app:popEnterAnim="@anim/fade_in"
-            app:popExitAnim="@anim/slide_down" />
-    </fragment>
-
-    <!-- Phase 5 (T71): Gesture enrollment — 2-second temporal dual-descriptor capture -->
-    <fragment
-        android:id="@+id/gestureEnrollmentFragment"
-        android:name="com.showerideas.aura.ui.enrollment.GestureEnrollmentFragment"
-        android:label="Set Up Gesture" />
-
-
-    <!-- Phase 6.10: Encrypted backup screen -->
-    <fragment
-        android:id="@+id/backupFragment"
-        android:name="com.showerideas.aura.ui.settings.BackupFragment"
-        android:label="Backup &amp; Restore" />
-
-    <!-- R&D-D: did:web DID Document publishing -->
-    <fragment
-        android:id="@+id/didWebPublishFragment"
-        android:name="com.showerideas.aura.ui.settings.DidWebPublishFragment"
-        android:label="Publish DID Document" />
 
 </navigation>

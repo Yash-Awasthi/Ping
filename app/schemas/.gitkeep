@@ -1,4 +1,0 @@
-# Room schema exports live in this directory.
-# Each schema version is written to schemas/<dbName>/<version>.json by kapt
-# (configured via room.schemaLocation in app/build.gradle.kts).
-# These files MUST be committed so that MigrationTest can validate upgrades.
