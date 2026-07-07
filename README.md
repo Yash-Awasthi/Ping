@@ -8,6 +8,10 @@ short **gesture code**; only phones showing the *same* code within a ~10-second 
 find each other and swap cards over a direct offline radio link. No account, no
 internet, no QR, no server.
 
+> **Status:** the app builds (debug + signed release) and the flow is complete, but the
+> gesture-pairing loop has not yet been verified on two physical phones. See
+> [`PING_PLAN.md`](PING_PLAN.md) for the roadmap and what to test first.
+
 ---
 
 ## How it works

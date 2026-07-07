@@ -1,13 +1,11 @@
 # Ping — status & roadmap
 
-Ping began as *Aura*: 207 Kotlin files of post-quantum crypto, ZK proofs, enterprise
-MDM, satellite/LoRa transports, and iOS/Wear/desktop modules — an app that didn't
-actually work. It was rebuilt around the one thing it was always meant to do:
+Ping is a lean, single-purpose Android app built around one idea:
 
 > Open app → tap Share → do a hand gesture → a nearby phone doing the **same** gesture
 > connects and swaps contact cards, fully offline.
 
-**207 Kotlin files → 32.** Both debug and signed release builds are green.
+**32 Kotlin files, no accounts, no server.** Both debug and signed release builds are green.
 
 ---
 
