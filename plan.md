@@ -23,16 +23,14 @@ merge check: main and origin/main matched at 0/0 diverged, no real conflict foun
 - file-sharing room hub not started. design is written in PING_PLAN.md roadmap item 2, zero code.
 - app icon still the old launcher icon, no "Ping" branding pass.
 - gradle config cache disabled, `downloadHandModel` task not cache-safe.
-- exchange screen fails silently on camera/nearby permission denial, no settings deep-link prompt.
 - gesture code space is 128 values, collision risk between two nearby pairs doing the same gesture at once, no mitigation yet.
 - no MITM/SAS protection, dropped on purpose for the 1:1 flow, would matter if room hub carries real files.
-- no CI. old workflow removed in the rewrite, nothing replaced it.
 
 ## next steps, concrete
 
-1. field-test core loop on two real phones with play services (emulator can't do BLE/Wi-Fi Direct). tune `GestureCamera.COMMIT_FRAMES`, `NearbyExchangeService.WINDOW_SECONDS`, and `GestureFingerprint` thresholds off real results. watch via `adb logcat -s Ping:* NearbyExchangeService:* GestureCamera:*`.
+1. field-test core loop on two real phones with play services (emulator can't do BLE/Wi-Fi Direct). tune `GestureCamera.COMMIT_FRAMES`, `NearbyExchangeService.WINDOW_SECONDS`, and `GestureFingerprint` thresholds off real results. watch via `adb logcat -s Ping:* NearbyExchangeService:* GestureCamera:*`. skipped here, no hardware in this session.
 2. confirm the `localName < remoteName` tie-break always picks one initiator on device; add random back-off only if both sides sometimes request.
 3. once field-tested, start `RoomHubService` (star topology on `NearbyConnectionsTransport`, `P2P_STAR`) per the design already in PING_PLAN.md roadmap item 2.
-4. add permission-denial UX on the exchange screen (in-screen prompt + settings deep-link).
-5. branding/icon pass for "Ping" naming.
-6. add a minimal CI workflow (`assembleDebug` + `assembleRelease`) so the build stays green without manual checks.
+4. ~~add permission-denial UX on the exchange screen~~ — done. `RequiredPermissions` (new, shared with `MainActivity`) is checked in `ExchangeFragment` before the camera starts; on denial it shows an in-screen prompt with an "Open Settings" button (`ACTION_APPLICATION_DETAILS_SETTINGS` deep-link) instead of the capture UI, and re-checks on `onResume` in case the user granted it and came back.
+5. branding/icon pass for "Ping" naming. skipped here, needs an actual icon asset from the user, not fabricating one.
+6. ~~add a minimal CI workflow~~ — done. `.github/workflows/build.yml` runs `assembleDebug` and `assembleRelease` on push to main/fresh and on pull requests, using `gradle/actions/setup-gradle` for the build cache. release build works unsigned in CI since `keystore.properties` is gitignored and the build already falls back to no signing config when it's absent.
