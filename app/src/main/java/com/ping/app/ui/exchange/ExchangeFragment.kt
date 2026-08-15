@@ -1,6 +1,9 @@
 package com.ping.app.ui.exchange
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.View
@@ -16,6 +19,7 @@ import com.ping.app.auth.GestureCamera
 import com.ping.app.databinding.FragmentExchangeBinding
 import com.ping.app.model.ExchangeSession
 import com.ping.app.service.NearbyExchangeService
+import com.ping.app.utils.RequiredPermissions
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -59,10 +63,40 @@ class ExchangeFragment : Fragment() {
 
         binding.btnCancel.setOnClickListener { cancelAndLeave() }
         binding.btnRetry.setOnClickListener { restartCapture() }
+        binding.btnPermissionCancel.setOnClickListener { findNavController().navigateUp() }
+        binding.btnOpenSettings.setOnClickListener { openAppSettings() }
 
-        viewModel.startCamera(viewLifecycleOwner, binding.gesturePreview)
         observeCamera()
         observeSession()
+        checkPermissionsAndStart()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // came back from Settings mid-flow: retry once permissions are granted
+        if (!searchStarted && RequiredPermissions.missing(requireContext()).isEmpty() &&
+            binding.groupPermissionDenied.visibility == View.VISIBLE
+        ) {
+            checkPermissionsAndStart()
+        }
+    }
+
+    private fun checkPermissionsAndStart() {
+        if (RequiredPermissions.missing(requireContext()).isEmpty()) {
+            binding.groupPermissionDenied.visibility = View.GONE
+            binding.groupCapture.visibility = View.VISIBLE
+            viewModel.startCamera(viewLifecycleOwner, binding.gesturePreview)
+        } else {
+            binding.groupCapture.visibility = View.GONE
+            binding.groupPermissionDenied.visibility = View.VISIBLE
+        }
+    }
+
+    private fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", requireContext().packageName, null)
+        }
+        startActivity(intent)
     }
 
     /** Reset back to the live-camera capture state after a no-match / error. */

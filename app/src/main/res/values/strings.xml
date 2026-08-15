@@ -30,6 +30,7 @@
     <string name="exchange_no_match">No match found nearby. Both do the same gesture and try again.</string>
     <string name="exchange_waiting_peer_countdown">Waiting for the same gesture nearby… %1$ds</string>
     <string name="exchange_retry">Try again</string>
+    <string name="exchange_permission_denied">Ping needs camera and nearby-device permissions to swap cards. Grant them in Settings to continue.</string>
 
     <!-- Gesture camera states -->
     <string name="gesture_no_hand">No hand detected — point the camera at your hand</string>
