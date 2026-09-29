@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -172,7 +173,7 @@ fun ExchangeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        ConnectionStatusIndicator(state = connectionState)
+        ConnectionStatusIndicator(state = connectionState, modifier = Modifier.padding(bottom = 24.dp))
 
         Text(
             text = statusText,
@@ -189,8 +190,14 @@ fun ExchangeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(320.dp)
+                    .clipToBounds()
                     .semantics { contentDescription = previewDescription },
-                factory = { ctx -> PreviewView(ctx).also { previewView = it } },
+                factory = { ctx ->
+                    PreviewView(ctx).also {
+                        it.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                        previewView = it
+                    }
+                },
             )
         } else {
             Text(
