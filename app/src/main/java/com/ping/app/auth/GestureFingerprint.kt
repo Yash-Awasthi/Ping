@@ -17,9 +17,13 @@ import kotlin.math.hypot
  *    coarse buckets (up / right / down / left), so "peace pointing up" and
  *    "peace sideways" are different gestures.
  *
- * 32 × 4 = 128 distinct codes — plenty of space for a playful shared password,
- * while the coarse buckets keep it forgiving enough that two people who agreed
- * "let's both do a fist pointing up" reliably land on the same code.
+ *  - **Splay** — only for a near-open hand (at least three of index…pinky
+ *    extended): fingers fanned apart versus held together. A closed hand has no
+ *    splay, so fists and peace signs keep their original codes.
+ *
+ * 168 distinct codes, and [sequenceCode] chains two locked gestures for a far
+ * larger space. The coarse buckets keep it forgiving enough that two people who
+ * agreed "let's both do a fist pointing up" reliably land on the same code.
  *
  * A [GestureFingerprint] is a pure function of the landmark geometry — no
  * per-person calibration — which is exactly what makes stranger-to-stranger
@@ -30,12 +34,15 @@ data class GestureFingerprint(
     val fingerMask: Int,
     /** Hand direction bucket: 0 = up, 1 = right, 2 = down, 3 = left. */
     val angleBucket: Int,
+    /** Fingers fanned apart; always false unless the hand is near-open. */
+    val splayed: Boolean = false,
 ) {
-    /** Compact wire code, e.g. "F19A0". This is what gets advertised + compared. */
-    val code: String get() = "F${fingerMask}A${angleBucket}"
+    /** Compact wire code, e.g. "F19A0" or "F31A0S". This is what gets advertised + compared. */
+    val code: String get() = "F${fingerMask}A${angleBucket}" + if (splayed) "S" else ""
 
     /** Friendly one-liner for the UI, e.g. "✌ pointing up". */
-    val label: String get() = "${emojiFor(fingerMask)} ${directionName(angleBucket)}"
+    val label: String get() =
+        "${emojiFor(fingerMask)} ${directionName(angleBucket)}" + if (splayed) ", fingers spread" else ""
 
     companion object {
         // Landmark indices (MediaPipe hand model).
@@ -44,6 +51,16 @@ data class GestureFingerprint(
         // tip / pip index pairs per finger, thumb → pinky.
         private val TIPS = intArrayOf(4, 8, 12, 16, 20)
         private val PIPS = intArrayOf(2, 6, 10, 14, 18)
+        private const val INDEX_MCP = 5
+        private const val PINKY_MCP = 17
+        private const val INDEX_TIP = 8
+        private const val PINKY_TIP = 20
+        /** Index-to-pinky tip gap over palm width; fingers together sit near 1, fanned above 1.4. */
+        private const val SPLAY_RATIO = 1.3
+        private const val NON_THUMB_MASK = 0b11110
+
+        /** Joins gesture codes typed in order into one pairing key. */
+        fun sequenceCode(codes: List<String>): String = codes.joinToString("+")
 
         /**
          * Build a fingerprint from 21 landmarks laid out as [x0,y0,z0, x1,y1,z1, …]
@@ -66,6 +83,14 @@ data class GestureFingerprint(
                 if (extended) mask = mask or (1 shl f)
             }
 
+            // Splay only means something on an open hand.
+            var splayed = false
+            if (Integer.bitCount(mask and NON_THUMB_MASK) >= 3) {
+                val palm = hypot((x(INDEX_MCP) - x(PINKY_MCP)).toDouble(), (y(INDEX_MCP) - y(PINKY_MCP)).toDouble())
+                val tips = hypot((x(INDEX_TIP) - x(PINKY_TIP)).toDouble(), (y(INDEX_TIP) - y(PINKY_TIP)).toDouble())
+                splayed = palm > 0.0 && tips / palm > SPLAY_RATIO
+            }
+
             // Direction: wrist → middle knuckle, quantised to 4 buckets.
             // Screen y grows downward, so negate to make "up" intuitive.
             val dx = x(MIDDLE_MCP) - wx
@@ -78,7 +103,7 @@ data class GestureFingerprint(
                 2 -> 3 // left
                 else -> 2 // down
             }
-            return GestureFingerprint(mask, bucket)
+            return GestureFingerprint(mask, bucket, splayed)
         }
 
         private fun directionName(bucket: Int) = when (bucket) {

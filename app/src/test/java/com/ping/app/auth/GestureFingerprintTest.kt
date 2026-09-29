@@ -6,7 +6,7 @@ import org.junit.Test
 
 /**
  * The gesture code is the pairing key, so the derived code space is checked against
- * the 128 codes the documentation promises: 5 finger bits times 4 direction buckets.
+ * the code space the documentation promises: 5 finger bits times 4 direction buckets, plus splay.
  */
 class GestureFingerprintTest {
 
@@ -22,6 +22,7 @@ class GestureFingerprintTest {
     private fun landmarks(
         middleKnuckle: Pair<Float, Float> = 0.5f to 0.30f,
         extendedFingers: Set<Int> = emptySet(),
+        tipSpread: Float = 0f,
     ): FloatArray {
         val xyz = FloatArray(63)
         fun put(index: Int, x: Float, y: Float) {
@@ -30,10 +31,15 @@ class GestureFingerprintTest {
         }
         put(0, 0.5f, 0.5f)
         put(9, middleKnuckle.first, middleKnuckle.second)
+        // Palm width (index to pinky knuckle) is 0.10.
+        put(5, 0.45f, 0.40f)
+        put(17, 0.55f, 0.40f)
         for (finger in 0 until 5) {
             put(pips[finger], 0.5f, 0.40f)
             put(tips[finger], 0.5f, if (finger in extendedFingers) 0.30f else 0.45f)
         }
+        if (1 in extendedFingers) put(8, 0.5f - tipSpread / 2, 0.30f)
+        if (4 in extendedFingers) put(20, 0.5f + tipSpread / 2, 0.30f)
         return xyz
     }
 
@@ -67,7 +73,7 @@ class GestureFingerprintTest {
     }
 
     @Test
-    fun `the code space is exactly 128 distinct codes`() {
+    fun `without splay the code space is 128 distinct codes`() {
         val directions = listOf(
             (0.5f to 0.30f) to 0, // up
             (0.9f to 0.50f) to 1, // right
@@ -87,6 +93,26 @@ class GestureFingerprintTest {
             }
         }
         assertEquals(128, codes.size)
+    }
+
+    @Test
+    fun `a fanned open hand adds the splay flag`() {
+        val together = GestureFingerprint.fromLandmarks(landmarks(extendedFingers = allFingers, tipSpread = 0.10f))!!
+        val fanned = GestureFingerprint.fromLandmarks(landmarks(extendedFingers = allFingers, tipSpread = 0.20f))!!
+        assertEquals("F31A0", together.code)
+        assertEquals("F31A0S", fanned.code)
+    }
+
+    @Test
+    fun `splay is ignored unless three non-thumb fingers are extended`() {
+        val peace = GestureFingerprint.fromLandmarks(landmarks(extendedFingers = setOf(1, 2), tipSpread = 0.30f))!!
+        assertEquals("F6A0", peace.code)
+    }
+
+    @Test
+    fun `sequence code joins gestures in order`() {
+        assertEquals("F31A0+F0A0", GestureFingerprint.sequenceCode(listOf("F31A0", "F0A0")))
+        assertEquals("F0A0", GestureFingerprint.sequenceCode(listOf("F0A0")))
     }
 
     @Test

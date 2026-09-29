@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -41,6 +43,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
 import com.ping.app.auth.GestureCamera
+import com.ping.app.auth.GestureFingerprint
 import com.ping.app.model.ExchangeSession
 import com.ping.app.service.NearbyExchangeService
 import com.ping.app.ui.ConnectionState
@@ -56,6 +59,7 @@ import kotlinx.coroutines.delay
  * The camera is released the moment a code locks, so the pose cannot drift into a
  * different code while the service searches and the lock cannot silently change.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExchangeScreen(
     onDone: () -> Unit,
@@ -69,6 +73,8 @@ fun ExchangeScreen(
         mutableStateOf(RequiredPermissions.missing(context).isEmpty())
     }
     var searchStarted by remember { mutableStateOf(false) }
+    var twoStep by remember { mutableStateOf(false) }
+    var firstCode by remember { mutableStateOf<String?>(null) }
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
     var restartKey by remember { mutableStateOf(0) }
     var remaining by remember { mutableStateOf(NearbyExchangeService.WINDOW_SECONDS) }
@@ -104,10 +110,22 @@ fun ExchangeScreen(
     LaunchedEffect(cameraState) {
         val locked = cameraState as? GestureCamera.State.Locked ?: return@LaunchedEffect
         if (searchStarted) return@LaunchedEffect
+        val code = locked.fingerprint.code
+        val first = firstCode
+        if (twoStep && first == null) {
+            firstCode = code
+            runCatching { context.vibrateShort() }
+            return@LaunchedEffect
+        }
+        // The first pose is still held when it locks; the second must be a different one.
+        if (first == code) return@LaunchedEffect
         searchStarted = true
         runCatching { context.vibrateShort() }
         viewModel.stopCamera()
-        NearbyExchangeService.start(context, locked.fingerprint.code)
+        NearbyExchangeService.start(
+            context,
+            GestureFingerprint.sequenceCode(listOfNotNull(first, code)),
+        )
     }
 
     LaunchedEffect(session?.state) {
@@ -123,7 +141,9 @@ fun ExchangeScreen(
         }
     }
 
-    val gestureText = when (val state = cameraState) {
+    val gestureText = if (twoStep && firstCode != null && cameraState !is GestureCamera.State.ModelError) {
+        stringResource(R.string.exchange_second_gesture)
+    } else when (val state = cameraState) {
         is GestureCamera.State.NoHand -> stringResource(R.string.gesture_no_hand)
         is GestureCamera.State.Detecting -> stringResource(
             R.string.gesture_detecting,
@@ -181,6 +201,14 @@ fun ExchangeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         ConnectionStatusIndicator(state = connectionState, modifier = Modifier.padding(bottom = 24.dp))
+
+        if (session == null && firstCode == null) {
+            FilterChip(
+                selected = twoStep,
+                onClick = { twoStep = !twoStep },
+                label = { Text(stringResource(R.string.exchange_two_gestures)) },
+            )
+        }
 
         Text(
             text = statusText,
@@ -247,6 +275,7 @@ fun ExchangeScreen(
                     NearbyExchangeService.clearSession()
                     viewModel.resetCamera()
                     searchStarted = false
+                    firstCode = null
                     restartKey++
                 }) {
                     Text(stringResource(R.string.exchange_retry))
