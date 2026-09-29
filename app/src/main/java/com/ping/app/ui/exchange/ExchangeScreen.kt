@@ -134,6 +134,8 @@ fun ExchangeScreen(
         ExchangeSession.State.SEARCHING ->
             stringResource(R.string.exchange_waiting_peer_countdown, remaining)
         ExchangeSession.State.CONNECTING -> stringResource(R.string.status_connecting)
+        ExchangeSession.State.AWAITING_CONFIRM ->
+            stringResource(R.string.exchange_confirm_prompt, session?.sas.orEmpty())
         ExchangeSession.State.EXCHANGING -> stringResource(R.string.status_exchanging)
         ExchangeSession.State.COMPLETED -> stringResource(
             R.string.exchange_completed,
@@ -148,6 +150,7 @@ fun ExchangeScreen(
     val connectionState = when (session?.state) {
         ExchangeSession.State.SEARCHING -> ConnectionState.SCANNING
         ExchangeSession.State.CONNECTING,
+        ExchangeSession.State.AWAITING_CONFIRM,
         ExchangeSession.State.EXCHANGING,
         -> ConnectionState.CONNECTING
         ExchangeSession.State.COMPLETED -> ConnectionState.PAIRED
@@ -213,6 +216,15 @@ fun ExchangeScreen(
                 onBack()
             }) {
                 Text(stringResource(R.string.action_cancel))
+            }
+
+            if (session?.state == ExchangeSession.State.AWAITING_CONFIRM) {
+                Button(onClick = { NearbyExchangeService.confirm(context) }) {
+                    Text(stringResource(R.string.exchange_confirm_match))
+                }
+                OutlinedButton(onClick = { NearbyExchangeService.reject(context) }) {
+                    Text(stringResource(R.string.exchange_confirm_mismatch))
+                }
             }
 
             if (permissionsGranted && retryable) {

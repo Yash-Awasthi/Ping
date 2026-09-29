@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.ContactsContract
 import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -135,6 +136,39 @@ fun ContactDetailScreen(
                             tint = if (c.isFavorite) MaterialTheme.colorScheme.primary
                                    else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = {
+                            val insert = Intent(ContactsContract.Intents.Insert.ACTION).apply {
+                                type = ContactsContract.RawContacts.CONTENT_TYPE
+                                putExtra(ContactsContract.Intents.Insert.NAME, c.displayName)
+                                putExtra(ContactsContract.Intents.Insert.PHONE, c.phone)
+                                putExtra(ContactsContract.Intents.Insert.EMAIL, c.email)
+                                putExtra(ContactsContract.Intents.Insert.NOTES, c.note)
+                            }
+                            runCatching { context.startActivity(insert) }
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.action_add_to_phone))
+                    }
+                    Spacer(modifier = Modifier.weight(0.1f))
+                    OutlinedButton(
+                        onClick = {
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/x-vcard"
+                                putExtra(Intent.EXTRA_TEXT, c.toVCard())
+                            }
+                            runCatching { context.startActivity(Intent.createChooser(send, null)) }
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.action_share_vcard))
                     }
                 }
 

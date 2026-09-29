@@ -3,9 +3,11 @@
 Ping is a lean, single-purpose Android app built around one idea:
 
 > Open app → tap Share → do a hand gesture → a nearby phone doing the **same** gesture
-> connects and swaps contact cards, fully offline.
+> connects, both people confirm a six-digit code, and the phones swap contact cards,
+> fully offline.
 
-**32 Kotlin files, no accounts, no server.** Both debug and signed release builds are green.
+**~40 Kotlin files, no accounts, no server, no `INTERNET` permission.** Debug and release
+builds, lint, and the unit tests are green.
 
 ---
 
@@ -13,13 +15,16 @@ Ping is a lean, single-purpose Android app built around one idea:
 
 | Area | State |
 |---|---|
-| Gesture-as-password (`GestureFingerprint`) | ✅ done |
-| Gesture matchmaking (`NearbyExchangeService`) | ✅ done |
-| Offline swap — X25519 ECDH + AES-256-GCM | ✅ done |
-| Exchange UX — live code chip, countdown, retry, success sheet | ✅ done |
-| Home / Profile / Contacts screens | ✅ done |
+| Gesture-as-password (`GestureFingerprint`) | ✅ done, unit-tested |
+| Gesture matchmaking (`NearbyExchangeService`) | ✅ done — advertises a hash token, rejects non-matching peers |
+| Offline swap — P-256 ECDH + AES-256-GCM | ✅ done, unit-tested |
+| Peer check — six-digit short authentication string, both users confirm | ✅ done, unit-tested |
+| Exchange UX — countdown, retry, confirm screen, permission prompt | ✅ done |
+| Home / Profile / Contacts screens (Compose) | ✅ done |
+| Contact export — add to phone, share as vCard | ✅ done, unit-tested |
+| Room DAO tests | ✅ written (`androidTest`), compile in CI; need a device to run |
 | Release build — R8 shrink + ABI splits + signed | ✅ done |
-| **On-device pairing (two phones)** | ⚠️ **unverified** |
+| **On-device pairing (two phones)** | ⚠️ **unverified — needs hardware** |
 | File-sharing room hub | ⛔ not started |
 | App icon / branding for "Ping" | ⛔ not started |
 
@@ -28,11 +33,16 @@ Ping is a lean, single-purpose Android app built around one idea:
   128-value code: a 5-bit finger mask (each finger extended/curled) + a 4-way
   hand-direction bucket. It's a pure function of the pose, so two strangers doing the
   same gesture derive the same code with no enrollment.
-- **Matchmaking.** `NearbyExchangeService` advertises `code|name` over GMS Nearby
-  Connections (BLE + Wi-Fi Direct) and only requests a connection to a peer whose
-  advertised code equals ours, inside a 10-second window (`WINDOW_SECONDS`).
-- **Swap.** Ephemeral X25519 ECDH → HKDF-SHA256 → AES-256-GCM sealed card JSON
-  (`CryptoUtils`). Fresh keys every swap; nothing long-lived.
+- **Matchmaking.** `NearbyExchangeService` advertises `<sha256(code) prefix>|<nonce>` over
+  GMS Nearby Connections (BLE + Wi-Fi Direct), only requests a connection to a peer whose
+  token equals ours, and only accepts incoming connections whose token equals ours, inside
+  a 10-second window (`WINDOW_SECONDS`). The code space is 128, so the token hides the code
+  from a casual scanner but not from anyone who enumerates.
+- **Peer check.** After the ephemeral P-256 keys are swapped, both phones show
+  `CryptoUtils.shortAuthString(keyA, keyB)`. No card is sent until the local user taps
+  "It matches"; tapping "It differs" ends the session.
+- **Swap.** P-256 ECDH → HKDF-SHA256 → AES-256-GCM sealed card JSON (`CryptoUtils`).
+  Fresh keys every swap; nothing long-lived.
 - **Card:** name / phone / email / social / note.
 
 ### Build outputs
@@ -56,8 +66,10 @@ Direct), so the pairing path is still unverified. Tune if flaky:
 - `GestureFingerprint` finger-extension threshold (`* 1.15`) and the 4 angle buckets —
   loosen if two people "doing the same thing" don't match; tighten if unrelated poses
   collide.
-- Confirm the tie-break (`localName < remoteName`) reliably picks one initiator; if both
-  sometimes request, add a short random back-off.
+- Confirm the tie-break (`localName < remoteName`, where the name ends in a random nonce)
+  reliably picks one initiator; if both sometimes request, add a short random back-off.
+- Check that the six-digit confirm screen appears on both phones and that a card only
+  moves after both taps.
 
 Watch it live:
 ```bash
@@ -94,26 +106,32 @@ gesture at the same instant could cross-connect. If that shows up in testing:
 ### 4 — Reliability & polish 🟢
 - Foreground-service lifecycle: soak-test cancel-on-background; the window job + shutdown
   path exist but are untested on-device.
-- Permission-denial UX: the Exchange screen currently just fails silently if
-  camera/nearby are denied — add an in-screen prompt with a Settings deep-link.
 - App icon / branding pass for "Ping" (currently reuses the old launcher icon).
 - Re-enable Gradle config cache by making `downloadHandModel` cache-safe.
 
 ### 5 — Optional / stretch 🔵
 - **FOSS transport** (Wi-Fi Direct, no Play Services) reinstated behind the unchanged
   `NearbyTransport` interface, for a de-Googled build.
-- **SAS / MITM protection** if the room hub ever carries sensitive files (a 6-digit
-  short-authentication-string compare — deliberately dropped for the playful 1:1 flow).
-- **vCard export** and "add to phone contacts" from the contact detail sheet.
-- **CI**: a minimal GitHub Actions workflow (`assembleDebug` + `assembleRelease`) to keep
-  the build green; the old heavyweight CI was removed in the rewrite.
+- **Mesh, relay, voice and networking modules** from the absorbed corpus were deleted from
+  the build. Anything that needs `INTERNET` cannot ship here; the manifest removes it.
 
 ---
 
+## Permissions
+
+The app requests Bluetooth (scan/advertise/connect), Nearby Wi-Fi devices, location (needed
+by BLE scanning below Android 12), camera, vibrate, notifications and foreground-service
+(connected device). It deliberately has **no `INTERNET` permission**:
+`AndroidManifest.xml` removes the one that `play-services-nearby`'s telemetry dependency
+would otherwise inject. Do not port a networking module (Matrix, Nostr, LocalSend, croc,
+PairDrop) into this tree; it cannot work and would break the "nothing leaves your phone"
+promise.
+
 ## Known limitations
 - **Not tested on hardware** — the entire pairing path is unverified on real BLE.
-- **128-code space** — see roadmap §3.
-- **No MITM protection** — SAS was intentionally removed for the playful 1:1 flow.
+- **128-code space** — see roadmap §3. Gesture depth is the next protocol change.
+- **Peer authentication is manual** — the six-digit compare only protects users who
+  actually compare the digits.
 - **Config cache disabled** (`gradle.properties`) — the model-download task isn't
   cache-compatible yet. Harmless.
 
