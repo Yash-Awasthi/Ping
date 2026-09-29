@@ -1,6 +1,8 @@
 package com.ping.app.auth
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.os.SystemClock
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -12,7 +14,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
-import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
@@ -64,6 +65,13 @@ class GestureCamera @Inject constructor(
 
     private var lastCode: String? = null
     private var streak = 0
+    private var lastMask = -1
+    private var maskStreak = 0
+    private var lastMotion: GestureFingerprint.Motion? = null
+    private var motionStreak = 0
+    private val tracker = MotionTracker()
+    private val palmVotes = ArrayDeque<GestureFingerprint.Palm>()
+    private val handVotes = ArrayDeque<Boolean>()
 
     fun start(owner: LifecycleOwner, preview: PreviewView) {
         executor = Executors.newSingleThreadExecutor()
@@ -87,6 +95,13 @@ class GestureCamera @Inject constructor(
     fun reset() {
         lastCode = null
         streak = 0
+        lastMask = -1
+        maskStreak = 0
+        lastMotion = null
+        motionStreak = 0
+        palmVotes.clear()
+        handVotes.clear()
+        tracker.clear()
         if (_state.value !is State.ModelError) _state.value = State.NoHand
     }
 
@@ -95,7 +110,7 @@ class GestureCamera @Inject constructor(
             val options = HandLandmarker.HandLandmarkerOptions.builder()
                 .setBaseOptions(BaseOptions.builder().setModelAssetPath(MODEL_ASSET).build())
                 .setRunningMode(RunningMode.LIVE_STREAM)
-                .setNumHands(1)
+                .setNumHands(2)
                 .setMinHandDetectionConfidence(0.6f)
                 .setMinHandPresenceConfidence(0.6f)
                 .setMinTrackingConfidence(0.6f)
@@ -129,13 +144,18 @@ class GestureCamera @Inject constructor(
 
     private fun process(proxy: ImageProxy) {
         val lm = landmarker ?: run { proxy.close(); return }
-        val bitmap = proxy.toBitmap()
+        val raw = proxy.toBitmap()
         val rotation = proxy.imageInfo.rotationDegrees
         proxy.close()
-        // Sensors are mounted rotated; without this the direction bucket depends on the phone model.
-        val options = ImageProcessingOptions.builder().setRotationDegrees(rotation).build()
+        // Turn the sensor frame upright and mirror it like the preview, so "up" and "right"
+        // mean what the user sees on screen on any phone.
+        val matrix = Matrix().apply {
+            postRotate(rotation.toFloat())
+            postScale(-1f, 1f)
+        }
+        val upright = Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, matrix, true)
         try {
-            lm.detectAsync(BitmapImageBuilder(bitmap).build(), options, SystemClock.uptimeMillis())
+            lm.detectAsync(BitmapImageBuilder(upright).build(), SystemClock.uptimeMillis())
         } catch (e: Exception) {
             Timber.w(e, "detectAsync failed")
         }
@@ -147,29 +167,84 @@ class GestureCamera @Inject constructor(
             reset()
             return
         }
-        // Flatten the 21 landmarks to [x,y,z, …].
-        val pts = hands[0]
-        val xyz = FloatArray(pts.size * 3)
-        for (i in pts.indices) {
-            xyz[i * 3] = pts[i].x()
-            xyz[i * 3 + 1] = pts[i].y()
-            xyz[i * 3 + 2] = pts[i].z()
+        fun flatten(i: Int): FloatArray {
+            val pts = hands[i]
+            return FloatArray(pts.size * 3).also { out ->
+                for (k in pts.indices) {
+                    out[k * 3] = pts[k].x(); out[k * 3 + 1] = pts[k].y(); out[k * 3 + 2] = pts[k].z()
+                }
+            }
         }
-        // Emit raw landmarks for drawing overlay
-        onLandmarks?.invoke(pts.map { Triple(it.x(), it.y(), it.z()) })
+        fun isRight(i: Int): Boolean? =
+            result.handedness().getOrNull(i)?.firstOrNull()?.categoryName()?.let { it == "Right" }
 
-        val fp = GestureFingerprint.fromLandmarks(xyz) ?: run { reset(); return }
+        onLandmarks?.invoke(hands[0].map { Triple(it.x(), it.y(), it.z()) })
+
+        val first = flatten(0)
+        var fp = GestureFingerprint.fromLandmarks(first, isRight(0)) ?: run { reset(); return }
+        var pointerSource = first
+
+        // Two hands held together make one gesture; each phone must pick the same "main" hand.
+        if (hands.size > 1) {
+            val second = flatten(1)
+            val other = GestureFingerprint.fromLandmarks(second, isRight(1))
+            if (other != null && GestureFingerprint.handsTogether(first, second)) {
+                val firstIsMain = fp.code <= other.code
+                val main = if (firstIsMain) fp else other
+                val partner = if (firstIsMain) other else fp
+                fp = main.copy(partner = partner.fingerMask)
+                pointerSource = if (firstIsMain) first else second
+            }
+        }
+
+        // Which hand: only trusted once the last frames agree.
+        // The detector sees the mirrored frame, so its "Right" is the user's left hand.
+        isRight(0)?.let { handVotes.addLast(!it) }
+        while (handVotes.size > HAND_VOTES) handVotes.removeFirst()
+        if (handVotes.size >= HAND_VOTES) {
+            val share = handVotes.count { it }.toDouble() / handVotes.size
+            when {
+                share >= HAND_AGREE -> fp = fp.copy(hand = GestureFingerprint.Hand.RIGHT)
+                share <= 1 - HAND_AGREE -> fp = fp.copy(hand = GestureFingerprint.Hand.LEFT)
+            }
+        }
+
+        // The left/right call can flicker, so the palm is the majority of the last frames.
+        if (fp.palm == GestureFingerprint.Palm.FACING || fp.palm == GestureFingerprint.Palm.AWAY) {
+            palmVotes.addLast(fp.palm)
+            while (palmVotes.size > PALM_VOTES) palmVotes.removeFirst()
+            val facing = palmVotes.count { it == GestureFingerprint.Palm.FACING }
+            fp = fp.copy(palm = if (facing * 2 >= palmVotes.size) GestureFingerprint.Palm.FACING else GestureFingerprint.Palm.AWAY)
+        }
+
+        val (px, py) = GestureFingerprint.pointer(pointerSource, fp.fingerMask)
+        tracker.add(px, py)
+        val motion = tracker.classify()
 
         if (fp.code == lastCode) streak++ else { lastCode = fp.code; streak = 1 }
-        val stability = (streak.toFloat() / COMMIT_FRAMES).coerceAtMost(1f)
-        if (streak == COMMIT_FRAMES) Timber.d("Locked gesture %s", fp.code)
-        _state.value = if (streak >= COMMIT_FRAMES) State.Locked(fp)
-        else State.Detecting(fp, stability)
+        if (fp.fingerMask == lastMask) maskStreak++ else { lastMask = fp.fingerMask; maskStreak = 1 }
+        if (motion != null && motion == lastMotion) motionStreak++ else { lastMotion = motion; motionStreak = if (motion != null) 1 else 0 }
+
+        // A moving hand locks on its motion; a still hand locks on its pose. Direction and flags
+        // wobble while a hand moves, so a motion code keeps only the finger mask.
+        val motionLocked = motion != null && maskStreak >= MOTION_POSE_FRAMES && motionStreak >= MOTION_FRAMES
+        val stillLocked = motion == null && streak >= COMMIT_FRAMES && tracker.isStill(COMMIT_FRAMES)
+        _state.value = when {
+            motionLocked -> State.Locked(fp.withMotion(motion!!)).also { Timber.d("Locked gesture %s | %s", it.fingerprint.code, it.fingerprint.label) }
+            stillLocked -> State.Locked(fp).also { Timber.d("Locked gesture %s | %s", fp.code, fp.label) }
+            else -> State.Detecting(fp, (streak.toFloat() / COMMIT_FRAMES).coerceAtMost(1f))
+        }
     }
 
     companion object {
         private const val MODEL_ASSET = "hand_landmarker.task"
         /** Frames the same code must persist before we lock it. ~0.5s at 20fps. */
         private const val COMMIT_FRAMES = 10
+        /** A motion locks after the fingers held one shape this long and the motion read the same this many frames. */
+        private const val MOTION_POSE_FRAMES = 10
+        private const val MOTION_FRAMES = 4
+        private const val PALM_VOTES = 9
+        private const val HAND_VOTES = 9
+        private const val HAND_AGREE = 0.8
     }
 }
