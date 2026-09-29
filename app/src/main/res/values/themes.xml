@@ -6,7 +6,7 @@
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorSecondary">@color/ping_cyan</item>
         <item name="colorOnSecondary">@color/black</item>
-        <item name="android:statusBarColor">@color/ping_purple_dark</item>
+        <item name="android:statusBarColor">@color/surface</item>
         <item name="android:navigationBarColor">@color/surface</item>
         <item name="android:colorBackground">@color/surface</item>
         <item name="textAppearanceLabelLarge">@style/TextAppearance.Material3.LabelLarge</item>

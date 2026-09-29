@@ -34,6 +34,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -42,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
+import com.ping.app.ui.components.Avatar
+import com.ping.app.ui.components.PingCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,18 +74,42 @@ fun ContactDetailScreen(
                     .padding(24.dp)
                     .verticalScroll(rememberScrollState()),
             ) {
-                // Details
-                val details = buildList {
-                    if (c.phone.isNotBlank()) add(stringResource(R.string.contact_label_phone) + ": " + c.phone)
-                    if (c.email.isNotBlank()) add(stringResource(R.string.contact_label_email) + ": " + c.email)
-                    if (c.social.isNotBlank()) add(stringResource(R.string.contact_label_social) + ": " + c.social)
-                    if (c.note.isNotBlank()) add(stringResource(R.string.contact_label_note) + ": " + c.note)
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Avatar(name = c.displayName, size = 88.dp)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = c.displayName.ifBlank { stringResource(R.string.contact_unknown_name) },
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
                 }
-                Text(
-                    text = details.joinToString("\n"),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                val details = buildList {
+                    if (c.phone.isNotBlank()) add(stringResource(R.string.contact_label_phone) to c.phone)
+                    if (c.email.isNotBlank()) add(stringResource(R.string.contact_label_email) to c.email)
+                    if (c.social.isNotBlank()) add(stringResource(R.string.contact_label_social) to c.social)
+                    if (c.note.isNotBlank()) add(stringResource(R.string.contact_label_note) to c.note)
+                }
+                PingCard {
+                    details.forEachIndexed { i, (label, value) ->
+                        if (i > 0) Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = label.uppercase(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = value,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 

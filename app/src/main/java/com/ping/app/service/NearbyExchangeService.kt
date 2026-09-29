@@ -299,7 +299,7 @@ class NearbyExchangeService : Service() {
         private const val ACTION_CONFIRM = "com.ping.app.action.CONFIRM"
         private const val ACTION_REJECT = "com.ping.app.action.REJECT"
         /** Pairing window — both people must be searching within this window. */
-        const val WINDOW_SECONDS = 10
+        const val WINDOW_SECONDS = 15
         private const val WINDOW_MS = WINDOW_SECONDS * 1000L
 
         // Payload framing: first byte = type.

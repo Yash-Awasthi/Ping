@@ -7,6 +7,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,7 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -47,6 +48,7 @@ import com.ping.app.auth.GestureFingerprint
 import com.ping.app.model.ExchangeSession
 import com.ping.app.service.NearbyExchangeService
 import com.ping.app.ui.ConnectionState
+import com.ping.app.ui.components.GestureGuideButton
 import com.ping.app.ui.ConnectionStatusIndicator
 import com.ping.app.utils.RequiredPermissions
 import com.ping.app.utils.vibrateDouble
@@ -210,6 +212,8 @@ fun ExchangeScreen(
             )
         }
 
+        if (session == null) GestureGuideButton()
+
         Text(
             text = statusText,
             style = MaterialTheme.typography.titleMedium,
@@ -225,7 +229,8 @@ fun ExchangeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(320.dp)
-                    .clipToBounds()
+                    .clip(MaterialTheme.shapes.extraLarge)
+                    .border(2.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.extraLarge)
                     .semantics { contentDescription = previewDescription },
                 factory = { ctx ->
                     PreviewView(ctx).also {

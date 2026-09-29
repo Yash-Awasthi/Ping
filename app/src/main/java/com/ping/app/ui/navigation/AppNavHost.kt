@@ -23,6 +23,7 @@ import com.ping.app.ui.contacts.ContactsScreen
 import com.ping.app.ui.contacts.ContactDetailScreen
 import com.ping.app.ui.exchange.ExchangeScreen
 import com.ping.app.room.RoomScreen
+import com.ping.app.ui.practice.PracticeScreen
 
 @Composable
 fun AppNavHost() {
@@ -65,6 +66,7 @@ fun AppNavHost() {
                 HomeScreen(
                     onShareClick = { navController.navigate(Routes.EXCHANGE) },
                     onRoomClick = { navController.navigate(Routes.ROOM) },
+                    onPracticeClick = { navController.navigate(Routes.PRACTICE) },
                 )
             }
 
@@ -87,6 +89,10 @@ fun AppNavHost() {
                 ContactDetailScreen(
                     onBack = { navController.popBackStack() },
                 )
+            }
+
+            composable(Routes.PRACTICE) {
+                PracticeScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.ROOM) {

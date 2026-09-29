@@ -225,3 +225,20 @@ security: add end-to-end encryption layer
 ui: improve connection status indicator
 test: add encryption unit tests
 ```
+
+## Release signing
+
+Signing reads `keystore.properties` (gitignored) at the repo root:
+
+```properties
+storeFile=keystore/ping-release.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+Without it, `assembleRelease` still builds but leaves the APK unsigned. To generate a key:
+
+```bash
+keytool -genkeypair -v -keystore keystore/ping-release.jks -alias ping \n  -keyalg RSA -keysize 2048 -validity 10000
+```
