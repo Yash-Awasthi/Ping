@@ -1,101 +1,112 @@
-# Ping
+# ✌️ Ping
 
-**Do the same hand gesture near someone → swap contact cards. Offline. Playful.**
+> **Same gesture → instant contact swap. No internet. No accounts. No QR codes.**
 
-Two people agree on a gesture ("let's both do a fist pointing up"), open Ping, tap
-**Share**, and hold that gesture to the front camera. Ping turns the hand pose into a
-short **gesture code**; only phones showing the *same* code within a ~10-second window
-find each other and swap cards over a direct offline radio link. No account, no
-internet, no QR, no server.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Android](https://img.shields.io/badge/Android-36+-green.svg)](https://developer.android.com)
+[![BLE](https://img.shields.io/badge/Connectivity-BLE%20/%20Wi-Fi%20Direct-blue.svg)]()
+[![Privacy](https://img.shields.io/badge/Privacy-100%25%20On--Device-brightgreen.svg)]()
 
-> **Status:** the app builds (debug + signed release) and the flow is complete, but the
-> gesture-pairing loop has not yet been verified on two physical phones. See
-> [`PING_PLAN.md`](PING_PLAN.md) for the roadmap and what to test first.
+**Ping** turns a shared hand gesture into an offline handshake. Two people agree on a gesture, hold it to the camera, and Ping matches on that pose to find the right device over Bluetooth LE — swapping contact cards with end-to-end encryption.
 
----
+The gesture decides *who* to connect to. It is not a secret: it is derived from the pose alone, so it has 128 possible values, and a device in radio range can enumerate them. The encryption protects a card in transit from a passive listener; it does not authenticate the peer.
 
-## How it works
-
-```
-open app → tap Share → hold gesture → camera locks a code
-        → phone advertises that code over Nearby (BLE / Wi-Fi Direct)
-        → the only peer it connects to is one showing the SAME code
-        → ECDH handshake + AES-256-GCM → cards swapped → saved to Contacts
-```
-
-- **Gesture = password.** `GestureFingerprint` maps MediaPipe's 21 hand landmarks to
-  a 5-bit finger mask (each finger extended/curled) + a 4-way hand-direction bucket →
-  128 distinct codes. It's a pure function of the pose, so two strangers doing the same
-  gesture derive the same code with no enrollment.
-- **Matchmaking.** `NearbyExchangeService` advertises `code|name` and only requests a
-  connection to a peer whose advertised code equals ours (`onEndpointFound`).
-- **Crypto.** Ephemeral X25519 ECDH → HKDF-SHA256 → AES-256-GCM sealed card JSON
-  (`CryptoUtils`). Fresh keys every swap; nothing long-lived.
-- **Card fields.** Name, phone, email, social/handle, and a short note.
-
-### On the Exchange screen
-
-The camera shows a live **gesture-code chip** ("✌️ pointing up") as you move your hand,
-so both people can confirm they're on the same gesture *before* it locks. Once a code
-holds steady it locks, and a **10-second countdown** runs while it searches for a match.
-If nobody matches in time, a **Try again** button restarts the capture without leaving
-the screen.
+No server. No cloud. No account. Your data never leaves your phone.
 
 ---
 
-## Build & install
+## ✨ Features
 
-Requirements: Android SDK (platform 36), JDK 17–21. The build uses the Android Studio
-bundled JBR by default.
+| Feature | Description |
+|---------|-------------|
+| 📡 **Connection Status** | Animated indicator — scanning (blue pulse), connecting (amber spin), paired (green check), error (red X) |
+| 🤝 **Gesture Matchmaking** | 128 distinct codes from hand pose — no enrollment needed |
+| 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections |
+| 🔐 **E2E Encryption** | P-256 ECDH → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
+| 👤 **Contact Cards** | Name, phone, email, social handles, short note |
+| 🎯 **Auto-Matchmaking** | Phones only connect when the advertised gesture tokens match |
+| 📷 **Live Code Preview** | See the gesture code in real-time before it locks |
+| 💾 **Offline Contacts** | Room v1 database — contacts persist on device |
+| 🔒 **Permission Denied UX** | Clear explanations when camera/Nearby permissions are missing |
+
+---
+
+## 🎬 How It Works
+
+```
+    ┌─────────────┐           ┌─────────────┐
+    │   Phone A   │           │   Phone B   │
+    │             │           │             │
+    │  ✌️ gesture  │           │  ✌️ gesture  │
+    │      │      │           │      │      │
+    │  5-bit mask │           │  5-bit mask │
+    │  + direction│           │  + direction│
+    │      │      │           │      │      │
+    │  code: 0x1A │           │  code: 0x1A │  ← Same gesture = same code
+    │      │      │           │      │      │
+    │  BLE advertise          │  BLE advertise
+    │      │      │           │      │      │
+    └──────┼──────┘           └──────┼──────┘
+           │                         │
+           │    Nearby Connections    │
+           │   (only matches if      │
+           │    codes are equal)     │
+           └─────────────────────────┘
+                     │
+              ECDH key exchange
+                     │
+            AES-256-GCM sealed card
+                     │
+               💾 Saved to Contacts
+```
+
+### The Gesture Code
+
+`GestureFingerprint` maps MediaPipe's 21 hand landmarks to:
+- **5-bit finger mask** — each finger extended (1) or curled (0)
+- **4-way hand direction** — left, right, up, down
+
+→ **128 distinct codes** from pure pose geometry. Two strangers doing the same gesture derive the same code with zero enrollment.
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Android SDK (platform 36)
+- JDK 17–21
+- Two physical Android phones with Google Play Services (emulators can't do BLE)
+
+### Build
 
 ```bash
-export JAVA_HOME=/opt/android-studio/jbr      # or any JDK 17–21
+export JAVA_HOME=/opt/android-studio/jbr  # or any JDK 17–21
 export ANDROID_HOME=$HOME/Android/Sdk
 
-./gradlew :app:assembleDebug                  # builds app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:assembleDebug
 ```
 
-The MediaPipe `hand_landmarker.task` model (~8 MB) is downloaded into
-`app/src/main/assets/` automatically on first build (`downloadHandModel` task). For an
-offline build, drop the file there manually.
+The MediaPipe hand model (~8 MB) downloads automatically on first build.
 
-### Signed release APKs
+### Install on Two Phones
 
 ```bash
-./gradlew :app:assembleRelease
-```
+adb devices  # list connected phones
 
-Produces R8-shrunk, per-ABI signed APKs in `app/build/outputs/apk/release/`:
-
-| APK | Size | Use |
-|---|---|---|
-| `app-arm64-v8a-release.apk` | ~25 MB | modern phones — **install this** |
-| `app-armeabi-v7a-release.apk` | ~20 MB | older 32-bit devices |
-| `app-universal-release.apk` | ~54 MB | any device |
-
-Signing reads `keystore.properties` at the repo root (gitignored). Without it,
-`assembleRelease` still builds but leaves the APK unsigned. See
-[`PING_PLAN.md`](PING_PLAN.md#release-signing) for the keystore setup.
-
-### Try it on two phones
-
-Nearby Connections needs **real devices** (emulators can't do BLE/Wi-Fi Direct). Both
-phones need Google Play Services.
-
-```bash
-# with two phones plugged in, list them:
-adb devices
-
-# install on each (replace SERIALs):
 adb -s SERIAL_A install -r app/build/outputs/apk/debug/app-debug.apk
 adb -s SERIAL_B install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Then on each phone: grant camera + nearby/location permissions → open **Profile**,
-fill in your card, Save → back to **Home** → tap **Share** → both hold the *same*
-gesture (e.g. open palm pointing up) at the same time. They should connect and swap.
+### Try It
 
-Watch the logs while testing:
+1. Open **Ping** on both phones
+2. Grant camera + nearby permissions
+3. Open **Profile** → fill in your contact card → Save
+4. Both tap **Share** → hold the **same gesture** (e.g., open palm pointing up)
+5. Watch them connect and swap! 🎉
+
+### Watch Logs
 
 ```bash
 adb -s SERIAL_A logcat -s Ping:* NearbyExchangeService:* GestureCamera:*
@@ -103,21 +114,104 @@ adb -s SERIAL_A logcat -s Ping:* NearbyExchangeService:* GestureCamera:*
 
 ---
 
-## Project layout
+## 🔒 Security
+
+| Layer | Implementation |
+|-------|---------------|
+| Key exchange | P-256 (secp256r1) ECDH, ephemeral per swap |
+| Key derivation | HKDF-SHA256 |
+| Encryption | AES-256-GCM (authenticated encryption) |
+| Keys | Fresh every swap — nothing long-lived |
+| Transport | BLE + Wi-Fi Direct (no internet) |
+| Data | All on-device (Room v1 database) |
+| Peer authentication | None. The gesture is 128 values and is advertised in hashed form, so a device in range can recover it and join the swap. |
+
+---
+
+## 🏗️ Architecture
+
+Ping uses **MVVM** with Hilt dependency injection:
 
 ```
-app/src/main/java/com/ping/app/
-  auth/       GestureFingerprint, GestureCamera (MediaPipe HandLandmarker)
-  service/    NearbyExchangeService, NearbyConnectionsTransport, NearbyTransport
-  crypto      → utils/CryptoUtils (X25519 + AES-256-GCM)
-  data/       Room v1: Contact + Profile (DAOs, repos, DI)
-  model/      Contact, Profile, ExchangeSession
-  ui/         home / exchange / contacts / profile
+┌─────────────────────────────────────────────┐
+│                  UI Layer                    │
+│  Compose Screens ← StateFlow ← ViewModel    │
+├─────────────────────────────────────────────┤
+│              ViewModel Layer                 │
+│  HomeViewModel · ProfileViewModel           │
+│  ContactsViewModel · ExchangeViewModel      │
+│  (Hilt @Inject, one per Compose screen)     │
+├─────────────────────────────────────────────┤
+│               Data Layer                     │
+│  ContactRepository · ProfileRepository      │
+│  (Room database, reactive Flow)             │
+├─────────────────────────────────────────────┤
+│              Service Layer                   │
+│  NearbyExchangeService                      │
+│  NearbyConnectionsTransport (BLE + Wi-Fi)   │
+├─────────────────────────────────────────────┤
+│              Crypto Layer                    │
+│  P-256 ECDH → HKDF-SHA256 → AES-256-GCM     │
+└─────────────────────────────────────────────┘
 ```
 
-See [`PING_PLAN.md`](PING_PLAN.md) for what's next — the file-sharing room hub, polish,
-and known limitations.
+### DI Setup
 
-## License
+```kotlin
+@HiltViewModel
+class ExchangeViewModel @Inject constructor(
+    private val gestureCamera: GestureCamera,
+) : ViewModel()
+```
 
-MIT — see [`LICENSE`](LICENSE).
+## 📂 Project Structure
+
+```
+Aura/
+├── app/src/main/java/com/ping/app/
+│   ├── auth/           # GestureFingerprint, GestureCamera (MediaPipe)
+│   ├── data/           # Room DAOs, repositories, transport bridges
+│   ├── di/             # Hilt modules
+│   ├── model/          # Contact, Profile, ExchangeSession
+│   ├── service/        # NearbyExchangeService and its transport
+│   ├── ui/             # Compose screens
+│   └── utils/          # CryptoUtils (P-256 ECDH + HKDF + AES-256-GCM)
+├── PING_PLAN.md        # Roadmap and known limitations
+└── README.md
+```
+
+---
+
+## 📊 Gesture Code Space
+
+| Input | Bits | Range |
+|-------|------|-------|
+| Index finger | 1 | extended/curled |
+| Middle finger | 1 | extended/curled |
+| Ring finger | 1 | extended/curled |
+| Pinky finger | 1 | extended/curled |
+| Thumb | 1 | extended/curled |
+| Hand direction | 2 | left/right/up/down |
+| **Total** | **7** | **128 codes** |
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] **Room Hub** — multi-device file sharing via NearbyConnections P2P_STAR
+- [ ] **iOS companion** — cross-platform gesture exchange
+- [ ] **Custom gesture sets** — user-defined gesture alphabets
+- [ ] **Contact export** — vCard / CSV export from contacts screen
+- [ ] **Haptic feedback** — vibration on successful gesture lock
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Open an issue or PR. See [`PING_PLAN.md`](PING_PLAN.md) for the full roadmap.
+
+---
+
+## 📄 License
+
+[MIT](LICENSE)

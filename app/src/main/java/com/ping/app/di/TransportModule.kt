@@ -11,14 +11,9 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * Hilt module for the `gms` product flavor.
- *
- * Provides [NearbyConnectionsTransport] as [NearbyTransport] so that
- * [com.ping.app.service.NearbyExchangeService] uses Google Nearby
- * Connections on Play Services devices.
- *
- * The `foss` flavor's [TransportModule] provides [WifiDirectTransport] instead,
- * removing the GMS dependency entirely (F-Droid eligible).
+ * Binds [NearbyConnectionsTransport] (Google Nearby Connections, needs Play Services)
+ * as the [NearbyTransport] used by [com.ping.app.service.NearbyExchangeService].
+ * Swapping in a Wi-Fi Direct transport later only means changing this one provider.
  */
 @Module
 @InstallIn(SingletonComponent::class)
