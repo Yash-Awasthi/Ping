@@ -39,4 +39,13 @@ class ContactTest {
         assertFalse(v.contains("\r\nTEL:666"))
         assertTrue(v.contains("NOTE:hi\\nTEL:666"))
     }
+
+    @Test
+    fun `same phone or email is the same person`() {
+        val a = Contact(displayName = "Ada", phone = "+1 (555) 010-2030", email = "Ada@X.io")
+        assertTrue(a.isSamePerson(Contact(phone = "15550102030")))
+        assertTrue(a.isSamePerson(Contact(email = " ada@x.io ")))
+        assertFalse(a.isSamePerson(Contact(displayName = "Ada", phone = "999")))
+        assertFalse(Contact(displayName = "Ada").isSamePerson(Contact(displayName = "Ada")))
+    }
 }
