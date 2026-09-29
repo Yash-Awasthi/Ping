@@ -288,7 +288,7 @@ class NearbyExchangeService : Service() {
         NotificationCompat.Builder(this, NotificationChannels.CHANNEL_EXCHANGE)
             .setContentTitle(getString(R.string.notif_title))
             .setContentText(text)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .build()
 
