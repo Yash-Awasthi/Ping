@@ -1042,7 +1042,12 @@ Status as of 2026-09-29.
 
 - `:app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lint :app:assembleDebugAndroidTest` all pass.
 - `app/unwired/` deleted. No build file, source set or document depended on it; it stays in git history.
-- One phone attached (Realme RMX5061, arm64). The debug build installs and launches to the Home screen. The two-phone
-  pairing check, gesture tuning, gesture depth and the Room hub were not done: they need a second device.
-- Contacts search, favourites ordering and haptics could not be checked: the phone has no saved contacts, and
-  contacts only arrive through a swap.
+- Two phones (Realme RMX5061, Samsung SM-M326B) paired end to end: gesture match, connection, six-digit confirm, card
+  sent and saved. Three defects found and fixed on the way: a `material3` 1.1.2 / `animation-core` 1.6 mismatch that
+  crashed the exchange screen (BOM bumped to 2024.02.00), camera rotation not applied before hand detection so the
+  direction bucket differed per phone, and blank cards being saved (now rejected, `Contact.isEmptyCard`).
+- Contacts search checked on the Realme with five seeded contacts: favourites first, then newest; name, phone, email,
+  social and note all match; a miss shows "No contacts match." Haptics cannot be observed over adb and are unchecked.
+- Export checked on the Realme: "Add to phone" opens the Contacts insert screen (not saved), and "Share vCard" opens the
+  share sheet with a well-formed vCard 3.0.
+- Gesture depth and the Room hub were not started; with one phone they could only be checked by unit tests.

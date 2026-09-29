@@ -32,6 +32,8 @@ fun HomeScreen(
     val profile by viewModel.profile.collectAsStateWithLifecycle()
     val contactCount by viewModel.contactCount.collectAsStateWithLifecycle()
 
+    val canShare = profile?.toShareableMap()?.isNotEmpty() == true
+
     val greeting = profile?.displayName?.takeIf { it.isNotBlank() }
     val greetingText = if (greeting != null) {
         stringResource(R.string.home_greeting, greeting)
@@ -66,6 +68,7 @@ fun HomeScreen(
         // Share button — large circle
         Button(
             onClick = onShareClick,
+            enabled = canShare,
             modifier = Modifier.size(220.dp),
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(
@@ -82,7 +85,9 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = stringResource(R.string.home_share_hint),
+            text = stringResource(
+                if (canShare) R.string.home_share_hint else R.string.home_share_needs_profile,
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

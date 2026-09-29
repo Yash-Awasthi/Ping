@@ -14,6 +14,7 @@
     <string name="home_contact_count">%1$d contacts</string>
     <string name="home_share_button">Share</string>
     <string name="home_share_hint">Agree on a gesture, then both tap Share.</string>
+    <string name="home_share_needs_profile">Fill in your Profile first so you have something to share.</string>
 
     <!-- Exchange -->
     <string name="someone">someone</string>
