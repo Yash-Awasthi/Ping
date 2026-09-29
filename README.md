@@ -9,7 +9,7 @@
 
 **Ping** turns a shared hand gesture into an offline handshake. Two people agree on a gesture, hold it to the camera, and Ping matches on that pose to find the right device over Bluetooth LE — swapping contact cards with end-to-end encryption.
 
-The gesture decides *who* to connect to. It is not a secret: it is derived from the pose alone, so it has 128 possible values, and a device in radio range can enumerate them. The encryption protects a card in transit from a passive listener; it does not authenticate the peer.
+The gesture decides *who* to connect to. It is not a secret: it is derived from the pose alone, so it has 128 possible values, and a device in radio range can enumerate them. What authenticates the peer is a six-digit code both phones show after the keys are exchanged: the cards are released only when both users confirm the digits match.
 
 No server. No cloud. No account. Your data never leaves your phone.
 
@@ -25,7 +25,9 @@ No server. No cloud. No account. Your data never leaves your phone.
 | 🔐 **E2E Encryption** | P-256 ECDH → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
 | 👤 **Contact Cards** | Name, phone, email, social handles, short note |
 | 🎯 **Auto-Matchmaking** | Phones only connect when the advertised gesture tokens match |
-| 📷 **Live Code Preview** | See the gesture code in real-time before it locks |
+| ✅ **Peer Check** | Compare a six-digit code on both phones before any card is sent |
+| 📷 **Live Gesture Preview** | See the detected pose and its stability before it locks |
+| 📇 **Contact Export** | Add a received card to the phone's contacts, or share it as a vCard |
 | 💾 **Offline Contacts** | Room v1 database — contacts persist on device |
 | 🔒 **Permission Denied UX** | Clear explanations when camera/Nearby permissions are missing |
 
@@ -42,7 +44,7 @@ No server. No cloud. No account. Your data never leaves your phone.
     │  5-bit mask │           │  5-bit mask │
     │  + direction│           │  + direction│
     │      │      │           │      │      │
-    │  code: 0x1A │           │  code: 0x1A │  ← Same gesture = same code
+    │  code:F31A0 │           │  code:F31A0 │  ← Same gesture = same code
     │      │      │           │      │      │
     │  BLE advertise          │  BLE advertise
     │      │      │           │      │      │
@@ -54,6 +56,8 @@ No server. No cloud. No account. Your data never leaves your phone.
            └─────────────────────────┘
                      │
               ECDH key exchange
+                     │
+        both users confirm a 6-digit code
                      │
             AES-256-GCM sealed card
                      │
@@ -124,7 +128,9 @@ adb -s SERIAL_A logcat -s Ping:* NearbyExchangeService:* GestureCamera:*
 | Keys | Fresh every swap — nothing long-lived |
 | Transport | BLE + Wi-Fi Direct (no internet) |
 | Data | All on-device (Room v1 database) |
-| Peer authentication | None. The gesture is 128 values and is advertised in hashed form, so a device in range can recover it and join the swap. |
+| Matchmaking | The gesture is advertised only as a truncated SHA-256 token. With 128 possible values a device in range can still recover it and try to join. |
+| Peer authentication | A six-digit short authentication string over both public keys. Users compare it on both screens; no card is sent until both confirm, and a man in the middle produces different digits on each phone. |
+| Permissions | No `INTERNET` permission, by design: the manifest removes the one a Play Services dependency injects. Networking code cannot ship in this app. |
 
 ---
 
@@ -201,7 +207,6 @@ Aura/
 - [ ] **Room Hub** — multi-device file sharing via NearbyConnections P2P_STAR
 - [ ] **iOS companion** — cross-platform gesture exchange
 - [ ] **Custom gesture sets** — user-defined gesture alphabets
-- [ ] **Contact export** — vCard / CSV export from contacts screen
 - [ ] **Haptic feedback** — vibration on successful gesture lock
 
 ---

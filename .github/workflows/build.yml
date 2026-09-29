@@ -23,6 +23,9 @@ jobs:
       - name: unit tests
         run: ./gradlew test --no-daemon
 
+      - name: compile instrumented tests
+        run: ./gradlew assembleDebugAndroidTest --no-daemon
+
       - name: lint
         run: ./gradlew lint --no-daemon
 
