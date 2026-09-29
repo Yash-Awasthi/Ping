@@ -33,6 +33,10 @@
     <!-- Vibration for gesture feedback -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+    <!-- Nearby Connections is offline, but its telemetry dependency injects INTERNET
+         into the merged manifest. The no-internet promise is enforced here. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+
     <!-- Foreground service for the live exchange session -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"

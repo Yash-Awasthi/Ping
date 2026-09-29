@@ -22,4 +22,7 @@ class ExchangeViewModel @Inject constructor(
     fun stopCamera() = gestureCamera.stop()
 
     fun resetCamera() = gestureCamera.reset()
+
+    /** Expose the GestureCamera for landmark forwarding to drawing overlay */
+    fun getGestureCamera(): GestureCamera = gestureCamera
 }

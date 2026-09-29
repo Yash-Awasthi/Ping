@@ -54,6 +54,9 @@ class GestureCamera @Inject constructor(
     private val _state = MutableStateFlow<State>(State.NoHand)
     val state: StateFlow<State> = _state
 
+    /** Optional callback for raw landmark data (used by air-drawing overlay) */
+    var onLandmarks: ((List<Triple<Float, Float, Float>>) -> Unit)? = null
+
     private var landmarker: HandLandmarker? = null
     private var cameraProvider: ProcessCameraProvider? = null
     private var executor: ExecutorService? = null
@@ -148,6 +151,9 @@ class GestureCamera @Inject constructor(
             xyz[i * 3 + 1] = pts[i].y()
             xyz[i * 3 + 2] = pts[i].z()
         }
+        // Emit raw landmarks for drawing overlay
+        onLandmarks?.invoke(pts.map { Triple(it.x(), it.y(), it.z()) })
+
         val fp = GestureFingerprint.fromLandmarks(xyz) ?: run { reset(); return }
 
         if (fp.code == lastCode) streak++ else { lastCode = fp.code; streak = 1 }

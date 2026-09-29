@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
-    alias(libs.plugins.navigation.safeargs)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -73,8 +73,8 @@ android {
     }
 
     buildFeatures {
-        viewBinding = true
         buildConfig = true
+        compose = true
     }
 
     compileOptions {
@@ -99,11 +99,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
-    implementation(libs.androidx.constraintlayout)
-
-    // Navigation
-    implementation(libs.androidx.navigation.fragment.ktx)
-    implementation(libs.androidx.navigation.ui.ktx)
 
     // Lifecycle
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
@@ -143,12 +138,22 @@ dependencies {
     // MediaPipe Tasks Vision — HandLandmarker (21 landmarks used to build the gesture fingerprint)
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
 
-    // BouncyCastle — X25519 ECDH + AES-256-GCM (reliable across minSdk 26+)
-    implementation("org.bouncycastle:bcprov-jdk18on:1.79")
+    // Unit tests — pure JVM logic only (gesture fingerprint, crypto primitives).
+    testImplementation("junit:junit:4.13.2")
 
-    // Testing
-    testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
+    // Instrumented tests: Room DAOs against an in-memory database (needs a device or emulator).
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
+
+    // Compose
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.material3)
+    implementation(libs.activity.compose)
+    implementation(libs.hilt.navigation.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.lifecycle.runtime.compose)
 }
 
 // ---------------------------------------------------------------------------

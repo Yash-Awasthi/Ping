@@ -35,14 +35,6 @@
 -keep class androidx.camera.** { *; }
 -dontwarn androidx.camera.**
 
-# BouncyCastle — X25519 / AES-GCM providers used by CryptoUtils.
--keep class org.bouncycastle.crypto.** { *; }
--keep class org.bouncycastle.math.** { *; }
--keep class org.bouncycastle.jcajce.** { *; }
--keep class org.bouncycastle.jce.** { *; }
--keepclassmembers class org.bouncycastle.** { *; }
--dontwarn org.bouncycastle.**
-
 # AutoValue annotation-processor leakage (transitive) — not present on Android.
 -dontwarn javax.lang.model.**
 -dontwarn javax.annotation.processing.**

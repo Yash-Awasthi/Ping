@@ -23,7 +23,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.security.KeyPair
+import java.security.MessageDigest
 import java.security.PublicKey
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.crypto.SecretKey
 import javax.inject.Inject
@@ -55,6 +57,11 @@ class NearbyExchangeService : Service() {
     private lateinit var localName: String
     private lateinit var keyPair: KeyPair
 
+    /** What the radio advertises in place of [gestureCode]; see [codeToken]. */
+    private lateinit var advertisementToken: String
+    /** Per-session suffix: keeps the advertisement unique and the initiator tie-break fair. */
+    private val sessionNonce = UUID.randomUUID().toString().take(8)
+
     /** Per-endpoint negotiated AES key, set after we receive the peer's pubkey. */
     private val sessionKeys = ConcurrentHashMap<String, SecretKey>()
     /** Endpoints we've already sent our card to, so we don't double-send. */
@@ -84,18 +91,18 @@ class NearbyExchangeService : Service() {
 
     private fun begin(code: String) {
         gestureCode = code
+        advertisementToken = codeToken(code)
         keyPair = CryptoUtils.generateEphemeralKeyPair()
         _session.value = ExchangeSession(gestureCode, ExchangeSession.State.SEARCHING)
 
         scope.launch {
-            val name = profileRepo.get()?.displayName?.takeIf { it.isNotBlank() }
-                ?: getString(R.string.someone)
-            // Sanitize: '|' is our field separator, strip it from the name.
-            localName = "$gestureCode|${name.replace("|", " ")}"
+            // The advertised name is readable by any scanner in range, so it carries the
+            // token rather than the code, and never the user's display name.
+            localName = "$advertisementToken|$sessionNonce"
             wireCallbacks()
             transport.startAdvertising(localName, SERVICE_ID)
             transport.startDiscovery(SERVICE_ID)
-            Timber.i("Ping searching — code=%s", gestureCode)
+            Timber.i("Ping searching for a matching gesture")
         }
 
         // Pairing window: if nothing connects in time, give up.
@@ -111,9 +118,9 @@ class NearbyExchangeService : Service() {
 
     private fun wireCallbacks() {
         transport.onEndpointFound = onEndpointFound@{ endpointId, remoteName ->
-            val peerCode = remoteName.substringBefore('|', missingDelimiterValue = "")
-            if (peerCode != gestureCode) {
-                Timber.d("Ignoring %s — code %s ≠ %s", endpointId, peerCode, gestureCode)
+            val peerToken = remoteName.substringBefore('|', missingDelimiterValue = "")
+            if (peerToken != advertisementToken) {
+                Timber.d("Ignoring %s — advertisement does not match this gesture", endpointId)
                 return@onEndpointFound
             }
             // Deterministic tie-break: only the lexicographically-smaller name
@@ -237,6 +244,18 @@ class NearbyExchangeService : Service() {
         scope.coroutineContext[Job]?.cancel()
         super.onDestroy()
     }
+
+    /**
+     * Derives the advertised rendezvous token from a gesture code.
+     *
+     * The gesture space is 128 codes, so this hides the code from a passive scanner but
+     * is not a secret: anyone in range can enumerate all 128 candidates and match one.
+     */
+    private fun codeToken(code: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(code.toByteArray(Charsets.UTF_8))
+            .take(6)
+            .joinToString("") { "%02x".format(it) }
 
     private fun frame(type: Byte, body: ByteArray): ByteArray = ByteArray(body.size + 1).also {
         it[0] = type

@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.ping.app.data.ProfileRepository
 import com.ping.app.model.Profile
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -14,17 +16,18 @@ class ProfileViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
 ) : ViewModel() {
 
-    val profile: Flow<Profile?> = profileRepository.profile
+    val profile: StateFlow<Profile?> = profileRepository.profile
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun save(name: String, phone: String, email: String, social: String, note: String) {
         viewModelScope.launch {
             profileRepository.save(
                 Profile(
-                    displayName = name.trim(),
-                    phone = phone.trim(),
-                    email = email.trim(),
-                    social = social.trim(),
-                    note = note.trim(),
+                    displayName = name,
+                    phone = phone,
+                    email = email,
+                    social = social,
+                    note = note,
                 )
             )
         }
