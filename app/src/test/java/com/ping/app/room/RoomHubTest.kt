@@ -25,6 +25,7 @@ class RoomHubTest {
     @get:Rule val tmp = TemporaryFolder()
 
     private val hubs = mutableListOf<RoomHub>()
+    private val radios = mutableMapOf<String, NearbyTransport>()
     private lateinit var air: FakeAir
 
     @Before fun setUp() { air = FakeAir() }
@@ -43,7 +44,8 @@ class RoomHubTest {
             override suspend fun get(id: String) = Profile(displayName = name)
             override suspend fun upsert(profile: Profile) {}
         }
-        return RoomHub(context, air.endpoint(id), ProfileRepository(dao)).also { hubs += it }
+        val radio = air.endpoint(id).also { radios[id] = it }
+        return RoomHub(context, radio, ProfileRepository(dao)).also { hubs += it }
     }
 
     private fun await(what: String, cond: () -> Boolean) {
@@ -145,6 +147,110 @@ class RoomHubTest {
     }
 
     @Test
+    fun `both sides see the same link code before the host decides`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F3A3"); Thread.sleep(50)
+        guest.join("F3A3")
+        await("codes") { host.state.value.pending.singleOrNull()?.digits == "4821" && guest.state.value.linkDigits == "4821" }
+    }
+
+    @Test
+    fun `guests learn the room closed when the host leaves`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F4A0"); Thread.sleep(50)
+        guest.join("F4A0"); admitted(host, guest)
+        host.leave()
+        await("closed") { guest.state.value.phase == RoomPhase.CLOSED }
+    }
+
+    @Test
+    fun `a guest that leaves disappears from the room`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        host.host("F4A1"); Thread.sleep(50)
+        ada.join("F4A1"); admitted(host, ada)
+        ada.share("x.txt", "x")
+        await("listed") { host.state.value.manifest.files.size == 1 }
+        radios.getValue("a").disconnect("h")
+        await("removed") { host.state.value.manifest.files.isEmpty() && host.state.value.manifest.members == listOf("Hana") }
+    }
+
+    @Test
+    fun `an unapproved guest cannot pull files`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F5A0"); Thread.sleep(50)
+        var opened = 0
+        host.addShared(FileMeta("", "s.txt", 1)) { opened++; ByteArrayInputStream(byteArrayOf(1)) }
+        guest.join("F5A0")
+        await("knock") { host.state.value.pending.isNotEmpty() }
+        radios.getValue("g").sendBytes("h", RoomProtocol.frameText(RoomProtocol.T_REQUEST, "host:f1"))
+        Thread.sleep(300)
+        assertEquals(0, opened)
+    }
+
+    @Test
+    fun `a stream nobody asked for is dropped`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F5A1"); Thread.sleep(50)
+        host.share("s.txt", "abc")
+        guest.join("F5A1"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
+        val forged = RoomProtocol.header("host:f1") + "abc".toByteArray()
+        radios.getValue("h").sendStream("g", ByteArrayInputStream(forged), forged.size.toLong())
+        Thread.sleep(300)
+        assertTrue(guest.state.value.transfers.isEmpty())
+    }
+
+    @Test
+    fun `a file longer than announced fails and leaves nothing behind`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F5A2"); Thread.sleep(50)
+        host.addShared(FileMeta("", "big.bin", 5)) { ByteArrayInputStream(ByteArray(50)) }
+        guest.join("F5A2"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
+        val gid = guest.state.value.manifest.files.single().id
+        guest.download(gid)
+        await("failed") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+        assertEquals(0, downloads("g").size)
+    }
+
+    @Test
+    fun `a file shorter than announced fails`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F5A3"); Thread.sleep(50)
+        host.addShared(FileMeta("", "short.bin", 50)) { ByteArrayInputStream(ByteArray(4)) }
+        guest.join("F5A3"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
+        val gid = guest.state.value.manifest.files.single().id
+        guest.download(gid)
+        await("failed") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+        assertEquals(0, downloads("g").size)
+    }
+
+    @Test
+    fun `two downloads of the same name do not overwrite each other`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F5A4"); Thread.sleep(50)
+        host.share("same.txt", "one")
+        host.share("same.txt", "two")
+        guest.join("F5A4"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.size == 2 }
+        guest.state.value.manifest.files.forEach { guest.download(it.id) }
+        await("both") { guest.state.value.transfers.values.count { it.status == Transfer.Status.DONE } == 2 }
+        assertEquals(setOf("same.txt", "same (2).txt"), downloads("g").map { it.name }.toSet())
+    }
+
+    private fun downloads(id: String): List<File> =
+        File(tmp.root, "$id/ext/Ping").listFiles().orEmpty().toList()
+
+    @Test
     fun `a different gesture never joins the room`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
@@ -169,6 +275,7 @@ private class FakeAir {
         override var onEndpointFound: ((String, String) -> Unit)? = null
         override var onConnectionInitiated: ((String, String) -> Unit)? = null
         override var onStreamReceived: ((String, InputStream) -> Unit)? = null
+        override var onAuthDigits: ((String, String) -> Unit)? = null
 
         var advertised: String? = null
         var discovering = false
@@ -191,6 +298,8 @@ private class FakeAir {
             val peer = nodes[endpointId] ?: return
             names[endpointId] = peer.advertised.orEmpty()
             peer.names[id] = localName
+            onAuthDigits?.invoke(endpointId, "4821")
+            peer.onAuthDigits?.invoke(id, "4821")
             onConnectionInitiated?.invoke(endpointId, peer.advertised.orEmpty())
             peer.onConnectionInitiated?.invoke(id, localName)
         }
@@ -222,6 +331,11 @@ private class FakeAir {
 
         override fun stopAdvertising() { advertised = null }
         override fun stopDiscovery() { discovering = false }
-        override fun stopAllEndpoints() {}
+        override fun stopAllEndpoints() {
+            accepted.filter { nodes[it]?.accepted?.contains(id) == true }.forEach { peer ->
+                nodes[peer]?.onDisconnected?.invoke(id)
+            }
+            accepted.clear()
+        }
     }
 }

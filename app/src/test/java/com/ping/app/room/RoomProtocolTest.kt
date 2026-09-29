@@ -44,6 +44,14 @@ class RoomProtocolTest {
     }
 
     @Test
+    fun `a manifest with missing fields drops those files instead of crashing later`() {
+        val json = """{"files":[{"id":"h:1","name":"a","size":1},{"id":"h:2","name":"b","size":1,"ownerKey":"h","ownerName":"Hana"}],"members":[null,"Hana"]}"""
+        val m = RoomProtocol.decodeManifest(json)!!
+        assertEquals(listOf("h:2"), m.files.map { it.id })
+        assertEquals(listOf("Hana"), m.members)
+    }
+
+    @Test
     fun `a peer cannot list more files than the cap`() {
         val json = (1..500).joinToString(",", "[", "]") { """{"id":"i$it","name":"n","size":1}""" }
         assertEquals(RoomProtocol.MAX_FILES_PER_MEMBER, RoomProtocol.decodeMetas(json).size)

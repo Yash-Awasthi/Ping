@@ -62,6 +62,14 @@ interface NearbyTransport {
      */
     var onConnectionInitiated: ((endpointId: String, remoteName: String) -> Unit)?
 
+    /**
+     * Callback with the short code both phones derive for a pending connection, so users can
+     * compare it out loud. Transports that cannot provide one never invoke it.
+     */
+    var onAuthDigits: ((endpointId: String, digits: String) -> Unit)?
+        get() = null
+        @Suppress("UNUSED_PARAMETER") set(value) {}
+
     /** Start advertising under [localName] and [serviceId]; [star] lets one host serve many guests. */
     fun startAdvertising(localName: String, serviceId: String, star: Boolean = false)
 

@@ -14,10 +14,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -43,6 +45,15 @@ fun ContactsScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 8.dp),
         )
+        if (contacts.isNotEmpty()) {
+            val context = LocalContext.current
+            TextButton(
+                onClick = { shareVCards(context, contacts) },
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) {
+                Text(stringResource(R.string.contacts_export_all, contacts.size))
+            }
+        }
         ContactList(contacts, query, onContactClick)
     }
 }

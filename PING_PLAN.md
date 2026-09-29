@@ -31,6 +31,8 @@ builds, lint, and the unit tests are green.
 | App icon / branding for "Ping" | ✅ adaptive icon with themed layer |
 | Gesture depth (splay flag, optional two-gesture password) | ✅ done, unit-tested |
 | Repeat swap refreshes the saved contact | ✅ done, unit-tested |
+| Export all contacts as one vCard file | ✅ done, unit-tested |
+| File-room link code (guest and host compare it before Allow) | ✅ done, unit-tested |
 
 ### How it works today
 - **Gesture = password.** `GestureFingerprint` maps MediaPipe's 21 hand landmarks to a
