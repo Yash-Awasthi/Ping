@@ -1,16 +1,21 @@
 package com.ping.app.ui.contacts
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -21,11 +26,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
 import com.ping.app.model.Contact
+import com.ping.app.ui.components.Avatar
+import com.ping.app.ui.components.PingCard
+import com.ping.app.ui.theme.PingCyan
 
 @Composable
 fun ContactsScreen(
@@ -34,24 +43,36 @@ fun ContactsScreen(
 ) {
     val contacts by viewModel.contacts.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
             value = query,
             onValueChange = viewModel::setQuery,
             singleLine = true,
+            shape = MaterialTheme.shapes.extraLarge,
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             placeholder = { Text(stringResource(R.string.contacts_search_hint)) },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(start = 20.dp, end = 20.dp, top = 12.dp),
         )
         if (contacts.isNotEmpty()) {
-            val context = LocalContext.current
-            TextButton(
-                onClick = { shareVCards(context, contacts) },
-                modifier = Modifier.padding(horizontal = 16.dp),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(R.string.contacts_export_all, contacts.size))
+                Text(
+                    text = stringResource(R.string.contacts_count, contacts.size),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { shareVCards(context, contacts) }) {
+                    Text(stringResource(R.string.contacts_export_all, contacts.size), color = PingCyan)
+                }
             }
         }
         ContactList(contacts, query, onContactClick)
@@ -66,7 +87,9 @@ private fun ContactList(
 ) {
     if (contacts.isEmpty()) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -75,17 +98,17 @@ private fun ContactList(
                 ),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
             )
         }
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(contacts, key = { it.id }) { contact ->
-                ContactItem(
-                    contact = contact,
-                    onClick = { onContactClick(contact.id) },
-                )
+                ContactItem(contact = contact, onClick = { onContactClick(contact.id) })
             }
         }
     }
@@ -96,29 +119,28 @@ private fun ContactItem(
     contact: Contact,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = contact.displayName.ifBlank { stringResource(R.string.contact_unknown_name) },
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            if (contact.email.isNotBlank()) {
+    PingCard(modifier = Modifier.clickable(onClick = onClick)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Avatar(name = contact.displayName)
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = contact.email,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = contact.displayName.ifBlank { stringResource(R.string.contact_unknown_name) },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
                 )
+                val sub = contact.email.ifBlank { contact.phone }.ifBlank { contact.social }
+                if (sub.isNotBlank()) {
+                    Text(
+                        text = sub,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-        }
-        if (contact.isFavorite) {
-            Text(text = "★", color = MaterialTheme.colorScheme.primary)
+            if (contact.isFavorite) {
+                Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+            }
         }
     }
 }

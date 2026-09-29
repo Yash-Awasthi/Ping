@@ -13,6 +13,7 @@ object Routes {
     const val CONTACTS = "contacts"
     const val EXCHANGE = "exchange"
     const val ROOM = "room"
+    const val PRACTICE = "practice"
 }
 
 /** Bottom navigation items. */

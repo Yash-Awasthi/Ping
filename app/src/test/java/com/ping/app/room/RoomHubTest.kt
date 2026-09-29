@@ -84,6 +84,15 @@ class RoomHubTest {
     }
 
     @Test
+    fun `the host knows its own key so its files are not offered back to it`() {
+        val host = newHub("h", "Hana")
+        host.host("F6A0")
+        await("open") { host.state.value.phase == RoomPhase.OPEN }
+        assertEquals(RoomProtocol.HOST_KEY, host.state.value.myKey)
+        assertEquals("", host.state.value.linkDigits)
+    }
+
+    @Test
     fun `a guest downloads a host file byte for byte`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")

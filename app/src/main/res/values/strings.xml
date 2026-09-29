@@ -17,6 +17,9 @@
     <string name="home_share_needs_profile">Fill in your Profile first so you have something to share.</string>
 
     <string name="home_room_button">File room</string>
+    <string name="home_practice_button">Practice gestures</string>
+    <string name="practice_title">Practice</string>
+    <string name="home_room_hint">Share files with people nearby</string>
 
     <!-- File room -->
     <string name="room_title">File room</string>
@@ -69,6 +72,9 @@
     <string name="exchange_waiting_peer_countdown">Waiting for the same gesture nearby… %1$ds</string>
     <string name="exchange_two_gestures">Two-gesture password</string>
     <string name="exchange_second_gesture">First gesture locked. Now switch to a different one.</string>
+    <string name="gesture_guide_button">Gesture guide</string>
+    <string name="gesture_guide_title">Gestures Ping knows</string>
+    <string name="gesture_guide_intro">Both phones must make the same gesture. Names are a best guess; what counts is the shape, direction and motion. Keep a pose still for a moment, or keep a motion going.</string>
     <string name="exchange_retry">Try again</string>
     <string name="exchange_permission_denied">Ping needs camera and nearby-device permissions to swap cards. Grant them in Settings to continue.</string>
 
@@ -82,6 +88,7 @@
 
     <!-- Profile -->
     <string name="profile_title">Your card</string>
+    <string name="profile_subtitle">This is what people get when you swap.</string>
     <string name="hint_name">Name</string>
     <string name="hint_phone">Phone</string>
     <string name="hint_email">Email</string>
@@ -104,6 +111,7 @@
     <string name="action_delete">Delete</string>
     <string name="action_close">Close</string>
     <string name="contact_copied">Copied</string>
+    <string name="contacts_count">%1$d people</string>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_no_results">No contacts match.</string>
     <string name="action_add_to_phone">Add to phone</string>

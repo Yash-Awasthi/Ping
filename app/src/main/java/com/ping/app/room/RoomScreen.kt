@@ -8,6 +8,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -19,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -33,7 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -48,6 +48,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
 import com.ping.app.auth.GestureCamera
 import com.ping.app.room.RoomProtocol.RoomFile
+import com.ping.app.ui.components.GestureGuideButton
+import com.ping.app.ui.components.PingCard
+import com.ping.app.ui.components.SectionLabel
 import com.ping.app.utils.RequiredPermissions
 import com.ping.app.utils.vibrateDouble
 import com.ping.app.utils.vibrateShort
@@ -121,6 +124,7 @@ private fun GestureLock(viewModel: RoomViewModel, onLocked: (String) -> Unit, on
     }
 
     Text(stringResource(R.string.room_lock_prompt), style = MaterialTheme.typography.titleMedium)
+    GestureGuideButton()
     Text(
         text = when (val c = camera) {
             is GestureCamera.State.NoHand -> stringResource(R.string.gesture_no_hand)
@@ -136,7 +140,8 @@ private fun GestureLock(viewModel: RoomViewModel, onLocked: (String) -> Unit, on
             modifier = Modifier
                 .fillMaxWidth()
                 .height(320.dp)
-                .clipToBounds()
+                .clip(MaterialTheme.shapes.extraLarge)
+                .border(2.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.extraLarge)
                 .semantics { contentDescription = previewDescription },
             factory = { ctx ->
                 PreviewView(ctx).also {
@@ -218,28 +223,30 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
     if (inRoom) {
         LazyColumn(modifier = Modifier.weight(1f)) {
             if (state.shared.isNotEmpty()) {
-                item { Text(stringResource(R.string.room_you_share), style = MaterialTheme.typography.labelLarge) }
+                item { SectionLabel(stringResource(R.string.room_you_share)) }
                 items(state.shared, key = { "s" + it.id }) { f ->
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(f.name)
-                            Text(Formatter.formatShortFileSize(context, f.size), style = MaterialTheme.typography.bodySmall)
-                        }
-                        TextButton(onClick = { viewModel.removeShared(f.id) }) {
-                            Text(stringResource(R.string.room_stop_sharing))
+                    PingCard(modifier = Modifier.padding(vertical = 4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(f.name, style = MaterialTheme.typography.titleMedium)
+                                Text(Formatter.formatShortFileSize(context, f.size), style = MaterialTheme.typography.bodySmall)
+                            }
+                            TextButton(onClick = { viewModel.removeShared(f.id) }) {
+                                Text(stringResource(R.string.room_stop_sharing))
+                            }
                         }
                     }
-                    HorizontalDivider()
                 }
             }
             val others = state.manifest.files.filter { it.ownerKey != state.myKey }
-            item { Text(stringResource(R.string.room_in_room), style = MaterialTheme.typography.labelLarge) }
+            item { SectionLabel(stringResource(R.string.room_in_room)) }
             if (others.isEmpty()) {
                 item { Text(stringResource(R.string.room_no_files), style = MaterialTheme.typography.bodyMedium) }
             }
             items(others, key = { it.id }) { file ->
-                RoomFileRow(file, state.transfers[file.id], onDownload = { viewModel.download(file.id) })
-                HorizontalDivider()
+                PingCard(modifier = Modifier.padding(vertical = 4.dp)) {
+                    RoomFileRow(file, state.transfers[file.id], onDownload = { viewModel.download(file.id) })
+                }
             }
         }
     }
@@ -250,7 +257,7 @@ private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> U
     val context = LocalContext.current
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(file.name)
+            Text(file.name, style = MaterialTheme.typography.titleMedium)
             Text(
                 stringResource(R.string.room_file_meta, Formatter.formatShortFileSize(context, file.size), file.ownerName),
                 style = MaterialTheme.typography.bodySmall,

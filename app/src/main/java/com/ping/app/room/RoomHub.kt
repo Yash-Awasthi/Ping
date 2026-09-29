@@ -132,10 +132,10 @@ class RoomHub @Inject constructor(
             localAdvert = Pairing.advertisement(gestureCode, UUID.randomUUID().toString().take(8))
             wireCallbacks()
             if (role == RoomRole.HOST) {
-                _state.value = RoomState(role, RoomPhase.OPEN, HOST_KEY)
+                _state.value = RoomState(role = role, phase = RoomPhase.OPEN, myKey = HOST_KEY)
                 transport.startAdvertising(localAdvert, SERVICE_ID, star = true)
             } else {
-                _state.value = RoomState(role, RoomPhase.SEARCHING)
+                _state.value = RoomState(role = role, phase = RoomPhase.SEARCHING)
                 transport.startDiscovery(SERVICE_ID, star = true)
                 searchJob = launch {
                     delay(SEARCH_MS)

@@ -20,7 +20,8 @@ No server. No cloud. No account. Your data never leaves your phone.
 | Feature | Description |
 |---------|-------------|
 | 📡 **Connection Status** | Animated indicator — scanning (blue pulse), connecting (amber spin), paired (green check), error (red X) |
-| 🤝 **Gesture Matchmaking** | 168 codes from hand pose, or chain two gestures for tens of thousands — no enrollment needed |
+| 🤝 **Gesture Matchmaking** | About 40 named hand poses plus circle and wave motions, two-hand gestures, left or right hand, or chain two gestures — no enrollment needed |
+| 🖐️ **Practice Mode** | Live label, finger count and raw measurements for your hand, with a guide to every gesture; never connects |
 | 📤 **Export All** | Share every listed contact as one `.vcf` file |
 | 🗂️ **File Room** | Host or join a room by gesture; share file names, pull files on demand over a Nearby star link. The host approves every guest and both phones show a link code to compare |
 | 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections |
@@ -71,10 +72,14 @@ No server. No cloud. No account. Your data never leaves your phone.
 ### The Gesture Code
 
 `GestureFingerprint` maps MediaPipe's 21 hand landmarks to:
-- **5-bit finger mask** — each finger extended (1) or curled (0)
-- **4-way hand direction** — left, right, up, down
+- **5-bit finger mask** — each finger extended or curled, with the thumb judged by how straight it is and how far it sits from the index knuckle
+- **Direction** — up, right, down or left (a lone thumb uses its own direction, so 👍 and 👎 are stable)
+- **Gaps, pinch, crossed fingers and palm side** — the details behind ✌️ 🖖 🖐️ 👌 🤏 🤞 ✋ 🤚
+- **Left or right hand** — from the detector, trusted only when recent frames agree
+- **Motion** — a circle drawn in the air (either way round) or a wave, tracked over the last second
+- **Two hands together** — the second hand's finger mask is added
 
-→ **168 distinct codes** from pure pose geometry (128 from fingers and direction, plus a fanned-fingers flag on an open hand). Two strangers doing the same gesture derive the same code with zero enrollment.
+The frame is rotated and mirrored to match the preview before detection, so directions mean what you see on screen. Two strangers doing the same gesture derive the same code with zero enrollment. The emoji shown is a best guess for the user; only the code decides matching. Some poses cannot be told apart by a 2D camera (👊 vs ✊, 🫵, 🤌 vs 🤏).
 
 ---
 
@@ -186,7 +191,7 @@ Aura/
 │   ├── service/        # NearbyExchangeService and its transport
 │   ├── ui/             # Compose screens
 │   └── utils/          # CryptoUtils (P-256 ECDH + HKDF + AES-256-GCM)
-├── PING_PLAN.md        # Roadmap and known limitations
+├── PING_PLAN.md        # Roadmap
 └── README.md
 ```
 
@@ -202,8 +207,10 @@ Aura/
 | Pinky finger | 1 | extended/curled |
 | Thumb | 1 | extended/curled |
 | Hand direction | 2 | left/right/up/down |
-| Splay (open hand only) | +1 | together/fanned |
-| **Total** | **7–8** | **168 codes** |
+| Gaps (open hand only) | 3 | which neighbours are apart |
+| Pinch, crossed, palm side, hand side | 1–2 each | flags |
+| Motion | 3 | none / circle either way / wave |
+| **Total** | | **thousands of codes** |
 
 ---
 

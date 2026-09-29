@@ -2,6 +2,8 @@ package com.ping.app.ui.profile
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -26,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
+import com.ping.app.ui.components.Avatar
 
 @Composable
 fun ProfileScreen(
@@ -61,11 +65,22 @@ fun ProfileScreen(
             .padding(24.dp)
             .verticalScroll(rememberScrollState()),
     ) {
-        Text(
-            text = stringResource(R.string.profile_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Avatar(name = name, size = 64.dp)
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = name.ifBlank { stringResource(R.string.profile_title) },
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.profile_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -74,6 +89,7 @@ fun ProfileScreen(
             onValueChange = { name = it },
             label = { Text(stringResource(R.string.hint_name)) },
             modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
             singleLine = true,
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -82,6 +98,7 @@ fun ProfileScreen(
             onValueChange = { phone = it },
             label = { Text(stringResource(R.string.hint_phone)) },
             modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
             singleLine = true,
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -90,6 +107,7 @@ fun ProfileScreen(
             onValueChange = { email = it },
             label = { Text(stringResource(R.string.hint_email)) },
             modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
             singleLine = true,
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -98,6 +116,7 @@ fun ProfileScreen(
             onValueChange = { social = it },
             label = { Text(stringResource(R.string.hint_social)) },
             modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
             singleLine = true,
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -106,6 +125,7 @@ fun ProfileScreen(
             onValueChange = { note = it },
             label = { Text(stringResource(R.string.hint_note)) },
             modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
             minLines = 2,
             maxLines = 2,
         )
@@ -127,7 +147,10 @@ fun ProfileScreen(
                 )
                 Toast.makeText(context, R.string.profile_saved, Toast.LENGTH_SHORT).show()
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = MaterialTheme.shapes.extraLarge,
         ) {
             Text(stringResource(R.string.profile_save))
         }
