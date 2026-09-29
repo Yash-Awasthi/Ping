@@ -16,6 +16,13 @@ class ContactTest {
     }
 
     @Test
+    fun `a card with every field blank is empty`() {
+        assertTrue(Contact.fromMap(emptyMap()).isEmptyCard)
+        assertTrue(Contact.fromMap(mapOf("name" to "  ")).isEmptyCard)
+        assertFalse(Contact.fromMap(mapOf("phone" to "1")).isEmptyCard)
+    }
+
+    @Test
     fun `vcard carries the filled fields`() {
         val v = Contact(displayName = "Ada", phone = "123", email = "a@b.c").toVCard()
         assertTrue(v.startsWith("BEGIN:VCARD\r\nVERSION:3.0\r\n"))

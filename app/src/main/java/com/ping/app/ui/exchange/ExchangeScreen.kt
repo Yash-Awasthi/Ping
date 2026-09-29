@@ -152,7 +152,7 @@ fun ExchangeScreen(
         )
         ExchangeSession.State.NO_MATCH -> stringResource(R.string.exchange_no_match)
         ExchangeSession.State.CANCELLED -> stringResource(R.string.exchange_cancelled)
-        ExchangeSession.State.ERROR -> stringResource(R.string.exchange_error_generic)
+        ExchangeSession.State.ERROR -> session?.errorMessage ?: stringResource(R.string.exchange_error_generic)
     }
 
     val connectionState = when (session?.state) {
