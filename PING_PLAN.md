@@ -22,6 +22,8 @@ builds, lint, and the unit tests are green.
 | Exchange UX — countdown, retry, confirm screen, permission prompt | ✅ done |
 | Home / Profile / Contacts screens (Compose) | ✅ done |
 | Contact export — add to phone, share as vCard | ✅ done, unit-tested |
+| Contacts search (name, phone, email, social, note), favourites first | ✅ done, unit-tested |
+| Haptics on gesture lock, confirm screen and completed swap | ✅ done, untested on a device |
 | Room DAO tests | ✅ written (`androidTest`), compile in CI; need a device to run |
 | Release build — R8 shrink + ABI splits + signed | ✅ done |
 | **On-device pairing (two phones)** | ⚠️ **unverified — needs hardware** |
