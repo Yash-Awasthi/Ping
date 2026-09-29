@@ -102,7 +102,7 @@ class GestureCamera @Inject constructor(
                 .setErrorListener { e -> Timber.e(e, "HandLandmarker error") }
                 .build()
             landmarker = HandLandmarker.createFromOptions(context, options)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             val msg = "Failed to load hand model: ${e.message}"
             Timber.e(e, msg)
             _state.value = State.ModelError(msg)
