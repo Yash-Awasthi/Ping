@@ -11,9 +11,7 @@ package com.ping.app.service
  *     in-process "endpoints" together, enabling full wire-protocol JVM tests without
  *     real BLE/Wi-Fi or an Android device.
  *
- * Scope: BYTES payloads only — STREAM payloads (avatar) are out-of-scope for this
- * interface version. Avatar tests belong in instrumented tests where the ParcelFileDescriptor
- * infrastructure is available.
+ * Scope: BYTES payloads plus optional byte streams for file transfer ([sendStream]).
  *
  * This interface intentionally has NO imports from com.google.android.gms or android.*
  * so it is usable in pure-JVM (src/test/) test code.
@@ -64,11 +62,11 @@ interface NearbyTransport {
      */
     var onConnectionInitiated: ((endpointId: String, remoteName: String) -> Unit)?
 
-    /** Start advertising under [localName] and [serviceId]. */
-    fun startAdvertising(localName: String, serviceId: String)
+    /** Start advertising under [localName] and [serviceId]; [star] lets one host serve many guests. */
+    fun startAdvertising(localName: String, serviceId: String, star: Boolean = false)
 
-    /** Start discovering endpoints advertising [serviceId]. */
-    fun startDiscovery(serviceId: String)
+    /** Start discovering endpoints advertising [serviceId]; [star] must match the host's setting. */
+    fun startDiscovery(serviceId: String, star: Boolean = false)
 
     /** Request a connection to [endpointId] found via discovery. */
     fun requestConnection(localName: String, endpointId: String)
@@ -79,6 +77,9 @@ interface NearbyTransport {
     /** Reject a pending incoming connection from [endpointId]. */
     fun rejectConnection(endpointId: String)
 
+    /** Drop one connected endpoint and leave the others up. */
+    fun disconnect(endpointId: String) {}
+
     /** Stop advertising. */
     fun stopAdvertising()
 
@@ -88,28 +89,28 @@ interface NearbyTransport {
     /** Disconnect all endpoints and clean up. */
     fun stopAllEndpoints()
 
-    // Optional streaming (avatar) — gms only; no-ops on foss / test doubles
+    // Optional streaming — gms only; no-ops on test doubles
 
     /**
-     * Send an avatar as a raw byte stream.
+     * Send a raw byte stream (file transfer).
      *
      * The concrete transport wraps it in whatever mechanism it supports
      * (Nearby Connections STREAM payload for gms; WifiDirect is bytes-only).
      *
      * Returns true if the stream transfer was initiated; false if the transport
-     * does not support streaming (FOSS / test doubles). Callers skip avatar send
+     * does not support streaming (FOSS / test doubles). Callers skip the send
      * when false is returned.
      *
      * Default: no-op, returns false. Override in gms transport only.
      */
-    fun sendAvatarStream(
+    fun sendStream(
         endpointId: String,
         inputStream: java.io.InputStream,
         lengthHint: Long,
     ): Boolean = false
 
     /**
-     * Callback for an incoming avatar byte-stream.
+     * Callback for an incoming byte-stream.
      *
      * The transport unwraps its internal stream type and delivers a plain
      * [java.io.InputStream] so callers are GMS-free.
@@ -118,7 +119,7 @@ interface NearbyTransport {
      * never invoke this callback and silently discard the setter assignment.
      * Override in gms transport only.
      */
-    var onAvatarStreamReceived: ((endpointId: String, stream: java.io.InputStream) -> Unit)?
+    var onStreamReceived: ((endpointId: String, stream: java.io.InputStream) -> Unit)?
         get() = null
         @Suppress("UNUSED_PARAMETER") set(value) {}
 }

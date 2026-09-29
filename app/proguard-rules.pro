@@ -3,6 +3,9 @@
 # Model classes — serialized via Gson and reflected by Room.
 -keep class com.ping.app.model.** { *; }
 
+# File-room wire types — Gson reads their field names at runtime.
+-keep class com.ping.app.room.RoomProtocol$* { *; }
+
 # Nearby Connections
 -keep class com.google.android.gms.nearby.** { *; }
 -dontwarn com.google.android.gms.**

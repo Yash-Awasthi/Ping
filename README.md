@@ -9,7 +9,7 @@
 
 **Ping** turns a shared hand gesture into an offline handshake. Two people agree on a gesture, hold it to the camera, and Ping matches on that pose to find the right device over Bluetooth LE — swapping contact cards with end-to-end encryption.
 
-The gesture decides *who* to connect to. It is not a secret: it is derived from the pose alone, so it has 128 possible values, and a device in radio range can enumerate them. What authenticates the peer is a six-digit code both phones show after the keys are exchanged: the cards are released only when both users confirm the digits match.
+The gesture decides *who* to connect to. It is not a secret: it is derived from the pose alone, so it has only a few hundred possible values (far more with the optional two-gesture password), and a device in radio range can enumerate them. What authenticates the peer is a six-digit code both phones show after the keys are exchanged: the cards are released only when both users confirm the digits match.
 
 No server. No cloud. No account. Your data never leaves your phone.
 
@@ -20,7 +20,8 @@ No server. No cloud. No account. Your data never leaves your phone.
 | Feature | Description |
 |---------|-------------|
 | 📡 **Connection Status** | Animated indicator — scanning (blue pulse), connecting (amber spin), paired (green check), error (red X) |
-| 🤝 **Gesture Matchmaking** | 128 distinct codes from hand pose — no enrollment needed |
+| 🤝 **Gesture Matchmaking** | 168 codes from hand pose, or chain two gestures for tens of thousands — no enrollment needed |
+| 🗂️ **File Room** | Host or join a room by gesture; share file names, pull files on demand over a Nearby star link. The host approves every guest |
 | 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections |
 | 🔐 **E2E Encryption** | P-256 ECDH → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
 | 👤 **Contact Cards** | Name, phone, email, social handles, short note |
@@ -72,7 +73,7 @@ No server. No cloud. No account. Your data never leaves your phone.
 - **5-bit finger mask** — each finger extended (1) or curled (0)
 - **4-way hand direction** — left, right, up, down
 
-→ **128 distinct codes** from pure pose geometry. Two strangers doing the same gesture derive the same code with zero enrollment.
+→ **168 distinct codes** from pure pose geometry (128 from fingers and direction, plus a fanned-fingers flag on an open hand). Two strangers doing the same gesture derive the same code with zero enrollment.
 
 ---
 
@@ -130,7 +131,7 @@ adb -s SERIAL_A logcat -s Ping:* NearbyExchangeService:* GestureCamera:*
 | Keys | Fresh every swap — nothing long-lived |
 | Transport | BLE + Wi-Fi Direct (no internet) |
 | Data | All on-device (Room v1 database) |
-| Matchmaking | The gesture is advertised only as a truncated SHA-256 token. With 128 possible values a device in range can still recover it and try to join. |
+| Matchmaking | The gesture is advertised only as a truncated SHA-256 token. With so few possible values a device in range can still recover it and try to join. |
 | Peer authentication | A six-digit short authentication string over both public keys. Users compare it on both screens; no card is sent until both confirm, and a man in the middle produces different digits on each phone. |
 | Permissions | No `INTERNET` permission, by design: the manifest removes the one a Play Services dependency injects. Networking code cannot ship in this app. |
 
@@ -200,13 +201,13 @@ Aura/
 | Pinky finger | 1 | extended/curled |
 | Thumb | 1 | extended/curled |
 | Hand direction | 2 | left/right/up/down |
-| **Total** | **7** | **128 codes** |
+| Splay (open hand only) | +1 | together/fanned |
+| **Total** | **7–8** | **168 codes** |
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] **Room Hub** — multi-device file sharing via NearbyConnections P2P_STAR
 - [ ] **iOS companion** — cross-platform gesture exchange
 - [ ] **Custom gesture sets** — user-defined gesture alphabets
 

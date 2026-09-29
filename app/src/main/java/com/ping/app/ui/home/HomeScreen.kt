@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,6 +28,7 @@ import com.ping.app.R
 @Composable
 fun HomeScreen(
     onShareClick: () -> Unit,
+    onRoomClick: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val profile by viewModel.profile.collectAsStateWithLifecycle()
@@ -93,7 +95,13 @@ fun HomeScreen(
             textAlign = TextAlign.Center,
         )
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+
+        OutlinedButton(onClick = onRoomClick) {
+            Text(stringResource(R.string.home_room_button))
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Contact count
         Text(
