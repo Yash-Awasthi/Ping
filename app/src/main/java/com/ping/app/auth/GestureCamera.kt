@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
@@ -129,9 +130,12 @@ class GestureCamera @Inject constructor(
     private fun process(proxy: ImageProxy) {
         val lm = landmarker ?: run { proxy.close(); return }
         val bitmap = proxy.toBitmap()
+        val rotation = proxy.imageInfo.rotationDegrees
         proxy.close()
+        // Sensors are mounted rotated; without this the direction bucket depends on the phone model.
+        val options = ImageProcessingOptions.builder().setRotationDegrees(rotation).build()
         try {
-            lm.detectAsync(BitmapImageBuilder(bitmap).build(), SystemClock.uptimeMillis())
+            lm.detectAsync(BitmapImageBuilder(bitmap).build(), options, SystemClock.uptimeMillis())
         } catch (e: Exception) {
             Timber.w(e, "detectAsync failed")
         }
@@ -158,6 +162,7 @@ class GestureCamera @Inject constructor(
 
         if (fp.code == lastCode) streak++ else { lastCode = fp.code; streak = 1 }
         val stability = (streak.toFloat() / COMMIT_FRAMES).coerceAtMost(1f)
+        if (streak == COMMIT_FRAMES) Timber.d("Locked gesture %s", fp.code)
         _state.value = if (streak >= COMMIT_FRAMES) State.Locked(fp)
         else State.Detecting(fp, stability)
     }
