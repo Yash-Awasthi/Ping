@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,14 +31,37 @@ fun ContactsScreen(
     viewModel: ContactsViewModel = hiltViewModel(),
 ) {
     val contacts by viewModel.contacts.collectAsStateWithLifecycle()
+    val query by viewModel.query.collectAsStateWithLifecycle()
 
+    Column(modifier = Modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = viewModel::setQuery,
+            singleLine = true,
+            placeholder = { Text(stringResource(R.string.contacts_search_hint)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+        )
+        ContactList(contacts, query, onContactClick)
+    }
+}
+
+@Composable
+private fun ContactList(
+    contacts: List<Contact>,
+    query: String,
+    onContactClick: (String) -> Unit,
+) {
     if (contacts.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = stringResource(R.string.empty_contacts),
+                text = stringResource(
+                    if (query.isBlank()) R.string.empty_contacts else R.string.contacts_no_results,
+                ),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -81,6 +105,9 @@ private fun ContactItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+        if (contact.isFavorite) {
+            Text(text = "★", color = MaterialTheme.colorScheme.primary)
         }
     }
 }
