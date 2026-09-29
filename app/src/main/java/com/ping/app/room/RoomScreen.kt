@@ -181,6 +181,13 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
         style = MaterialTheme.typography.titleMedium,
     )
 
+    if (state.phase == RoomPhase.WAITING_APPROVAL && state.linkDigits.isNotBlank()) {
+        Text(
+            stringResource(R.string.room_link_code, state.linkDigits),
+            style = MaterialTheme.typography.titleLarge,
+        )
+    }
+
     if (state.manifest.members.isNotEmpty()) {
         Text(
             stringResource(R.string.room_members, state.manifest.members.joinToString(", ")),
@@ -191,7 +198,8 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
     state.pending.forEach { guest ->
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
-                stringResource(R.string.room_wants_in, guest.name),
+                stringResource(R.string.room_wants_in, guest.name) +
+                    if (guest.digits.isNotBlank()) stringResource(R.string.room_wants_in_code, guest.digits) else "",
                 modifier = Modifier.weight(1f),
             )
             Button(onClick = { viewModel.decide(guest.endpointId, true) }) { Text(stringResource(R.string.room_allow)) }

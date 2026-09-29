@@ -2,4 +2,5 @@
 <paths>
     <external-files-path name="downloads" path="Download/Ping/" />
     <files-path name="downloads_fallback" path="Ping/" />
+    <cache-path name="export" path="export/" />
 </paths>

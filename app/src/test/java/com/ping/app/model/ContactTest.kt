@@ -41,6 +41,19 @@ class ContactTest {
     }
 
     @Test
+    fun `a card with no name still gets a vcard name`() {
+        assertTrue(Contact(email = "a@b.c").toVCard().contains("FN:a@b.c"))
+    }
+
+    @Test
+    fun `many cards export as one file body`() {
+        val body = Contact.toVCards(listOf(Contact(displayName = "A"), Contact(displayName = "B")))
+        assertEquals(2, Regex("BEGIN:VCARD").findAll(body).count())
+        assertEquals(2, Regex("END:VCARD").findAll(body).count())
+        assertEquals("", Contact.toVCards(emptyList()))
+    }
+
+    @Test
     fun `same phone or email is the same person`() {
         val a = Contact(displayName = "Ada", phone = "+1 (555) 010-2030", email = "Ada@X.io")
         assertTrue(a.isSamePerson(Contact(phone = "15550102030")))

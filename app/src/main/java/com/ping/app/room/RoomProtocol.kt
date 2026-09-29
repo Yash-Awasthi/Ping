@@ -89,9 +89,12 @@ object RoomProtocol {
     fun decodeManifest(json: String): Manifest? = runCatching {
         val m = gson.fromJson(json, Manifest::class.java)
         Manifest(
-            files = m.files.orEmpty().filter { it.size >= 0 && it.id.contains(':') }
-                .map { it.copy(name = safeName(it.name)) },
-            members = m.members.orEmpty(),
+            // Gson skips Kotlin null checks, so absent fields must be screened by hand.
+            files = m.files.orEmpty().filter {
+                it.size >= 0 && (it.id as String?)?.contains(':') == true &&
+                    !(it.ownerKey as String?).isNullOrBlank() && !(it.ownerName as String?).isNullOrBlank()
+            }.map { it.copy(name = safeName(it.name), ownerName = safeName(it.ownerName)) },
+            members = m.members.orEmpty().filterNotNull().map { safeName(it) },
         )
     }.getOrNull()
 

@@ -21,7 +21,8 @@ No server. No cloud. No account. Your data never leaves your phone.
 |---------|-------------|
 | 📡 **Connection Status** | Animated indicator — scanning (blue pulse), connecting (amber spin), paired (green check), error (red X) |
 | 🤝 **Gesture Matchmaking** | 168 codes from hand pose, or chain two gestures for tens of thousands — no enrollment needed |
-| 🗂️ **File Room** | Host or join a room by gesture; share file names, pull files on demand over a Nearby star link. The host approves every guest |
+| 📤 **Export All** | Share every listed contact as one `.vcf` file |
+| 🗂️ **File Room** | Host or join a room by gesture; share file names, pull files on demand over a Nearby star link. The host approves every guest and both phones show a link code to compare |
 | 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections |
 | 🔐 **E2E Encryption** | P-256 ECDH → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
 | 👤 **Contact Cards** | Name, phone, email, social handles, short note |

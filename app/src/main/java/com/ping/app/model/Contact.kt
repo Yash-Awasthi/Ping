@@ -37,8 +37,9 @@ data class Contact(
             .replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n")
         return buildString {
             append("BEGIN:VCARD\r\nVERSION:3.0\r\n")
-            append("FN:").append(esc(displayName)).append("\r\n")
-            append("N:").append(esc(displayName)).append(";;;;\r\n")
+            val fn = displayName.ifBlank { email.ifBlank { phone.ifBlank { social } } }
+            append("FN:").append(esc(fn)).append("\r\n")
+            append("N:").append(esc(fn)).append(";;;;\r\n")
             if (phone.isNotBlank()) append("TEL:").append(esc(phone)).append("\r\n")
             if (email.isNotBlank()) append("EMAIL:").append(esc(email)).append("\r\n")
             if (social.isNotBlank()) append("URL:").append(esc(social)).append("\r\n")
@@ -48,6 +49,9 @@ data class Contact(
     }
 
     companion object {
+        /** One .vcf body holding every card in [contacts]. */
+        fun toVCards(contacts: List<Contact>): String = contacts.joinToString("") { it.toVCard() }
+
         /** Field keys used on the wire (see [Profile.toShareableMap]). */
         fun fromMap(map: Map<String, String>): Contact = Contact(
             displayName = map["name"].orEmpty(),

@@ -40,6 +40,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     override var onDisconnected: ((endpointId: String) -> Unit)? = null
     override var onEndpointFound: ((endpointId: String, remoteName: String) -> Unit)? = null
     override var onConnectionInitiated: ((endpointId: String, remoteName: String) -> Unit)? = null
+    override var onAuthDigits: ((endpointId: String, digits: String) -> Unit)? = null
 
     // Streaming — NearbyTransport optional extension
 
@@ -88,6 +89,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
             endpointNames[endpointId] = info.endpointName
             incomingInitiated.add(endpointId)
             Timber.d("NearbyConnectionsTransport: connection initiated from $endpointId (${info.endpointName})")
+            onAuthDigits?.invoke(endpointId, info.authenticationDigits)
             onConnectionInitiated?.invoke(endpointId, info.endpointName)
         }
 

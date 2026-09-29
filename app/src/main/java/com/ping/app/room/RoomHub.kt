@@ -28,6 +28,8 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
 import java.io.SequenceInputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -51,7 +53,8 @@ enum class RoomPhase {
     CLOSED,
 }
 
-data class PendingGuest(val endpointId: String, val name: String)
+/** [digits] is the code both phones show for this link; the host compares it with the guest. */
+data class PendingGuest(val endpointId: String, val name: String, val digits: String = "")
 
 data class Transfer(
     val status: Status,
@@ -65,6 +68,8 @@ data class Transfer(
 data class RoomState(
     val role: RoomRole? = null,
     val phase: RoomPhase = RoomPhase.IDLE,
+    /** Guest only: the link code to read out to the host while waiting to be let in. */
+    val linkDigits: String = "",
     /** Our owner key in the manifest: [HOST_KEY] for the host, the endpoint id the host gave us otherwise. */
     val myKey: String = "",
     /** Host only: guests that connected and wait for a decision. */
@@ -104,6 +109,8 @@ class RoomHub @Inject constructor(
     private val wanted: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val relay = ConcurrentHashMap<String, MutableSet<String>>()
     private val cache = ConcurrentHashMap<String, File>()
+    private val digits = ConcurrentHashMap<String, String>()
+    private val downloadLock = Any()
     private var nextLocalId = 1
 
     @Volatile private var code = ""
@@ -167,12 +174,14 @@ class RoomHub @Inject constructor(
             transport.onPayloadReceived = null
             transport.onDisconnected = null
             transport.onStreamReceived = null
+            transport.onAuthDigits = null
         }
         guests.clear()
         sharedOpeners.clear()
         wanted.clear()
         relay.clear()
         cache.clear()
+        digits.clear()
         cacheDir().deleteRecursively()
         hostEndpoint = null
         nextLocalId = 1
@@ -242,6 +251,7 @@ class RoomHub @Inject constructor(
             } else {
                 transport.sendBytes(endpointId, RoomProtocol.frame(RoomProtocol.T_DENIED))
                 guests.remove(endpointId)
+                digits.remove(endpointId)
                 refreshPending()
                 delay(DISCONNECT_GRACE_MS)
                 transport.disconnect(endpointId)
@@ -250,7 +260,7 @@ class RoomHub @Inject constructor(
     }
 
     private fun refreshPending() {
-        val pending = guests.filterValues { !it.approved }.map { PendingGuest(it.key, it.value.name) }
+        val pending = guests.filterValues { !it.approved }.map { PendingGuest(it.key, it.value.name, digits[it.key].orEmpty()) }
         _state.update { it.copy(pending = pending) }
     }
 
@@ -343,6 +353,7 @@ class RoomHub @Inject constructor(
                 }
             }
         }
+        transport.onAuthDigits = { endpointId, code -> digits[endpointId] = code }
         transport.onConnectionInitiated = { endpointId, remoteName ->
             scope.launch {
                 val ok = Pairing.matches(code, remoteName) && when (_state.value.role) {
@@ -363,7 +374,9 @@ class RoomHub @Inject constructor(
                     RoomRole.GUEST -> if (endpointId == hostEndpoint) {
                         searchJob?.cancel()
                         transport.stopDiscovery()
-                        _state.update { it.copy(phase = RoomPhase.WAITING_APPROVAL) }
+                        _state.update {
+                            it.copy(phase = RoomPhase.WAITING_APPROVAL, linkDigits = digits[endpointId].orEmpty())
+                        }
                         transport.sendBytes(endpointId, RoomProtocol.frameText(RoomProtocol.T_HELLO, myName))
                     }
                     null -> Unit
@@ -378,6 +391,7 @@ class RoomHub @Inject constructor(
     private fun onGone(endpointId: String) {
         val s = _state.value
         if (s.role == RoomRole.HOST) {
+            digits.remove(endpointId)
             val g = guests.remove(endpointId) ?: return
             relay.values.forEach { it.remove(endpointId) }
             relay.keys.filter { RoomProtocol.ownerOf(it) == endpointId }.forEach { gid ->
@@ -485,10 +499,11 @@ class RoomHub @Inject constructor(
                 }
             }
             check(count == size) { "stream ended at $count of $size" }
-            check(part.renameTo(dest)) { "rename failed" }
+            Files.move(part.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }.onFailure { Timber.w(it, "Room transfer %s failed", gid) }.isSuccess
         if (!ok) {
             part.delete()
+            dest.delete()
             if (hostWaiting) failTransfer(gid)
         }
         return ok
@@ -517,11 +532,14 @@ class RoomHub @Inject constructor(
     private fun downloadDir() = (context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir)
         .resolve("Ping").apply { mkdirs() }
 
-    /** A path inside [downloadDir] that does not overwrite an earlier download. */
-    private fun downloadFile(name: String): File {
+    /**
+     * A path inside [downloadDir] that no earlier or concurrent download uses. The empty file
+     * created here holds the name until the transfer replaces it or fails.
+     */
+    private fun downloadFile(name: String): File = synchronized(downloadLock) {
         val dir = downloadDir()
-        val taken = dir.list()?.toSet().orEmpty()
-        return File(dir, RoomProtocol.uniqueName(RoomProtocol.safeName(name), taken))
+        val taken = dir.list()?.map { it.removeSuffix(".part") }?.toSet().orEmpty()
+        File(dir, RoomProtocol.uniqueName(RoomProtocol.safeName(name), taken)).also { it.createNewFile() }
     }
 
     private companion object {
