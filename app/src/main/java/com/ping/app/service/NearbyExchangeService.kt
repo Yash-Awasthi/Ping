@@ -34,11 +34,11 @@ import javax.inject.Inject
  * The Ping swap engine.
  *
  * Matchmaking by gesture:
- *  - We advertise a local name of the form `<gestureCode>|<displayName>`.
- *  - When we discover a peer, we parse their advertised gesture code and only
- *    request a connection if it equals ours. Two phones doing the *same*
- *    gesture within the pairing window are the only ones that connect.
- *  - Once connected we run a tiny ECDH handshake and swap AES-GCM-sealed cards.
+ *  - We advertise `<codeToken>|<sessionNonce>`, a hash of the gesture code, never the code.
+ *  - When we discover a peer we only request a connection if its token equals ours,
+ *    and we only accept an incoming connection whose token equals ours.
+ *  - Once connected we swap ephemeral ECDH keys and both users compare a six-digit
+ *    code. No card leaves this phone until its user confirms the codes match.
  *
  * If no matching peer appears within [WINDOW_MS] the session ends as NO_MATCH.
  * Everything is offline — Nearby Connections uses BLE + Wi-Fi Direct directly.
@@ -66,6 +66,10 @@ class NearbyExchangeService : Service() {
     private val sessionKeys = ConcurrentHashMap<String, SecretKey>()
     /** Endpoints we've already sent our card to, so we don't double-send. */
     private val cardSent = ConcurrentHashMap.newKeySet<String>()
+    /** Set once the local user has confirmed the short authentication string. */
+    @Volatile private var confirmed = false
+    /** Peer card that arrived before the local user confirmed. */
+    @Volatile private var pendingCardJson: String? = null
 
     @Volatile private var connectedEndpoint: String? = null
     private var windowJob: Job? = null
@@ -78,6 +82,10 @@ class NearbyExchangeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_CONFIRM -> { onUserConfirmed(); return START_NOT_STICKY }
+            ACTION_REJECT -> { onUserRejected(); return START_NOT_STICKY }
+        }
         val code = intent?.getStringExtra(EXTRA_GESTURE_CODE)
         if (code == null) {
             Timber.w("No gesture code supplied — stopping")
@@ -134,9 +142,14 @@ class NearbyExchangeService : Service() {
             markConnecting()
         }
 
-        transport.onConnectionInitiated = { endpointId, _ ->
-            // Accept every initiated connection — the gesture code already gated us.
-            transport.acceptConnection(endpointId)
+        transport.onConnectionInitiated = { endpointId, remoteName ->
+            val peerToken = remoteName.substringBefore('|', missingDelimiterValue = "")
+            if (peerToken == advertisementToken && connectedEndpoint in listOf(null, endpointId)) {
+                transport.acceptConnection(endpointId)
+            } else {
+                Timber.w("Rejecting %s: token mismatch or session already taken", endpointId)
+                transport.rejectConnection(endpointId)
+            }
         }
 
         transport.onConnected = { endpointId, _, _ ->
@@ -172,21 +185,39 @@ class NearbyExchangeService : Service() {
         val body = data.copyOfRange(1, data.size)
         when (type) {
             TYPE_KEY -> {
+                if (endpointId != connectedEndpoint || sessionKeys.containsKey(endpointId)) return
                 val peerPub: PublicKey = runCatching { CryptoUtils.decodePublicKey(body) }
                     .getOrElse { Timber.e(it, "Bad peer key"); return }
                 val key = CryptoUtils.deriveSharedKey(keyPair.private, peerPub)
                 sessionKeys[endpointId] = key
-                _session.value = _session.value?.copy(state = ExchangeSession.State.EXCHANGING)
-                // Now that we can encrypt, send our card.
-                sendCard(endpointId, key)
+                val sas = CryptoUtils.shortAuthString(CryptoUtils.encodePublicKey(keyPair.public), body)
+                _session.value = _session.value?.copy(
+                    state = ExchangeSession.State.AWAITING_CONFIRM,
+                    sas = sas,
+                )
             }
             TYPE_CARD -> {
                 val key = sessionKeys[endpointId] ?: run { Timber.w("Card before key"); return }
                 val json = runCatching { String(CryptoUtils.decrypt(key, body)) }
                     .getOrElse { Timber.e(it, "Card decrypt failed"); return }
-                saveContact(json)
+                if (confirmed) saveContact(json) else pendingCardJson = json
             }
         }
+    }
+
+    private fun onUserConfirmed() {
+        val endpoint = connectedEndpoint ?: return
+        val key = sessionKeys[endpoint] ?: return
+        if (_session.value?.state != ExchangeSession.State.AWAITING_CONFIRM) return
+        confirmed = true
+        _session.value = _session.value?.copy(state = ExchangeSession.State.EXCHANGING)
+        sendCard(endpoint, key)
+        pendingCardJson?.let { saveContact(it) }
+    }
+
+    private fun onUserRejected() {
+        _session.value = _session.value?.copy(state = ExchangeSession.State.CANCELLED)
+        shutdown()
     }
 
     private fun sendCard(endpointId: String, key: SecretKey) {
@@ -274,6 +305,8 @@ class NearbyExchangeService : Service() {
         private const val SERVICE_ID = "com.ping.app.swap"
         private const val NOTIF_ID = 42
         private const val EXTRA_GESTURE_CODE = "gesture_code"
+        private const val ACTION_CONFIRM = "com.ping.app.action.CONFIRM"
+        private const val ACTION_REJECT = "com.ping.app.action.REJECT"
         /** Pairing window — both people must be searching within this window. */
         const val WINDOW_SECONDS = 10
         private const val WINDOW_MS = WINDOW_SECONDS * 1000L
@@ -291,6 +324,20 @@ class NearbyExchangeService : Service() {
             val intent = Intent(context, NearbyExchangeService::class.java)
                 .putExtra(EXTRA_GESTURE_CODE, gestureCode)
             context.startForegroundService(intent)
+        }
+
+        /** The user saw the same six digits on both phones. */
+        fun confirm(context: Context) {
+            context.startService(
+                Intent(context, NearbyExchangeService::class.java).setAction(ACTION_CONFIRM)
+            )
+        }
+
+        /** The digits differ, or the user does not recognise the peer. */
+        fun reject(context: Context) {
+            context.startService(
+                Intent(context, NearbyExchangeService::class.java).setAction(ACTION_REJECT)
+            )
         }
 
         fun stop(context: Context) {

@@ -25,6 +25,9 @@
     <string name="status_connecting">Found a match! Connecting…</string>
     <string name="status_exchanging">Swapping cards…</string>
     <string name="exchange_completed">Swapped with %1$s!</string>
+    <string name="exchange_confirm_prompt">Both phones must show this code: %1$s</string>
+    <string name="exchange_confirm_match">It matches</string>
+    <string name="exchange_confirm_mismatch">It differs</string>
     <string name="exchange_cancelled">Cancelled</string>
     <string name="exchange_error_generic">Something went wrong. Try again.</string>
     <string name="exchange_no_match">No match found nearby. Both do the same gesture and try again.</string>
@@ -64,6 +67,8 @@
     <string name="action_delete">Delete</string>
     <string name="action_close">Close</string>
     <string name="contact_copied">Copied</string>
+    <string name="action_add_to_phone">Add to phone</string>
+    <string name="action_share_vcard">Share vCard</string>
     <string name="contact_toggle_favourite_initial">Toggle favourite</string>
 
     <!-- Exchange success sheet -->

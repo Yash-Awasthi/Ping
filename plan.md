@@ -1006,3 +1006,32 @@ commit carries the manifest change and the `SessionViewModel` deletion.
   crypto modules.
 - Everything in §6.7 stands unchanged, including the field test on real hardware.
 
+
+## Part 8 — Third pass: peer authentication, dead-code deletion, docs
+
+Status as of 2026-09-29. Closes the items Parts 6 and 7 left open, except hardware verification.
+
+### Applied
+
+| Item | Change |
+|---|---|
+| Defect 12 (peer authentication) | The connection is now accepted only when the peer's advertised token equals ours and no other endpoint holds the session. After the P-256 keys are swapped both phones derive `CryptoUtils.shortAuthString` (SHA-256 over both public keys, sorted, reduced to six digits) and show it. No card is sent until the local user confirms; a card that arrives early is held until then. A man in the middle holds different keys on each leg, so the digits differ. |
+| Defect 14 (`foss` flavor comment) | `TransportModule` no longer documents a flavor that does not exist. |
+| Defect 15 (permissions) | Documented in `PING_PLAN.md`, `README.md` security table. |
+| Defect 16 (unreferenced files) | A reachability pass from `PingApplication`, `MainActivity`, `NearbyExchangeService` and the Hilt modules, followed by hand review, removed 56 Kotlin files from the build tree: the fake-primitive crypto modules named in Part 7 §3 (`PostQuantumCrypto`, `BlePqxdhProtocol`, `EndToEndEncryption`), every other unwired crypto file, the mesh, walkie-talkie, Nostr, Matrix, LocalSend-family and Quick Share modules, and `SessionRepository` with its `AppModule` provider. They are tracked in git history, so nothing is unrecoverable. `app/unwired/` is unchanged. |
+| Defect 20 (`PING_PLAN.md` stale) | Status table, "how it works" and known limitations rewritten against the code. |
+| Part 7 §3 comments | `NearbyExchangeService` header and `CryptoUtils` header describe the current protocol; the README no longer claims the raw code is displayed or shows a `0x1A` code. |
+| Part 7 §3 build config | `viewBinding`, `constraintlayout` and the two Fragment navigation artifacts removed; `navigation-compose` declared directly. `material` stays because `Theme.Ping` inherits from `Theme.MaterialComponents`. 27 unused drawables and animations deleted. |
+| Phase 3 | Room DAO instrumented test added (`androidTest/.../ContactDaoTest`), compiled in CI by `assembleDebugAndroidTest`. Unit tests are now 17: fingerprint 6, crypto 8 (two new for the short authentication string), contact and vCard 3. |
+| Phase 5 §4 | "Add to phone" (`ContactsContract` insert intent) and vCard 3.0 share from the contact detail screen; `Contact.toVCard` escapes separators and newlines so a note cannot inject a field. |
+
+### Not done, and why
+
+- **Field test on two phones.** Needs hardware. Everything in §6.7 about the camera binding, the
+  ten-second window and matchmaking stands, plus the new confirm screen.
+- **Gesture depth** (Phase 5 §5). Changes the code space, the advertised token and the README table
+  together; it should follow the field test rather than precede it.
+- **Room hub / file transfer** (Phase 5 §2) and **voice** (Phase 5 §3). Both are new products on top
+  of an unverified pairing path; voice also needs `RECORD_AUDIO`.
+- **Instrumented tests were compiled, not run.** No device was attached.
+- **`foss` flavor.** Decision recorded: not building it; the transport is a single Hilt provider.

@@ -64,4 +64,21 @@ class CryptoUtilsTest {
             CryptoUtils.decrypt(aliceKey, ByteArray(4))
         }
     }
+
+    @Test
+    fun `both phones compute the same short authentication string`() {
+        val a = CryptoUtils.encodePublicKey(CryptoUtils.generateEphemeralKeyPair().public)
+        val b = CryptoUtils.encodePublicKey(CryptoUtils.generateEphemeralKeyPair().public)
+        val sas = CryptoUtils.shortAuthString(a, b)
+        assertEquals(sas, CryptoUtils.shortAuthString(b, a))
+        assertEquals(6, sas.length)
+    }
+
+    @Test
+    fun `a substituted key changes the short authentication string`() {
+        val a = CryptoUtils.encodePublicKey(CryptoUtils.generateEphemeralKeyPair().public)
+        val b = CryptoUtils.encodePublicKey(CryptoUtils.generateEphemeralKeyPair().public)
+        val mitm = CryptoUtils.encodePublicKey(CryptoUtils.generateEphemeralKeyPair().public)
+        assert(CryptoUtils.shortAuthString(a, b) != CryptoUtils.shortAuthString(a, mitm))
+    }
 }

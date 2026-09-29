@@ -3,6 +3,7 @@ package com.ping.app.utils
 import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.KeyPairGenerator
+import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.spec.X509EncodedKeySpec
@@ -22,8 +23,10 @@ import javax.crypto.spec.SecretKeySpec
  *  3. Both derive the same AES-256 key via ECDH + HKDF-SHA256 ([deriveSharedKey]).
  *  4. The card JSON is sealed with AES-256-GCM ([encrypt] / [decrypt]).
  *
- * No long-lived keys, no post-quantum layers, no SAS — this is a playful
- * proximity swap, not a state-secret channel. The gesture is the pairing gate.
+ *  5. Both users compare [shortAuthString] and confirm before any card is released.
+ *
+ * No long-lived keys, no post-quantum layers. The gesture only picks who to connect
+ * to; the compared code is what authenticates the peer.
  */
 object CryptoUtils {
 
@@ -68,6 +71,30 @@ object CryptoUtils {
         shared.fill(0)
         prk.fill(0)
         return SecretKeySpec(okm, "AES")
+    }
+
+    /**
+     * Six-digit short authentication string over both public keys, identical on both
+     * phones. Keys are sorted so the order they were received in does not matter; a
+     * man in the middle holds different keys on each leg, so the two phones disagree.
+     */
+    fun shortAuthString(keyA: ByteArray, keyB: ByteArray): String {
+        val (first, second) = if (compareUnsigned(keyA, keyB) <= 0) keyA to keyB else keyB to keyA
+        val digest = MessageDigest.getInstance("SHA-256").apply {
+            update("ping-sas-v1".toByteArray())
+            update(first)
+            update(second)
+        }.digest()
+        val n = digest.take(4).fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xFF) }
+        return "%06d".format(n % 1_000_000L)
+    }
+
+    private fun compareUnsigned(a: ByteArray, b: ByteArray): Int {
+        for (i in 0 until minOf(a.size, b.size)) {
+            val d = (a[i].toInt() and 0xFF) - (b[i].toInt() and 0xFF)
+            if (d != 0) return d
+        }
+        return a.size - b.size
     }
 
     /** AES-256-GCM seal. Returns IV(12) || ciphertext || tag(16). */
