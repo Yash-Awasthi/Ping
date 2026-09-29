@@ -230,6 +230,15 @@ class NearbyExchangeService : Service() {
             val map = runCatching { gson.fromJson(json, Map::class.java) as Map<String, String> }
                 .getOrElse { emptyMap() }
             val contact = Contact.fromMap(map)
+            if (contact.isEmptyCard) {
+                Timber.w("Rejected an empty card")
+                _session.value = _session.value?.copy(
+                    state = ExchangeSession.State.ERROR,
+                    errorMessage = "The other person has not set up their card.",
+                )
+                shutdown()
+                return@launch
+            }
             contactRepo.save(contact)
             Timber.i("Saved contact: %s", contact.displayName)
             _session.value = _session.value?.copy(

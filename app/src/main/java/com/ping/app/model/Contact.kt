@@ -19,6 +19,10 @@ data class Contact(
     val receivedAt: Long = System.currentTimeMillis(),
     val isFavorite: Boolean = false,
 ) {
+    /** True when the sender had not filled in any field; such a card is not worth saving. */
+    val isEmptyCard: Boolean
+        get() = listOf(displayName, phone, email, social, note).all { it.isBlank() }
+
     /** vCard 3.0 text for sharing; values are escaped per RFC 2426 so a card cannot inject fields. */
     fun toVCard(): String {
         fun esc(v: String) = v.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
