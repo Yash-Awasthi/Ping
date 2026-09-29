@@ -23,6 +23,14 @@ data class Contact(
     val isEmptyCard: Boolean
         get() = listOf(displayName, phone, email, social, note).all { it.isBlank() }
 
+    /** True when [other] is the same person: a shared phone number (digits only) or email. */
+    fun isSamePerson(other: Contact): Boolean {
+        fun digits(v: String) = v.filter(Char::isDigit)
+        val phoneMatch = digits(phone).isNotEmpty() && digits(phone) == digits(other.phone)
+        val emailMatch = email.isNotBlank() && email.trim().equals(other.email.trim(), ignoreCase = true)
+        return phoneMatch || emailMatch
+    }
+
     /** vCard 3.0 text for sharing; values are escaped per RFC 2426 so a card cannot inject fields. */
     fun toVCard(): String {
         fun esc(v: String) = v.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")

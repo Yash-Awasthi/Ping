@@ -239,11 +239,11 @@ class NearbyExchangeService : Service() {
                 shutdown()
                 return@launch
             }
-            contactRepo.save(contact)
-            Timber.i("Saved contact: %s", contact.displayName)
+            val saved = contactRepo.saveReceived(contact)
+            Timber.i("Saved contact: %s", saved.displayName)
             _session.value = _session.value?.copy(
                 state = ExchangeSession.State.COMPLETED,
-                receivedContact = contact
+                receivedContact = saved
             )
             shutdown()
         }
