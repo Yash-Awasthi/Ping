@@ -26,7 +26,7 @@ builds, lint, and the unit tests are green.
 | Haptics on gesture lock, confirm screen and completed swap | ✅ done, untested on a device |
 | Room DAO tests | ✅ written (`androidTest`), compile in CI; need a device to run |
 | Release build — R8 shrink + ABI splits + signed | ✅ done |
-| **On-device pairing (two phones)** | ⚠️ **unverified — needs hardware** |
+| On-device pairing (two phones) | ✅ verified once on a Realme and a Samsung; timing not tuned |
 | File-sharing room hub | ⛔ not started |
 | App icon / branding for "Ping" | ⛔ not started |
 
@@ -130,7 +130,7 @@ PairDrop) into this tree; it cannot work and would break the "nothing leaves you
 promise.
 
 ## Known limitations
-- **Not tested on hardware** — the entire pairing path is unverified on real BLE.
+- **One two-phone run only** — pairing worked once; `COMMIT_FRAMES`, `WINDOW_SECONDS` and the finger threshold are untuned.
 - **128-code space** — see roadmap §3. Gesture depth is the next protocol change.
 - **Peer authentication is manual** — the six-digit compare only protects users who
   actually compare the digits.
