@@ -1035,3 +1035,14 @@ Status as of 2026-09-29. Closes the items Parts 6 and 7 left open, except hardwa
   of an unverified pairing path; voice also needs `RECORD_AUDIO`.
 - **Instrumented tests were compiled, not run.** No device was attached.
 - **`foss` flavor.** Decision recorded: not building it; the transport is a single Hilt provider.
+
+## Part 9 — Verification pass
+
+Status as of 2026-09-29.
+
+- `:app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lint :app:assembleDebugAndroidTest` all pass.
+- `app/unwired/` deleted. No build file, source set or document depended on it; it stays in git history.
+- One phone attached (Realme RMX5061, arm64). The debug build installs and launches to the Home screen. The two-phone
+  pairing check, gesture tuning, gesture depth and the Room hub were not done: they need a second device.
+- Contacts search, favourites ordering and haptics could not be checked: the phone has no saved contacts, and
+  contacts only arrive through a swap.
