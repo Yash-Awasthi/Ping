@@ -27,11 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Provided via Hilt in the `gms` product flavor — see `di/TransportModule.kt`
  * in the `gms` source set.
  *
- * Avatar STREAM payloads
- * Nearby Connections supports STREAM payloads for large binary transfers (avatar JPEG).
- * This is not part of the [NearbyTransport] interface (Wi-Fi Direct is bytes-only).
- * [NearbyExchangeService] downcasts to [NearbyConnectionsTransport] to access
- * [onStreamPayload] and [sendStreamPayload] for avatar handling in the gms flavor.
+ * STREAM payloads carry file bytes for the room hub; see [sendStream] and [onStreamReceived].
  */
 class NearbyConnectionsTransport(context: Context) : NearbyTransport {
 
@@ -45,14 +41,14 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     override var onEndpointFound: ((endpointId: String, remoteName: String) -> Unit)? = null
     override var onConnectionInitiated: ((endpointId: String, remoteName: String) -> Unit)? = null
 
-    // Avatar streaming — NearbyTransport optional extension (gms only)
+    // Streaming — NearbyTransport optional extension
 
-    private var _onAvatarStreamReceived: ((endpointId: String, stream: java.io.InputStream) -> Unit)? = null
+    private var _onStreamReceived: ((endpointId: String, stream: java.io.InputStream) -> Unit)? = null
 
     /** Bridges the GMS [Payload.Type.STREAM] callback to a plain [InputStream]. */
-    override var onAvatarStreamReceived: ((endpointId: String, stream: java.io.InputStream) -> Unit)?
-        get() = _onAvatarStreamReceived
-        set(value) { _onAvatarStreamReceived = value }
+    override var onStreamReceived: ((endpointId: String, stream: java.io.InputStream) -> Unit)?
+        get() = _onStreamReceived
+        set(value) { _onStreamReceived = value }
 
     // Internal state
 
@@ -76,7 +72,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
                 }
                 Payload.Type.STREAM -> {
                     val stream = payload.asStream()?.asInputStream() ?: return
-                    _onAvatarStreamReceived?.invoke(endpointId, stream)
+                    _onStreamReceived?.invoke(endpointId, stream)
                 }
                 else -> Timber.d("NearbyConnectionsTransport: ignoring payload type ${payload.type} from $endpointId")
             }
@@ -130,15 +126,15 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
 
     // NearbyTransport — implementation
 
-    override fun startAdvertising(localName: String, serviceId: String) {
-        val options = AdvertisingOptions.Builder().setStrategy(STRATEGY).build()
+    override fun startAdvertising(localName: String, serviceId: String, star: Boolean) {
+        val options = AdvertisingOptions.Builder().setStrategy(strategy(star)).build()
         client.startAdvertising(localName, serviceId, connectionLifecycleCallback, options)
             .addOnSuccessListener { Timber.d("NearbyConnectionsTransport: advertising started as $localName") }
             .addOnFailureListener { e -> Timber.e(e, "NearbyConnectionsTransport: startAdvertising failed") }
     }
 
-    override fun startDiscovery(serviceId: String) {
-        val options = DiscoveryOptions.Builder().setStrategy(STRATEGY).build()
+    override fun startDiscovery(serviceId: String, star: Boolean) {
+        val options = DiscoveryOptions.Builder().setStrategy(strategy(star)).build()
         client.startDiscovery(serviceId, endpointDiscoveryCallback, options)
             .addOnSuccessListener { Timber.d("NearbyConnectionsTransport: discovery started") }
             .addOnFailureListener { e -> Timber.e(e, "NearbyConnectionsTransport: startDiscovery failed") }
@@ -162,6 +158,10 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
         client.rejectConnection(endpointId)
             .addOnSuccessListener { Timber.d("NearbyConnectionsTransport: rejected $endpointId") }
             .addOnFailureListener { e -> Timber.e(e, "NearbyConnectionsTransport: rejectConnection failed for $endpointId") }
+    }
+
+    override fun disconnect(endpointId: String) {
+        client.disconnectFromEndpoint(endpointId)
     }
 
     override fun stopAdvertising() {
@@ -189,10 +189,9 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     /**
      * Wrap [inputStream] in a Nearby Connections STREAM [Payload] and send it to [endpointId].
      *
-     * Implements [NearbyTransport.sendAvatarStream] for the gms flavor.
-     * Wi-Fi Direct / test doubles use the default no-op that returns false.
+     * Implements [NearbyTransport.sendStream]; test doubles use the default no-op that returns false.
      */
-    override fun sendAvatarStream(
+    override fun sendStream(
         endpointId: String,
         inputStream: java.io.InputStream,
         lengthHint: Long,
@@ -204,12 +203,12 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
                 .addOnFailureListener { e -> Timber.e(e, "NearbyConnectionsTransport: STREAM send failed to $endpointId") }
             true
         } catch (e: Exception) {
-            Timber.e(e, "NearbyConnectionsTransport: sendAvatarStream failed to $endpointId")
+            Timber.e(e, "NearbyConnectionsTransport: sendStream failed to $endpointId")
             false
         }
     }
 
     companion object {
-        private val STRATEGY = Strategy.P2P_CLUSTER
+        private fun strategy(star: Boolean) = if (star) Strategy.P2P_STAR else Strategy.P2P_CLUSTER
     }
 }

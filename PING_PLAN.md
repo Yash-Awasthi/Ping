@@ -27,8 +27,10 @@ builds, lint, and the unit tests are green.
 | Room DAO tests | ✅ written (`androidTest`), compile in CI; need a device to run |
 | Release build — R8 shrink + ABI splits + signed | ✅ done |
 | On-device pairing (two phones) | ✅ verified once on a Realme and a Samsung; timing not tuned |
-| File-sharing room hub | ⛔ not started |
-| App icon / branding for "Ping" | ⛔ not started |
+| File-sharing room hub (host approves guests, on-demand pull, guest-to-guest relay via host) | ✅ done, protocol and relay unit-tested in-process; not yet run on real phones |
+| App icon / branding for "Ping" | ✅ adaptive icon with themed layer |
+| Gesture depth (splay flag, optional two-gesture password) | ✅ done, unit-tested |
+| Repeat swap refreshes the saved contact | ✅ done, unit-tested |
 
 ### How it works today
 - **Gesture = password.** `GestureFingerprint` maps MediaPipe's 21 hand landmarks to a

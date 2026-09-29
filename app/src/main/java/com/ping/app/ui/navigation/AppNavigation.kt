@@ -12,6 +12,7 @@ object Routes {
     const val PROFILE = "profile"
     const val CONTACTS = "contacts"
     const val EXCHANGE = "exchange"
+    const val ROOM = "room"
 }
 
 /** Bottom navigation items. */
