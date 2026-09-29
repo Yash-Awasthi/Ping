@@ -27,6 +27,8 @@ No server. No cloud. No account. Your data never leaves your phone.
 | 🎯 **Auto-Matchmaking** | Phones only connect when the advertised gesture tokens match |
 | ✅ **Peer Check** | Compare a six-digit code on both phones before any card is sent |
 | 📷 **Live Gesture Preview** | See the detected pose and its stability before it locks |
+| 🔎 **Contact Search** | Filter by any field; favourites sort first |
+| 📳 **Haptics** | Pulse on gesture lock, on the confirm screen, and on a finished swap |
 | 📇 **Contact Export** | Add a received card to the phone's contacts, or share it as a vCard |
 | 💾 **Offline Contacts** | Room v1 database — contacts persist on device |
 | 🔒 **Permission Denied UX** | Clear explanations when camera/Nearby permissions are missing |
@@ -207,7 +209,6 @@ Aura/
 - [ ] **Room Hub** — multi-device file sharing via NearbyConnections P2P_STAR
 - [ ] **iOS companion** — cross-platform gesture exchange
 - [ ] **Custom gesture sets** — user-defined gesture alphabets
-- [ ] **Haptic feedback** — vibration on successful gesture lock
 
 ---
 

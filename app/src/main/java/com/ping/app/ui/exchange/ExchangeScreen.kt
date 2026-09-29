@@ -46,6 +46,8 @@ import com.ping.app.service.NearbyExchangeService
 import com.ping.app.ui.ConnectionState
 import com.ping.app.ui.ConnectionStatusIndicator
 import com.ping.app.utils.RequiredPermissions
+import com.ping.app.utils.vibrateDouble
+import com.ping.app.utils.vibrateShort
 import kotlinx.coroutines.delay
 
 /**
@@ -103,11 +105,16 @@ fun ExchangeScreen(
         val locked = cameraState as? GestureCamera.State.Locked ?: return@LaunchedEffect
         if (searchStarted) return@LaunchedEffect
         searchStarted = true
+        runCatching { context.vibrateShort() }
         viewModel.stopCamera()
         NearbyExchangeService.start(context, locked.fingerprint.code)
     }
 
     LaunchedEffect(session?.state) {
+        val s = session?.state
+        if (s == ExchangeSession.State.AWAITING_CONFIRM || s == ExchangeSession.State.COMPLETED) {
+            runCatching { context.vibrateDouble() }
+        }
         if (session?.state != ExchangeSession.State.SEARCHING) return@LaunchedEffect
         remaining = NearbyExchangeService.WINDOW_SECONDS
         while (remaining > 0) {
