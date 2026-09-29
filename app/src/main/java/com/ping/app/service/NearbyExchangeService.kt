@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.security.KeyPair
-import java.security.MessageDigest
 import java.security.PublicKey
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -57,8 +56,6 @@ class NearbyExchangeService : Service() {
     private lateinit var localName: String
     private lateinit var keyPair: KeyPair
 
-    /** What the radio advertises in place of [gestureCode]; see [codeToken]. */
-    private lateinit var advertisementToken: String
     /** Per-session suffix: keeps the advertisement unique and the initiator tie-break fair. */
     private val sessionNonce = UUID.randomUUID().toString().take(8)
 
@@ -99,14 +96,13 @@ class NearbyExchangeService : Service() {
 
     private fun begin(code: String) {
         gestureCode = code
-        advertisementToken = codeToken(code)
         keyPair = CryptoUtils.generateEphemeralKeyPair()
         _session.value = ExchangeSession(gestureCode, ExchangeSession.State.SEARCHING)
 
         scope.launch {
             // The advertised name is readable by any scanner in range, so it carries the
             // token rather than the code, and never the user's display name.
-            localName = "$advertisementToken|$sessionNonce"
+            localName = Pairing.advertisement(code, sessionNonce)
             wireCallbacks()
             transport.startAdvertising(localName, SERVICE_ID)
             transport.startDiscovery(SERVICE_ID)
@@ -126,14 +122,13 @@ class NearbyExchangeService : Service() {
 
     private fun wireCallbacks() {
         transport.onEndpointFound = onEndpointFound@{ endpointId, remoteName ->
-            val peerToken = remoteName.substringBefore('|', missingDelimiterValue = "")
-            if (peerToken != advertisementToken) {
+            if (!Pairing.matches(gestureCode, remoteName)) {
                 Timber.d("Ignoring %s — advertisement does not match this gesture", endpointId)
                 return@onEndpointFound
             }
             // Deterministic tie-break: only the lexicographically-smaller name
             // initiates, so both sides don't request each other simultaneously.
-            if (localName < remoteName) {
+            if (Pairing.shouldInitiate(localName, remoteName)) {
                 Timber.i("Match found (%s) — requesting connection", endpointId)
                 transport.requestConnection(localName, endpointId)
             } else {
@@ -143,8 +138,7 @@ class NearbyExchangeService : Service() {
         }
 
         transport.onConnectionInitiated = { endpointId, remoteName ->
-            val peerToken = remoteName.substringBefore('|', missingDelimiterValue = "")
-            if (peerToken == advertisementToken && connectedEndpoint in listOf(null, endpointId)) {
+            if (Pairing.matches(gestureCode, remoteName) && connectedEndpoint in listOf(null, endpointId)) {
                 transport.acceptConnection(endpointId)
             } else {
                 Timber.w("Rejecting %s: token mismatch or session already taken", endpointId)
@@ -275,18 +269,6 @@ class NearbyExchangeService : Service() {
         scope.coroutineContext[Job]?.cancel()
         super.onDestroy()
     }
-
-    /**
-     * Derives the advertised rendezvous token from a gesture code.
-     *
-     * The gesture space is 128 codes, so this hides the code from a passive scanner but
-     * is not a secret: anyone in range can enumerate all 128 candidates and match one.
-     */
-    private fun codeToken(code: String): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(code.toByteArray(Charsets.UTF_8))
-            .take(6)
-            .joinToString("") { "%02x".format(it) }
 
     private fun frame(type: Byte, body: ByteArray): ByteArray = ByteArray(body.size + 1).also {
         it[0] = type
