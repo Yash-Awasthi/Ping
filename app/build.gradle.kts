@@ -20,8 +20,8 @@ android {
         applicationId = "com.ping.app"
         minSdk = 26           // BLE + Nearby Connections baseline
         targetSdk = 35
-        versionCode = 5
-        versionName = "0.5.0"
+        versionCode = 6
+        versionName = "0.5.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -49,8 +49,10 @@ android {
             buildConfigField("boolean", "ENABLE_LOGGING", "true")
         }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 optimisation silently breaks hand detection (MediaPipe returns no hands);
+            // shrinking stays off until a minified build passes on a device. Costs ~10 MB per APK.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
