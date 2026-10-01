@@ -2,6 +2,8 @@
 
 > **Same gesture → instant contact swap. No internet. No accounts. No QR codes.**
 
+[![build](https://github.com/Yash-Awasthi/Ping/actions/workflows/build.yml/badge.svg)](https://github.com/Yash-Awasthi/Ping/actions/workflows/build.yml)
+[![release](https://img.shields.io/github/v/release/Yash-Awasthi/Ping)](https://github.com/Yash-Awasthi/Ping/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Android](https://img.shields.io/badge/Android-36+-green.svg)](https://developer.android.com)
 [![BLE](https://img.shields.io/badge/Connectivity-BLE%20/%20Wi-Fi%20Direct-blue.svg)]()
