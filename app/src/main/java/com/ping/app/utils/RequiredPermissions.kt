@@ -10,7 +10,6 @@ import androidx.core.content.ContextCompat
 object RequiredPermissions {
 
     val all: Array<String> = buildList {
-        add(Manifest.permission.ACCESS_FINE_LOCATION)
         add(Manifest.permission.CAMERA)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             add(Manifest.permission.BLUETOOTH_SCAN)
@@ -23,6 +22,8 @@ object RequiredPermissions {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.POST_NOTIFICATIONS)
             add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        } else {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }.toTypedArray()
 

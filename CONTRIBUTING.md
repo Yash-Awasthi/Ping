@@ -26,14 +26,14 @@ cd Aura
 
 | Component | Technology | Version |
 |-----------|------------|---------|
-| Language | Kotlin | 1.9+ |
-| Platform | Android | API 24+ (Android 7.0) |
-| DI | Hilt | 2.48+ |
-| Async | Coroutines | 1.7+ |
-| UI | Jetpack Compose | 1.5+ |
+| Language | Kotlin | 2.4 |
+| Platform | Android | API 26+ (Android 8.0), target 37 |
+| DI | Hilt | 2.60 |
+| Async | Coroutines | 1.11 |
+| UI | Jetpack Compose | BOM 2026.10 (alpha) |
 | BLE | Android BLE | API 21+ |
-| Nearby | Google Nearby | 1.0+ |
-| Testing | JUnit | 5.0+ |
+| Nearby | Google Nearby | 19.5 |
+| Testing | JUnit | 6.1 |
 
 ## Project Structure
 
