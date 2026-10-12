@@ -16,7 +16,7 @@
 -keep @dagger.hilt.android.AndroidEntryPoint class * { *; }
 
 # Room
--keep class * extends androidx.room.RoomDatabase { *; }
+-keep class * extends androidx.room3.RoomDatabase { *; }
 
 # Gson
 -keepattributes Signature

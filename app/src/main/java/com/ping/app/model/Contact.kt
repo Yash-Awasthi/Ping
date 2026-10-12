@@ -1,8 +1,9 @@
 package com.ping.app.model
 
-import androidx.room.ColumnInfo
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room3.ColumnInfo
+import androidx.room3.Entity
+import androidx.room3.Ignore
+import androidx.room3.PrimaryKey
 import java.util.UUID
 
 /**
@@ -23,6 +24,7 @@ data class Contact(
     @ColumnInfo(defaultValue = "") val memo: String = "",
 ) {
     /** True when the sender had not filled in any field; such a card is not worth saving. */
+    @Ignore
     val isEmptyCard: Boolean
         get() = listOf(displayName, phone, email, social, note).all { it.isBlank() }
 
