@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -86,8 +85,6 @@ fun PingTheme(content: @Composable () -> Unit) {
     if (!view.isInEditMode) {
         LaunchedEffect(Unit) {
             val window = (view.context as Activity).window
-            window.statusBarColor = Ink.toArgb()
-            window.navigationBarColor = Ink.toArgb()
             WindowCompat.getInsetsController(window, view).apply {
                 isAppearanceLightStatusBars = false
                 isAppearanceLightNavigationBars = false

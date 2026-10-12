@@ -4,9 +4,9 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.view.WindowCompat
 import androidx.navigation3.runtime.NavKey
 import com.ping.app.ui.navigation.AppNavHost
 import com.ping.app.ui.theme.PingTheme
@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        WindowCompat.enableEdgeToEdge(window)
         // Ask once per launch, not on rotation; screens that need a permission still ask again.
         if (savedInstanceState == null) {
             val missing = RequiredPermissions.missing(this)

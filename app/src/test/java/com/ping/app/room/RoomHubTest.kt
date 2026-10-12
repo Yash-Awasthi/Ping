@@ -29,7 +29,11 @@ class RoomHubTest {
 
     @BeforeEach fun setUp() { air = FakeAir() }
 
-    @AfterEach fun tearDown() { hubs.forEach { it.leave() } }
+    // JUnit 6 fails a test whose TempDir cannot be deleted, so hubs must finish leaving first.
+    @AfterEach fun tearDown() {
+        hubs.forEach { it.leave() }
+        hubs.forEach { hub -> await("leave") { hub.state.value == RoomState() } }
+    }
 
     private fun newHub(id: String, name: String): RoomHub {
         val root = File(tmp, id).apply { mkdirs() }
