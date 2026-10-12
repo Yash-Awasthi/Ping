@@ -2,6 +2,7 @@ package com.ping.app.room
 
 import android.content.Context
 import android.content.Intent
+import android.text.format.DateUtils
 import android.text.format.Formatter
 import android.webkit.MimeTypeMap
 import androidx.activity.compose.BackHandler
@@ -13,6 +14,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,7 +41,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -48,7 +58,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
 import com.ping.app.auth.GestureCamera
 import com.ping.app.room.RoomProtocol.RoomFile
+import com.ping.app.ui.components.FileBadge
 import com.ping.app.ui.components.GestureGuideButton
+import com.ping.app.ui.components.HeroBanner
+import com.ping.app.ui.components.ModeTile
+import com.ping.app.ui.theme.PingCyan
+import com.ping.app.ui.theme.PingMagenta
 import com.ping.app.ui.components.PingCard
 import com.ping.app.ui.components.SectionLabel
 import com.ping.app.utils.RequiredPermissions
@@ -77,24 +92,38 @@ fun RoomScreen(
         when {
             state.role != null -> RoomContent(state, viewModel, onLeave = { viewModel.leave(); onBack() })
             chosen == null -> Chooser(onPick = { chosen = it }, onBack = onBack)
-            else -> GestureLock(
-                viewModel = viewModel,
-                onLocked = { viewModel.open(chosen!!, it) },
-                onBack = { chosen = null },
-            )
+            else -> {
+                LaunchedEffect(chosen) { if (chosen == RoomRole.GUEST) viewModel.prewarm() }
+                GestureLock(
+                    viewModel = viewModel,
+                    onLocked = { viewModel.open(chosen!!, it) },
+                    onBack = { viewModel.cancelPrewarm(); chosen = null },
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun Chooser(onPick: (RoomRole) -> Unit, onBack: () -> Unit) {
-    Text(stringResource(R.string.room_title), style = MaterialTheme.typography.headlineSmall)
-    Text(stringResource(R.string.room_intro), style = MaterialTheme.typography.bodyMedium)
-    Button(onClick = { onPick(RoomRole.HOST) }, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.room_host))
-    }
-    OutlinedButton(onClick = { onPick(RoomRole.GUEST) }, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.room_join))
+    HeroBanner(stringResource(R.string.room_title), stringResource(R.string.room_intro))
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        ModeTile(
+            title = stringResource(R.string.room_host),
+            hint = stringResource(R.string.room_host_hint),
+            icon = Icons.Default.Home,
+            accent = PingCyan,
+            onClick = { onPick(RoomRole.HOST) },
+            modifier = Modifier.weight(1f),
+        )
+        ModeTile(
+            title = stringResource(R.string.room_join),
+            hint = stringResource(R.string.room_join_hint),
+            icon = Icons.Default.Search,
+            accent = PingMagenta,
+            onClick = { onPick(RoomRole.GUEST) },
+            modifier = Modifier.weight(1f),
+        )
     }
     TextButton(onClick = onBack) { Text(stringResource(R.string.action_cancel)) }
 }
@@ -173,8 +202,10 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
         if (state.phase == RoomPhase.IN_ROOM) runCatching { context.vibrateDouble() }
     }
 
-    Text(
-        text = stringResource(
+    val inRoom = state.phase == RoomPhase.OPEN || state.phase == RoomPhase.IN_ROOM
+    HeroBanner(
+        title = stringResource(if (state.role == RoomRole.HOST) R.string.room_you_host else R.string.room_you_guest),
+        subtitle = stringResource(
             when (state.phase) {
                 RoomPhase.OPEN -> R.string.room_open
                 RoomPhase.SEARCHING -> R.string.room_searching
@@ -186,23 +217,40 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
                 RoomPhase.IDLE -> R.string.room_searching
             },
         ),
-        style = MaterialTheme.typography.titleMedium,
-    )
-
-    if (state.phase == RoomPhase.WAITING_APPROVAL && state.linkDigits.isNotBlank()) {
-        Text(
-            stringResource(R.string.room_link_code, state.linkDigits),
-            style = MaterialTheme.typography.titleLarge,
-        )
+    ) {
+        if (state.phase == RoomPhase.WAITING_APPROVAL && state.linkDigits.isNotBlank()) {
+            Text(stringResource(R.string.room_link_code_label), style = MaterialTheme.typography.labelMedium, color = Color.White)
+            Text(
+                state.linkDigits,
+                style = MaterialTheme.typography.displaySmall,
+                fontFamily = FontFamily.Monospace,
+                color = Color.White,
+            )
+        }
+        if (state.manifest.members.isNotEmpty()) {
+            Text(
+                pluralStringResource(R.plurals.room_member_count, state.manifest.members.size, state.manifest.members.size) +
+                    " · " + state.manifest.members.joinToString(", "),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White,
+                maxLines = 2,
+            )
+        }
+        if (inRoom) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.room_add_files)) }
+                OutlinedButton(onClick = { folderPicker.launch(null) }) {
+                    Text(stringResource(R.string.room_add_folder), color = Color.White)
+                }
+            }
+        }
     }
 
-    if (state.manifest.members.isNotEmpty()) {
-        Text(
-            stringResource(R.string.room_members, state.manifest.members.joinToString(", ")),
-            style = MaterialTheme.typography.bodySmall,
-        )
+    if (state.pending.size > 1) {
+        Button(onClick = viewModel::approveAll, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.room_allow_all, state.pending.size))
+        }
     }
-
     state.pending.forEach { guest ->
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
@@ -215,14 +263,14 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
         }
     }
 
-    val inRoom = state.phase == RoomPhase.OPEN || state.phase == RoomPhase.IN_ROOM
-    if (inRoom) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.room_add_files)) }
-            OutlinedButton(onClick = { folderPicker.launch(null) }) { Text(stringResource(R.string.room_add_folder)) }
+    val others = state.manifest.files.filter { it.ownerKey != state.myKey }
+    val fetchable = others.count { state.transfers[it.id]?.status.let { s -> s == null || s == Transfer.Status.FAILED } }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (inRoom && fetchable > 1) {
+            Button(onClick = viewModel::downloadAll) { Text(stringResource(R.string.room_download_all, fetchable)) }
         }
+        OutlinedButton(onClick = onLeave) { Text(stringResource(R.string.room_leave)) }
     }
-    OutlinedButton(onClick = onLeave) { Text(stringResource(R.string.room_leave)) }
 
     if (inRoom) {
         LazyColumn(modifier = Modifier.weight(1f)) {
@@ -231,6 +279,8 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
                 items(state.shared, key = { "s" + it.id }) { f ->
                     PingCard(modifier = Modifier.padding(vertical = 4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            FileBadge(f.name)
+                            Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(f.name, style = MaterialTheme.typography.titleMedium)
                                 Text(Formatter.formatShortFileSize(context, f.size), style = MaterialTheme.typography.bodySmall)
@@ -242,7 +292,6 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
                     }
                 }
             }
-            val others = state.manifest.files.filter { it.ownerKey != state.myKey }
             item { SectionLabel(stringResource(R.string.room_in_room)) }
             if (others.isEmpty()) {
                 item { Text(stringResource(R.string.room_no_files), style = MaterialTheme.typography.bodyMedium) }
@@ -260,8 +309,10 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
 private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> Unit) {
     val context = LocalContext.current
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        FileBadge(file.name)
+        Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(file.name, style = MaterialTheme.typography.titleMedium)
+            Text(file.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 stringResource(R.string.room_file_meta, Formatter.formatShortFileSize(context, file.size), file.ownerName),
                 style = MaterialTheme.typography.bodySmall,
@@ -271,6 +322,17 @@ private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> U
                     progress = { transfer.bytes.toFloat() / transfer.total },
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 )
+                transferRate(transfer)?.let { (perSecond, secondsLeft) ->
+                    Text(
+                        stringResource(
+                            R.string.room_speed,
+                            Formatter.formatShortFileSize(context, perSecond),
+                            DateUtils.formatElapsedTime(secondsLeft),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
         when (transfer?.status) {
@@ -284,6 +346,14 @@ private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> U
             }
         }
     }
+}
+
+/** Bytes per second and seconds left, once enough has arrived to say. */
+private fun transferRate(t: Transfer): Pair<Long, Long>? {
+    val elapsed = (System.currentTimeMillis() - t.startedAt) / 1000.0
+    if (t.startedAt == 0L || elapsed < 1 || t.bytes <= 0) return null
+    val perSecond = (t.bytes / elapsed).toLong().coerceAtLeast(1)
+    return perSecond to (t.total - t.bytes) / perSecond
 }
 
 private fun openDownloaded(context: Context, path: String?) {

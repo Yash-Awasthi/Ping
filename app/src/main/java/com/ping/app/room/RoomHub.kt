@@ -64,6 +64,8 @@ data class Transfer(
     val bytes: Long = 0,
     val total: Long = 0,
     val path: String? = null,
+    /** When bytes started arriving, for speed and time left. */
+    val startedAt: Long = 0,
 ) {
     enum class Status { QUEUED, RECEIVING, DONE, FAILED }
 }
@@ -121,10 +123,35 @@ class RoomHub @Inject constructor(
     @Volatile private var hostEndpoint: String? = null
     private var localAdvert = ""
     private var searchJob: Job? = null
+    /** Rooms already heard while the guest was still making the gesture; endpointId to advertisement. */
+    private val seen = ConcurrentHashMap<String, String>()
 
     fun host(gestureCode: String) = begin(RoomRole.HOST, gestureCode)
 
     fun join(gestureCode: String) = begin(RoomRole.GUEST, gestureCode)
+
+    /** A guest starts listening for rooms before the gesture locks, so joining is near-instant. */
+    fun prewarm() {
+        scope.launch {
+            if (_state.value.role != null) return@launch
+            seen.clear()
+            transport.onEndpointFound = { id, name -> seen[id] = name }
+            transport.onEndpointLost = { id -> seen.remove(id) }
+            transport.startDiscovery(SERVICE_ID, star = true)
+        }
+    }
+
+    fun cancelPrewarm() {
+        scope.launch {
+            if (_state.value.role != null) return@launch
+            seen.clear()
+            runCatching {
+                transport.onEndpointFound = null
+                transport.onEndpointLost = null
+                transport.stopDiscovery()
+            }
+        }
+    }
 
     private fun begin(role: RoomRole, gestureCode: String) {
         scope.launch {
@@ -140,6 +167,10 @@ class RoomHub @Inject constructor(
             } else {
                 _state.value = RoomState(role = role, phase = RoomPhase.SEARCHING)
                 transport.startDiscovery(SERVICE_ID, star = true)
+                seen.entries.firstOrNull { Pairing.matches(gestureCode, it.value) }?.let { (id, _) ->
+                    hostEndpoint = id
+                    transport.requestConnection(localAdvert, id)
+                }
                 searchJob = launch {
                     delay(SEARCH_MS)
                     if (_state.value.phase == RoomPhase.SEARCHING) {
@@ -178,6 +209,7 @@ class RoomHub @Inject constructor(
             transport.onDisconnected = null
             transport.onStreamReceived = null
             transport.onAuthDigits = null
+            transport.onEndpointLost = null
         }
         guests.clear()
         sharedOpeners.clear()
@@ -296,6 +328,21 @@ class RoomHub @Inject constructor(
         }
     }
 
+    /** Host: let every waiting guest in at once. */
+    fun approveAll() {
+        scope.launch { guests.filterValues { !it.approved }.keys.forEach { decide(it, true) } }
+    }
+
+    /** Guest or host: queue every room file not already here or on its way. */
+    fun downloadAll() {
+        scope.launch {
+            val s = _state.value
+            s.manifest.files
+                .filter { it.ownerKey != s.myKey && s.transfers[it.id]?.status !in ACTIVE + Transfer.Status.DONE }
+                .forEach { download(it.id) }
+        }
+    }
+
     private fun refreshPending() {
         val pending = guests.filterValues { !it.approved }.map { PendingGuest(it.key, it.value.name, digits[it.key].orEmpty()) }
         _state.update { it.copy(pending = pending) }
@@ -380,7 +427,9 @@ class RoomHub @Inject constructor(
     // Incoming
 
     private fun wireCallbacks() {
+        transport.onEndpointLost = { id -> seen.remove(id) }
         transport.onEndpointFound = { endpointId, remoteName ->
+            seen[endpointId] = remoteName
             scope.launch {
                 if (_state.value.role == RoomRole.GUEST && hostEndpoint == null &&
                     Pairing.matches(code, remoteName)
@@ -516,7 +565,8 @@ class RoomHub @Inject constructor(
     /** Copies exactly [size] bytes into [dest] and checks their SHA-256; anything else is a failed transfer. */
     private fun receive(input: InputStream, dest: File, gid: String, size: Long): Boolean {
         val hostWaiting = _state.value.role == RoomRole.GUEST || relay[gid]?.contains(HOST_KEY) == true
-        if (hostWaiting) setTransfer(gid, Transfer(Transfer.Status.RECEIVING, 0, size))
+        val started = System.currentTimeMillis()
+        if (hostWaiting) setTransfer(gid, Transfer(Transfer.Status.RECEIVING, 0, size, startedAt = started))
         val part = File(dest.path + ".part")
         val ok = runCatching {
             var count = 0L
@@ -532,7 +582,7 @@ class RoomHub @Inject constructor(
                     out.write(buf, 0, n)
                     if (hostWaiting && count - lastReport >= REPORT_EVERY) {
                         lastReport = count
-                        setTransfer(gid, Transfer(Transfer.Status.RECEIVING, count, size))
+                        setTransfer(gid, Transfer(Transfer.Status.RECEIVING, count, size, startedAt = started))
                     }
                 }
             }

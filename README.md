@@ -30,7 +30,7 @@ No server. No cloud. No account. Your data never leaves your phone.
 | 🧑‍🏫 **Roll Call** | Offline attendance for a whole class: the teacher's phone scans while students tap Check in; no connections, so 100+ students fit one scan. Class-list CSV import, a live seat grid that lights up as students arrive, per-student attendance rates, manual ticks, session history and CSV export |
 | ⚡ **Quick Launch** | Long-press the icon or add the Quick Settings tile to open a swap in one tap |
 | ⚠️ **Mismatch Notice** | Shows when nearby phones are holding a different gesture instead of timing out silently |
-| 🗂️ **File Room** | Host or join a room by gesture; share files or a whole folder, pull files on demand over a Nearby star link, each checked against its SHA-256. The host approves every guest and both phones show a link code to compare |
+| 🗂️ **File Room** | Host or join a room by gesture; share files or a whole folder, pull files on demand over a Nearby star link, each checked against its SHA-256. Guests start listening before their gesture locks, the host can let everyone in at once, and Download all fetches the whole room with live speed and time left. The host approves every guest and both phones show a link code to compare |
 | 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections |
 | 🔐 **E2E Encryption** | P-256 ECDH → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
 | 👤 **Contact Cards** | Name, phone, email, social handles, short note |

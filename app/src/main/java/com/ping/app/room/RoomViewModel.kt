@@ -39,6 +39,14 @@ class RoomViewModel @Inject constructor(
 
     fun download(globalId: String) = hub.download(globalId)
 
+    fun downloadAll() = hub.downloadAll()
+
+    fun approveAll() = hub.approveAll()
+
+    fun prewarm() = hub.prewarm()
+
+    fun cancelPrewarm() = hub.cancelPrewarm()
+
     fun leave() {
         gestureCamera.stop()
         hub.leave()
