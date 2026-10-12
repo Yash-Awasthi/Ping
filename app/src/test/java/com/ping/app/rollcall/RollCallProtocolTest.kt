@@ -49,6 +49,15 @@ class RollCallProtocolTest {
     }
 
     @Test
+    fun `class lists import with or without a header`() {
+        val withHeader = "Name,Roll No\r\n\"Lovelace, Ada\",cs-01\r\nBob,CS-02\r\n,\r\nBob B,cs-02\r\n"
+        assertEquals(listOf("CS-01" to "Lovelace, Ada", "CS-02" to "Bob B"), RollCallProtocol.parseRoster(withHeader))
+        assertEquals(listOf("7" to "Ann", "8" to "8"), RollCallProtocol.parseRoster("7;Ann\n8\n"))
+        assertEquals(emptyList<Pair<String, String>>(), RollCallProtocol.parseRoster(""))
+        assertEquals(listOf("12" to "Reginald"), RollCallProtocol.parseRoster("12,Reginald\n"))
+    }
+
+    @Test
     fun `csv fields are quoted and formulas neutralised`() {
         assertEquals("plain", RollCallProtocol.csvField("plain"))
         assertEquals("\"a,b\"", RollCallProtocol.csvField("a,b"))

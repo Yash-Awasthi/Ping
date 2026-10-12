@@ -1,44 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- An open hand at the centre of three fading ping rings, with a cyan beacon in the palm. -->
+<!-- A ping: a solid origin dot sending two signal arcs to the upper right, with a cyan spark
+     where the signal lands. Drawn inside the 66dp adaptive-icon safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Soft glow behind the origin. -->
     <path
-        android:strokeColor="#59FFFFFF"
-        android:strokeWidth="2.5"
-        android:fillColor="@android:color/transparent"
-        android:pathData="M32,58 a22,22 0 1,1 44,0 a22,22 0 1,1 -44,0 Z" />
+        android:fillColor="#3322E5FF"
+        android:pathData="M28,66 a16,16 0 1,1 32,0 a16,16 0 1,1 -32,0 Z" />
+    <!-- Outer arc. -->
     <path
-        android:strokeColor="#38FFFFFF"
-        android:strokeWidth="2.5"
+        android:strokeColor="#B3FFFFFF"
+        android:strokeWidth="7.5"
+        android:strokeLineCap="round"
         android:fillColor="@android:color/transparent"
-        android:pathData="M20,58 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0 Z" />
-    <path
-        android:strokeColor="#1FFFFFFF"
-        android:strokeWidth="2.5"
-        android:fillColor="@android:color/transparent"
-        android:pathData="M8,58 a46,46 0 1,1 92,0 a46,46 0 1,1 -92,0 Z" />
-
-    <!-- Fingers: index, middle, ring, pinky, thumb. -->
+        android:pathData="M44,34 A32,32 0 0,1 76,66" />
+    <!-- Inner arc. -->
     <path
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="8"
+        android:strokeWidth="7.5"
         android:strokeLineCap="round"
-        android:pathData="M41,58 L41,37 M50.5,58 L50.5,31 M60,58 L60,35 M69,60 L69,43 M36,68 L27,56" />
-    <!-- Palm. -->
+        android:fillColor="@android:color/transparent"
+        android:pathData="M44,48 A18,18 0 0,1 62,66" />
+    <!-- Origin dot. -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="6"
-        android:strokeLineJoin="round"
-        android:pathData="M39,58 L71,58 L71,69 Q71,83 58,83 L52,83 Q39,83 39,69 Z" />
-    <!-- Beacon. -->
-    <path
-        android:fillColor="#4022E5FF"
-        android:pathData="M43,70 a11,11 0 1,1 22,0 a11,11 0 1,1 -22,0 Z" />
+        android:pathData="M36,66 a8,8 0 1,1 16,0 a8,8 0 1,1 -16,0 Z" />
+    <!-- Spark: a four-point star where the signal lands. -->
     <path
         android:fillColor="#FF22E5FF"
-        android:pathData="M49,70 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0 Z" />
+        android:pathData="M74,26 Q75.2,32.8 82,34 Q75.2,35.2 74,42 Q72.8,35.2 66,34 Q72.8,32.8 74,26 Z" />
 </vector>
