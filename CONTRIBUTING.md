@@ -26,7 +26,7 @@ cd Aura
 
 | Component | Technology | Version |
 |-----------|------------|---------|
-| Language | Kotlin | 2.5 |
+| Language | Kotlin | 2.4 |
 | Platform | Android | API 26+ (Android 8.0), target 37 |
 | DI | Hilt | 2.60 |
 | Async | Coroutines | 1.11 |

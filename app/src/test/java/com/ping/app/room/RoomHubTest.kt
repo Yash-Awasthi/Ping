@@ -272,7 +272,7 @@ class RoomHubTest {
     }
 
     private fun downloads(id: String): List<File> =
-        File(tmp.root, "$id/ext/Ping").listFiles().orEmpty().toList()
+        File(tmp, "$id/ext/Ping").listFiles().orEmpty().toList()
 
     @Test
     fun `a different gesture never joins the room`() {
