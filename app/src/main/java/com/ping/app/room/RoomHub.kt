@@ -3,6 +3,7 @@ package com.ping.app.room
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import com.ping.app.data.ProfileRepository
 import com.ping.app.room.RoomProtocol.FileMeta
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -197,6 +199,40 @@ class RoomHub @Inject constructor(
                 addShared(meta) { context.contentResolver.openInputStream(uri) }
             }
         }
+    }
+
+    /** Offers every file under a picked folder, subfolders included, up to the per-member cap. */
+    fun addFolder(tree: Uri) {
+        scope.launch {
+            val files = withContext(Dispatchers.IO) { listTree(tree) }
+            files.forEach { (doc, meta) -> addShared(meta) { context.contentResolver.openInputStream(doc) } }
+        }
+    }
+
+    private fun listTree(tree: Uri): List<Pair<Uri, FileMeta>> {
+        val out = mutableListOf<Pair<Uri, FileMeta>>()
+        val pending = ArrayDeque(listOf(DocumentsContract.getTreeDocumentId(tree)))
+        val columns = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_SIZE,
+        )
+        while (pending.isNotEmpty() && out.size < RoomProtocol.MAX_FILES_PER_MEMBER) {
+            val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, pending.removeFirst())
+            runCatching {
+                context.contentResolver.query(children, columns, null, null, null)?.use { c ->
+                    while (c.moveToNext() && out.size < RoomProtocol.MAX_FILES_PER_MEMBER) {
+                        val id = c.getString(0)
+                        if (c.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) { pending += id; continue }
+                        val size = if (c.isNull(3)) continue else c.getLong(3)
+                        out += DocumentsContract.buildDocumentUriUsingTree(tree, id) to
+                            FileMeta("", RoomProtocol.safeName(c.getString(1)), size)
+                    }
+                }
+            }.onFailure { Timber.w(it, "Could not list folder") }
+        }
+        return out
     }
 
     /** Offers a file whose bytes come from [opener] each time someone asks for it. */

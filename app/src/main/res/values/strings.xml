@@ -41,6 +41,7 @@
     <string name="room_allow">Allow</string>
     <string name="room_deny">Deny</string>
     <string name="room_add_files">Add files</string>
+    <string name="room_add_folder">Add folder</string>
     <string name="room_leave">Leave</string>
     <string name="room_you_share">You are sharing</string>
     <string name="room_stop_sharing">Remove</string>
@@ -128,6 +129,8 @@
     <string name="contact_swapped_on">Swapped %1$s</string>
     <string name="action_edit">Edit</string>
     <string name="action_save">Save</string>
+    <string name="shortcut_swap">Swap contact</string>
+    <string name="shortcut_room">File room</string>
     <string name="contacts_import">Import</string>
     <string name="contacts_import_failed">Could not read that file.</string>
     <plurals name="contacts_imported">

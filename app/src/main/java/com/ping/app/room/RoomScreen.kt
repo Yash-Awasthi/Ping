@@ -165,6 +165,9 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) {
         viewModel.addFiles(it)
     }
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+        tree?.let(viewModel::addFolder)
+    }
 
     LaunchedEffect(state.phase) {
         if (state.phase == RoomPhase.IN_ROOM) runCatching { context.vibrateDouble() }
@@ -213,12 +216,13 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
     }
 
     val inRoom = state.phase == RoomPhase.OPEN || state.phase == RoomPhase.IN_ROOM
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (inRoom) {
+    if (inRoom) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(onClick = { picker.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.room_add_files)) }
+            OutlinedButton(onClick = { folderPicker.launch(null) }) { Text(stringResource(R.string.room_add_folder)) }
         }
-        OutlinedButton(onClick = onLeave) { Text(stringResource(R.string.room_leave)) }
     }
+    OutlinedButton(onClick = onLeave) { Text(stringResource(R.string.room_leave)) }
 
     if (inRoom) {
         LazyColumn(modifier = Modifier.weight(1f)) {

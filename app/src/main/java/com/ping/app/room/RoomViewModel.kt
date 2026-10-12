@@ -31,6 +31,8 @@ class RoomViewModel @Inject constructor(
 
     fun addFiles(uris: List<Uri>) = hub.addFiles(uris)
 
+    fun addFolder(tree: Uri) = hub.addFolder(tree)
+
     fun removeShared(localId: String) = hub.removeShared(localId)
 
     fun decide(endpointId: String, allow: Boolean) = hub.decide(endpointId, allow)

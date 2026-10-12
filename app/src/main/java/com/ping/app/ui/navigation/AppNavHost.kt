@@ -7,6 +7,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -26,8 +27,16 @@ import com.ping.app.room.RoomScreen
 import com.ping.app.ui.practice.PracticeScreen
 
 @Composable
-fun AppNavHost() {
+fun AppNavHost(launchRoute: String? = null, onLaunchRouteHandled: () -> Unit = {}) {
     val navController = rememberNavController()
+    LaunchedEffect(launchRoute) {
+        val route = launchRoute ?: return@LaunchedEffect
+        navController.navigate(route) {
+            popUpTo(Routes.HOME)
+            launchSingleTop = true
+        }
+        onLaunchRouteHandled()
+    }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
