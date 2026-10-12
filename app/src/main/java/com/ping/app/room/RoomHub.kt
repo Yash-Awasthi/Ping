@@ -30,6 +30,7 @@ import java.io.InputStream
 import java.io.SequenceInputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -336,7 +337,7 @@ class RoomHub @Inject constructor(
     }
 
     private fun streamOut(endpointId: String, globalId: String, body: InputStream, size: Long) {
-        val stream = SequenceInputStream(ByteArrayInputStream(RoomProtocol.header(globalId)), body)
+        val stream = SequenceInputStream(ByteArrayInputStream(RoomProtocol.header(globalId)), RoomProtocol.withDigest(body))
         if (!transport.sendStream(endpointId, stream, size)) runCatching { body.close() }
     }
 
@@ -476,7 +477,7 @@ class RoomHub @Inject constructor(
         }
     }
 
-    /** Copies exactly [size] bytes into [dest]; anything else is a failed transfer. */
+    /** Copies exactly [size] bytes into [dest] and checks their SHA-256; anything else is a failed transfer. */
     private fun receive(input: InputStream, dest: File, gid: String, size: Long): Boolean {
         val hostWaiting = _state.value.role == RoomRole.GUEST || relay[gid]?.contains(HOST_KEY) == true
         if (hostWaiting) setTransfer(gid, Transfer(Transfer.Status.RECEIVING, 0, size))
@@ -484,13 +485,14 @@ class RoomHub @Inject constructor(
         val ok = runCatching {
             var count = 0L
             var lastReport = 0L
+            val digest = MessageDigest.getInstance("SHA-256")
             part.outputStream().use { out ->
                 val buf = ByteArray(BUFFER)
-                while (true) {
-                    val n = input.read(buf)
+                while (count < size) {
+                    val n = input.read(buf, 0, minOf(buf.size.toLong(), size - count).toInt())
                     if (n < 0) break
                     count += n
-                    if (count > size) error("more bytes than announced")
+                    digest.update(buf, 0, n)
                     out.write(buf, 0, n)
                     if (hostWaiting && count - lastReport >= REPORT_EVERY) {
                         lastReport = count
@@ -499,6 +501,7 @@ class RoomHub @Inject constructor(
                 }
             }
             check(count == size) { "stream ended at $count of $size" }
+            check(RoomProtocol.trailerMatches(input, digest.digest())) { "checksum mismatch or extra bytes" }
             Files.move(part.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }.onFailure { Timber.w(it, "Room transfer %s failed", gid) }.isSuccess
         if (!ok) {

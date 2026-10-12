@@ -30,9 +30,15 @@ class ContactRepository @Inject constructor(
     suspend fun saveReceived(contact: Contact): Contact {
         val existing = contacts.first().firstOrNull { it.isSamePerson(contact) }
         val toSave = if (existing == null) contact
-        else contact.copy(id = existing.id, isFavorite = existing.isFavorite)
+        else contact.copy(id = existing.id, isFavorite = existing.isFavorite, memo = existing.memo)
         contactDao.insert(toSave)
         return toSave
+    }
+
+    /** Saves cards from a .vcf file, merging each into a matching contact; returns how many. */
+    suspend fun import(cards: List<Contact>): Int {
+        cards.forEach { saveReceived(it) }
+        return cards.size
     }
 
     suspend fun update(contact: Contact) = contactDao.update(contact)

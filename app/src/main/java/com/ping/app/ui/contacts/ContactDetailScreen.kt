@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
+import android.text.format.DateUtils
 import android.widget.Toast
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,8 +21,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,11 +32,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
+import com.ping.app.model.Contact
 import com.ping.app.ui.components.Avatar
 import com.ping.app.ui.components.PingCard
 
@@ -54,8 +64,16 @@ fun ContactDetailScreen(
 ) {
     val contact by viewModel.contact.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var editing by rememberSaveable { mutableStateOf(false) }
 
     contact?.let { c ->
+        if (editing) {
+            EditContactDialog(
+                contact = c,
+                onSave = { viewModel.save(it); editing = false },
+                onDismiss = { editing = false },
+            )
+        }
         Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
                 title = {
@@ -64,6 +82,11 @@ fun ContactDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { editing = true }) {
+                        Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.action_edit))
                     }
                 },
             )
@@ -85,6 +108,17 @@ fun ContactDetailScreen(
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onBackground,
                     )
+                    Text(
+                        text = stringResource(
+                            R.string.contact_swapped_on,
+                            DateUtils.formatDateTime(
+                                context, c.receivedAt,
+                                DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_YEAR or DateUtils.FORMAT_SHOW_TIME,
+                            ),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -94,6 +128,7 @@ fun ContactDetailScreen(
                     if (c.email.isNotBlank()) add(stringResource(R.string.contact_label_email) to c.email)
                     if (c.social.isNotBlank()) add(stringResource(R.string.contact_label_social) to c.social)
                     if (c.note.isNotBlank()) add(stringResource(R.string.contact_label_note) to c.note)
+                    if (c.memo.isNotBlank()) add(stringResource(R.string.contact_label_memo) to c.memo)
                 }
                 PingCard {
                     details.forEachIndexed { i, (label, value) ->
@@ -217,4 +252,56 @@ fun ContactDetailScreen(
             }
         }
     }
+}
+
+/** Edits every card field plus the private memo; blank cards cannot be saved. */
+@Composable
+private fun EditContactDialog(contact: Contact, onSave: (Contact) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(contact.displayName) }
+    var phone by remember { mutableStateOf(contact.phone) }
+    var email by remember { mutableStateOf(contact.email) }
+    var social by remember { mutableStateOf(contact.social) }
+    var note by remember { mutableStateOf(contact.note) }
+    var memo by remember { mutableStateOf(contact.memo) }
+    val updated = contact.copy(
+        displayName = name.trim(), phone = phone.trim(), email = email.trim(),
+        social = social.trim(), note = note.trim(), memo = memo.trim(),
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.contact_edit_title)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                listOf(
+                    Triple(R.string.contact_label_name, name) { v: String -> name = v },
+                    Triple(R.string.contact_label_phone, phone) { v: String -> phone = v },
+                    Triple(R.string.contact_label_email, email) { v: String -> email = v },
+                    Triple(R.string.contact_label_social, social) { v: String -> social = v },
+                    Triple(R.string.contact_label_note, note) { v: String -> note = v },
+                    Triple(R.string.contact_label_memo, memo) { v: String -> memo = v },
+                ).forEach { (label, value, set) ->
+                    OutlinedTextField(
+                        value = value,
+                        onValueChange = set,
+                        label = { Text(stringResource(label)) },
+                        singleLine = label != R.string.contact_label_note && label != R.string.contact_label_memo,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.contact_memo_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(updated) }, enabled = !updated.isEmptyCard) {
+                Text(stringResource(R.string.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }

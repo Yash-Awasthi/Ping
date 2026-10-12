@@ -1,5 +1,8 @@
 package com.ping.app.ui.contacts
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +48,16 @@ fun ContactsScreen(
     val contacts by viewModel.contacts.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::importVCards)
+    }
+    LaunchedEffect(Unit) {
+        viewModel.imported.collect { n ->
+            val text = if (n < 0) context.getString(R.string.contacts_import_failed)
+            else context.resources.getQuantityString(R.plurals.contacts_imported, n, n)
+            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -57,19 +71,22 @@ fun ContactsScreen(
                 .fillMaxWidth()
                 .padding(start = 20.dp, end = 20.dp, top = 12.dp),
         )
-        if (contacts.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.contacts_count, contacts.size),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.contacts_count, contacts.size),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = { importer.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory")) }) {
+                Text(stringResource(R.string.contacts_import), color = PingCyan)
+            }
+            if (contacts.isNotEmpty()) {
                 TextButton(onClick = { shareVCards(context, contacts) }) {
                     Text(stringResource(R.string.contacts_export_all, contacts.size), color = PingCyan)
                 }

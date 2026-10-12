@@ -61,4 +61,31 @@ class ContactTest {
         assertFalse(a.isSamePerson(Contact(displayName = "Ada", phone = "999")))
         assertFalse(Contact(displayName = "Ada").isSamePerson(Contact(displayName = "Ada")))
     }
+
+    @Test
+    fun `exported vcards import back to the same cards`() {
+        val cards = listOf(
+            Contact(displayName = "Ada; Lovelace", phone = "+1 555", email = "a@b.c", note = "line one\nline two"),
+            Contact(displayName = "Bob", social = "@bob"),
+        )
+        val back = Contact.fromVCards(Contact.toVCards(cards))
+        assertEquals(cards.map { it.copy(id = "", receivedAt = 0) }, back.map { it.copy(id = "", receivedAt = 0) })
+    }
+
+    @Test
+    fun `vcard 2_1 with folding, quoted-printable and a photo still imports`() {
+        val vcf = "BEGIN:VCARD\r\nVERSION:2.1\r\nN:Lovelace;Ada;;;\r\n" +
+            "NOTE;ENCODING=QUOTED-PRINTABLE;CHARSET=UTF-8:caf=C3=A9 =\r\nnotes\r\n" +
+            "TEL;CELL:555\r\nTEL;HOME:666\r\nPHOTO;ENCODING=BASE64:AAAA==\r\n" +
+            "END:VCARD\r\nBEGIN:VCARD\r\nEND:VCARD\r\n"
+        val c = Contact.fromVCards(vcf).single()
+        assertEquals("Ada Lovelace", c.displayName)
+        assertEquals("café notes", c.note)
+        assertEquals("555", c.phone)
+    }
+
+    @Test
+    fun `memo is never exported`() {
+        assertFalse(Contact(displayName = "Ada", memo = "met at the fair").toVCard().contains("fair"))
+    }
 }

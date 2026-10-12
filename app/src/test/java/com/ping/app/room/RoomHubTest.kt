@@ -215,6 +215,22 @@ class RoomHubTest {
     }
 
     @Test
+    fun `a stream whose checksum does not match fails and leaves nothing behind`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F5A4"); Thread.sleep(50)
+        host.addShared(FileMeta("", "s.txt", 3)) { null }
+        guest.join("F5A4"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
+        val gid = guest.state.value.manifest.files.single().id
+        guest.download(gid)
+        val forged = RoomProtocol.header(gid) + "abc".toByteArray() + ByteArray(32)
+        radios.getValue("h").sendStream("g", ByteArrayInputStream(forged), 3)
+        await("failed") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+        assertEquals(0, downloads("g").size)
+    }
+
+    @Test
     fun `a file longer than announced fails and leaves nothing behind`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")

@@ -1,18 +1,22 @@
 package com.ping.app.room
 
 import com.google.gson.Gson
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.EOFException
 import java.io.InputStream
+import java.io.SequenceInputStream
+import java.security.DigestInputStream
+import java.security.MessageDigest
 
 /**
  * Wire format and pure rules of the file room.
  *
  * Control messages travel as BYTES payloads (`[type][body]`); file bytes travel as STREAM
  * payloads that start with a length-prefixed [header] naming the file, so a stream identifies
- * itself no matter which payload arrives first.
+ * itself no matter which payload arrives first. The file bytes are followed by their SHA-256.
  */
 object RoomProtocol {
 
@@ -28,6 +32,7 @@ object RoomProtocol {
     const val MAX_FILES_PER_MEMBER = 100
     const val MAX_NAME = 80
     private const val MAX_HEADER = 200
+    private const val DIGEST_SIZE = 32
 
     /** A file a member offers: [id] is unique within that member only. */
     data class FileMeta(val id: String, val name: String, val size: Long)
@@ -115,6 +120,26 @@ object RoomProtocol {
         else ByteArray(len).also { data.readFully(it) }.toString(Charsets.UTF_8)
     } catch (_: EOFException) {
         null
+    }
+
+    /** [body] followed by its SHA-256, computed as the bytes stream past. */
+    fun withDigest(body: InputStream): InputStream {
+        val digesting = DigestInputStream(body, MessageDigest.getInstance("SHA-256"))
+        val trailer = object : InputStream() {
+            // Built on first read, which SequenceInputStream only reaches after the body ends.
+            private val bytes by lazy { ByteArrayInputStream(digesting.messageDigest.digest()) }
+            override fun read() = bytes.read()
+            override fun read(b: ByteArray, off: Int, len: Int) = bytes.read(b, off, len)
+        }
+        return SequenceInputStream(digesting, trailer)
+    }
+
+    /** True when [input] holds exactly the 32-byte [digest] and nothing after it. */
+    fun trailerMatches(input: InputStream, digest: ByteArray): Boolean = try {
+        val sent = ByteArray(DIGEST_SIZE).also { DataInputStream(input).readFully(it) }
+        MessageDigest.isEqual(sent, digest) && input.read() < 0
+    } catch (_: EOFException) {
+        false
     }
 
     /**

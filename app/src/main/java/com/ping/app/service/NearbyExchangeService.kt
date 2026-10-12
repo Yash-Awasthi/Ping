@@ -39,7 +39,9 @@ import javax.inject.Inject
  *  - Once connected we swap ephemeral ECDH keys and both users compare a six-digit
  *    code. No card leaves this phone until its user confirms the codes match.
  *
- * If no matching peer appears within [WINDOW_MS] the session ends as NO_MATCH.
+ * Discovery starts when the swap screen opens ([prewarm]) so peers are already known by the
+ * time the gesture locks. If no matching peer appears within [WINDOW_MS] of the lock the
+ * session ends as NO_MATCH.
  * Everything is offline — Nearby Connections uses BLE + Wi-Fi Direct directly.
  */
 @AndroidEntryPoint
@@ -52,8 +54,12 @@ class NearbyExchangeService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val gson = Gson()
 
-    private lateinit var gestureCode: String
+    /** Null until the gesture locks; callbacks only buffer endpoints before that. */
+    private var gestureCode: String? = null
     private lateinit var localName: String
+    private var scanning = false
+    /** Every Ping endpoint in range, endpointId to advertisement. Main thread only. */
+    private val seen = LinkedHashMap<String, String>()
     private lateinit var keyPair: KeyPair
 
     /** Per-session suffix: keeps the advertisement unique and the initiator tie-break fair. */
@@ -83,31 +89,28 @@ class NearbyExchangeService : Service() {
             ACTION_CONFIRM -> { onUserConfirmed(); return START_NOT_STICKY }
             ACTION_REJECT -> { onUserRejected(); return START_NOT_STICKY }
         }
-        val code = intent?.getStringExtra(EXTRA_GESTURE_CODE)
-        if (code == null) {
-            Timber.w("No gesture code supplied — stopping")
-            stopSelf()
-            return START_NOT_STICKY
-        }
         startForeground(NOTIF_ID, buildNotification(getString(R.string.notif_starting)))
-        begin(code)
+        if (!scanning) {
+            scanning = true
+            wireCallbacks()
+            transport.startDiscovery(SERVICE_ID)
+        }
+        intent?.getStringExtra(EXTRA_GESTURE_CODE)?.let(::begin)
         return START_NOT_STICKY
     }
 
     private fun begin(code: String) {
+        if (gestureCode != null) return
         gestureCode = code
         keyPair = CryptoUtils.generateEphemeralKeyPair()
-        _session.value = ExchangeSession(gestureCode, ExchangeSession.State.SEARCHING)
-
-        scope.launch {
-            // The advertised name is readable by any scanner in range, so it carries the
-            // token rather than the code, and never the user's display name.
-            localName = Pairing.advertisement(code, sessionNonce)
-            wireCallbacks()
-            transport.startAdvertising(localName, SERVICE_ID)
-            transport.startDiscovery(SERVICE_ID)
-            Timber.i("Ping searching for a matching gesture")
-        }
+        // The advertised name is readable by any scanner in range, so it carries the
+        // token rather than the code, and never the user's display name.
+        localName = Pairing.advertisement(code, sessionNonce)
+        _session.value = ExchangeSession(code, ExchangeSession.State.SEARCHING)
+        transport.startAdvertising(localName, SERVICE_ID)
+        Timber.i("Ping searching for a matching gesture")
+        Pairing.firstMatch(code, seen)?.let { onMatch(it.key, it.value) }
+        updateOthers()
 
         // Pairing window: if nothing connects in time, give up.
         windowJob = scope.launch {
@@ -122,23 +125,20 @@ class NearbyExchangeService : Service() {
 
     private fun wireCallbacks() {
         transport.onEndpointFound = onEndpointFound@{ endpointId, remoteName ->
-            if (!Pairing.matches(gestureCode, remoteName)) {
-                Timber.d("Ignoring %s — advertisement does not match this gesture", endpointId)
-                return@onEndpointFound
-            }
-            // Deterministic tie-break: only the lexicographically-smaller name
-            // initiates, so both sides don't request each other simultaneously.
-            if (Pairing.shouldInitiate(localName, remoteName)) {
-                Timber.i("Match found (%s) — requesting connection", endpointId)
-                transport.requestConnection(localName, endpointId)
-            } else {
-                Timber.i("Match found (%s) — waiting for their request", endpointId)
-            }
-            markConnecting()
+            seen[endpointId] = remoteName
+            val code = gestureCode ?: return@onEndpointFound
+            if (Pairing.matches(code, remoteName)) onMatch(endpointId, remoteName)
+            else updateOthers()
+        }
+
+        transport.onEndpointLost = { endpointId ->
+            seen.remove(endpointId)
+            updateOthers()
         }
 
         transport.onConnectionInitiated = { endpointId, remoteName ->
-            if (Pairing.matches(gestureCode, remoteName) && connectedEndpoint in listOf(null, endpointId)) {
+            val code = gestureCode
+            if (code != null && Pairing.matches(code, remoteName) && connectedEndpoint in listOf(null, endpointId)) {
                 transport.acceptConnection(endpointId)
             } else {
                 Timber.w("Rejecting %s: token mismatch or session already taken", endpointId)
@@ -171,6 +171,25 @@ class NearbyExchangeService : Service() {
                 shutdown()
             }
         }
+    }
+
+    private fun onMatch(endpointId: String, remoteName: String) {
+        if (connectedEndpoint != null) return
+        // Deterministic tie-break: only the lexicographically-smaller name
+        // initiates, so both sides don't request each other simultaneously.
+        if (Pairing.shouldInitiate(localName, remoteName)) {
+            Timber.i("Match found (%s) — requesting connection", endpointId)
+            transport.requestConnection(localName, endpointId)
+        } else {
+            Timber.i("Match found (%s) — waiting for their request", endpointId)
+        }
+        markConnecting()
+    }
+
+    private fun updateOthers() {
+        val code = gestureCode ?: return
+        val others = Pairing.othersNearby(code, seen)
+        _session.value?.takeIf { it.othersNearby != others }?.let { _session.value = it.copy(othersNearby = others) }
     }
 
     private fun handlePayload(endpointId: String, data: ByteArray) {
@@ -270,9 +289,12 @@ class NearbyExchangeService : Service() {
         runCatching {
             transport.onEndpointFound = null
             transport.onConnectionInitiated = null
+            transport.onEndpointLost = null
             transport.onConnected = null
             transport.onPayloadReceived = null
             transport.onDisconnected = null
+            transport.stopAdvertising()
+            transport.stopDiscovery()
             transport.stopAllEndpoints()
         }
         scope.coroutineContext[Job]?.cancel()
@@ -299,7 +321,7 @@ class NearbyExchangeService : Service() {
         private const val ACTION_CONFIRM = "com.ping.app.action.CONFIRM"
         private const val ACTION_REJECT = "com.ping.app.action.REJECT"
         /** Pairing window — both people must be searching within this window. */
-        const val WINDOW_SECONDS = 15
+        const val WINDOW_SECONDS = 30
         private const val WINDOW_MS = WINDOW_SECONDS * 1000L
 
         // Payload framing: first byte = type.
@@ -309,6 +331,11 @@ class NearbyExchangeService : Service() {
         private val _session = MutableStateFlow<ExchangeSession?>(null)
         /** Latest session state, observed by the Exchange screen. */
         val session: StateFlow<ExchangeSession?> = _session
+
+        /** Start discovering before any gesture is locked, so the later match is quick. */
+        fun prewarm(context: Context) {
+            context.startForegroundService(Intent(context, NearbyExchangeService::class.java))
+        }
 
         /** Start a swap keyed to the locked [gestureCode]. */
         fun start(context: Context, gestureCode: String) {
