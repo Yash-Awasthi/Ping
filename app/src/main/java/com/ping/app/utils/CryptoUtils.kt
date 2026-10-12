@@ -56,21 +56,20 @@ object CryptoUtils {
         }
         val shared = ka.generateSecret()
 
-        val salt = "ping-ecdh-v1".toByteArray()
-        val info = "ping-aes-256-gcm".toByteArray()
+        val okm = hkdfSha256(shared, "ping-ecdh-v1".toByteArray(), "ping-aes-256-gcm".toByteArray())
+        shared.fill(0)
+        return SecretKeySpec(okm, "AES")
+    }
 
-        // HKDF-Extract
+    /** RFC 5869 HKDF-SHA256 with a non-empty [salt], returning one 32-byte output block. */
+    internal fun hkdfSha256(ikm: ByteArray, salt: ByteArray, info: ByteArray): ByteArray {
         val extract = Mac.getInstance("HmacSHA256").apply { init(SecretKeySpec(salt, "HmacSHA256")) }
-        val prk = extract.doFinal(shared)
-        // HKDF-Expand (single 32-byte block)
+        val prk = extract.doFinal(ikm)
         val expand = Mac.getInstance("HmacSHA256").apply { init(SecretKeySpec(prk, "HmacSHA256")) }
         expand.update(info)
         expand.update(0x01)
-        val okm = expand.doFinal()
-
-        shared.fill(0)
         prk.fill(0)
-        return SecretKeySpec(okm, "AES")
+        return expand.doFinal()
     }
 
     /**
