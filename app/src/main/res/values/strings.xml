@@ -168,6 +168,8 @@
     <string name="hint_email">Email</string>
     <string name="hint_social">Social / handle</string>
     <string name="hint_note">Note (2 lines)</string>
+    <string name="profile_preview_label">Your card</string>
+    <string name="profile_privacy">Only what you fill in is sent, and only after both phones confirm the six-digit code.</string>
     <string name="profile_save">Save card</string>
     <string name="profile_saved">Card saved</string>
     <string name="profile_name_required">Enter a name first.</string>
@@ -196,6 +198,8 @@
     <string name="shortcut_swap">Swap contact</string>
     <string name="shortcut_room">File room</string>
     <string name="contacts_import">Import</string>
+    <string name="contacts_favourites">Favourites</string>
+    <string name="contacts_everyone">Everyone</string>
     <string name="contacts_import_failed">Could not read that file.</string>
     <plurals name="contacts_imported">
         <item quantity="one">Imported %1$d contact</item>

@@ -30,6 +30,21 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
 import com.ping.app.ui.components.Avatar
+import androidx.compose.foundation.background
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.KeyboardType
+import com.ping.app.ui.components.PingCard
+import com.ping.app.ui.theme.BrandBrush
 
 @Composable
 fun ProfileScreen(
@@ -65,69 +80,58 @@ fun ProfileScreen(
             .padding(24.dp)
             .verticalScroll(rememberScrollState()),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Avatar(name = name, size = 64.dp)
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(
-                    text = name.ifBlank { stringResource(R.string.profile_title) },
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Text(
-                    text = stringResource(R.string.profile_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        // What the other phone receives, updated as you type.
+        Text(
+            text = stringResource(R.string.profile_preview_label).uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(BrandBrush)
+                .padding(20.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Avatar(name = name, size = 56.dp)
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text(
+                        text = name.ifBlank { stringResource(R.string.profile_title) },
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White,
+                    )
+                    Text(
+                        text = listOf(phone, email).filter { it.isNotBlank() }.joinToString(" · ")
+                            .ifBlank { stringResource(R.string.profile_subtitle) },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.85f),
+                    )
+                }
+            }
+            if (social.isNotBlank() || note.isNotBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                if (social.isNotBlank()) Text(social, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                if (note.isNotBlank()) Text(note, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.85f))
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text(stringResource(R.string.hint_name)) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            singleLine = true,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = phone,
-            onValueChange = { phone = it },
-            label = { Text(stringResource(R.string.hint_phone)) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            singleLine = true,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text(stringResource(R.string.hint_email)) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            singleLine = true,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = social,
-            onValueChange = { social = it },
-            label = { Text(stringResource(R.string.hint_social)) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            singleLine = true,
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        OutlinedTextField(
-            value = note,
-            onValueChange = { note = it },
-            label = { Text(stringResource(R.string.hint_note)) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            minLines = 2,
-            maxLines = 2,
+        PingCard {
+            ProfileField(name, { name = it }, R.string.hint_name, Icons.Default.Person, KeyboardType.Text)
+            ProfileField(phone, { phone = it }, R.string.hint_phone, Icons.Default.Phone, KeyboardType.Phone)
+            ProfileField(email, { email = it }, R.string.hint_email, Icons.Default.Email, KeyboardType.Email)
+            ProfileField(social, { social = it }, R.string.hint_social, Icons.Default.Share, KeyboardType.Uri)
+            ProfileField(note, { note = it }, R.string.hint_note, Icons.Default.Info, KeyboardType.Text, singleLine = false)
+        }
+        Text(
+            text = stringResource(R.string.profile_privacy),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -155,4 +159,27 @@ fun ProfileScreen(
             Text(stringResource(R.string.profile_save))
         }
     }
+}
+
+@Composable
+private fun ProfileField(
+    value: String,
+    onChange: (String) -> Unit,
+    label: Int,
+    icon: ImageVector,
+    keyboard: KeyboardType,
+    singleLine: Boolean = true,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(stringResource(label)) },
+        leadingIcon = { Icon(icon, contentDescription = null) },
+        keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        shape = MaterialTheme.shapes.medium,
+        singleLine = singleLine,
+        minLines = if (singleLine) 1 else 2,
+        maxLines = if (singleLine) 1 else 3,
+    )
 }

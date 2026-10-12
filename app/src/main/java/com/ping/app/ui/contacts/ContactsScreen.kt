@@ -1,9 +1,20 @@
 package com.ping.app.ui.contacts
 
+import android.text.format.DateUtils
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import com.ping.app.ui.components.SectionLabel
+import com.ping.app.ui.theme.BrandBrush
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -109,14 +120,23 @@ private fun ContactList(
                 .padding(32.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = stringResource(
-                    if (query.isBlank()) R.string.empty_contacts else R.string.contacts_no_results,
-                ),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier.size(72.dp).clip(CircleShape).background(BrandBrush),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(36.dp))
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = stringResource(
+                        if (query.isBlank()) R.string.empty_contacts else R.string.contacts_no_results,
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     } else {
         LazyColumn(
@@ -124,7 +144,16 @@ private fun ContactList(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(contacts, key = { it.id }) { contact ->
+            val favourites = contacts.filter { it.isFavorite }
+            if (query.isBlank() && favourites.isNotEmpty()) {
+                item { SectionLabel(stringResource(R.string.contacts_favourites)) }
+                items(favourites, key = { "f-" + it.id }) { contact ->
+                    ContactItem(contact = contact, onClick = { onContactClick(contact.id) })
+                }
+                item { SectionLabel(stringResource(R.string.contacts_everyone)) }
+            }
+            val rest = if (query.isBlank()) contacts.filterNot { it.isFavorite } else contacts
+            items(rest, key = { it.id }) { contact ->
                 ContactItem(contact = contact, onClick = { onContactClick(contact.id) })
             }
         }
@@ -152,11 +181,31 @@ private fun ContactItem(
                         text = sub,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (contact.memo.isNotBlank()) {
+                    Text(
+                        text = contact.memo,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PingCyan,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
-            if (contact.isFavorite) {
-                Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+            Column(horizontalAlignment = Alignment.End) {
+                if (contact.isFavorite) {
+                    Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                }
+                Text(
+                    text = DateUtils.getRelativeTimeSpanString(
+                        contact.receivedAt, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE,
+                    ).toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
