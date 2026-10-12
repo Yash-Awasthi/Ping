@@ -52,10 +52,9 @@ android {
             buildConfigField("boolean", "ENABLE_LOGGING", "true")
         }
         release {
-            // R8 optimisation silently breaks hand detection (MediaPipe returns no hands);
-            // shrinking stays off until a minified build passes on a device. Costs ~10 MB per APK.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // MediaPipe is kept whole in proguard-rules.pro; R8 once stripped its JNI-reached classes.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

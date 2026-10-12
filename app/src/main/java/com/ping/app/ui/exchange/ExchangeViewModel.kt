@@ -1,6 +1,5 @@
 package com.ping.app.ui.exchange
 
-import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,10 +19,10 @@ class ExchangeViewModel @Inject constructor(
 ) : ViewModel() {
 
     val cameraState = gestureCamera.state
+    val surfaceRequest = gestureCamera.surfaceRequest
     val session = NearbyExchangeService.session
 
-    fun startCamera(owner: LifecycleOwner, preview: PreviewView) =
-        gestureCamera.start(owner, preview)
+    fun startCamera(owner: LifecycleOwner) = gestureCamera.start(owner)
 
     fun stopCamera() = gestureCamera.stop()
 

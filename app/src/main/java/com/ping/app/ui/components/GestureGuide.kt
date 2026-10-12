@@ -1,6 +1,13 @@
 package com.ping.app.ui.components
 
+import androidx.camera.compose.CameraXViewfinder
+import androidx.camera.core.SurfaceRequest
+import androidx.camera.viewfinder.core.ImplementationMode
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -19,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ping.app.R
@@ -63,5 +71,25 @@ fun GestureGuideButton(modifier: Modifier = Modifier) {
                 TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) }
             },
         )
+    }
+}
+
+/** Front-camera feed shown while a gesture is read; blank until CameraX asks for a surface. */
+@Composable
+fun GesturePreview(surfaceRequest: SurfaceRequest?, modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(320.dp)
+            .clip(MaterialTheme.shapes.extraLarge)
+            .border(2.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.extraLarge),
+    ) {
+        surfaceRequest?.let {
+            CameraXViewfinder(
+                surfaceRequest = it,
+                implementationMode = ImplementationMode.EMBEDDED,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
