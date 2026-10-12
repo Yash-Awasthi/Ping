@@ -1,16 +1,5 @@
 # Ping ProGuard / R8 rules
-
-# Nearby Connections
--keep class com.google.android.gms.nearby.** { *; }
--dontwarn com.google.android.gms.**
-
-# Hilt
--keep class dagger.hilt.** { *; }
--keep @dagger.hilt.android.HiltAndroidApp class * { *; }
--keep @dagger.hilt.android.AndroidEntryPoint class * { *; }
-
-# Room
--keep class * extends androidx.room3.RoomDatabase { *; }
+# Hilt, Room, CameraX and Nearby ship their own consumer rules.
 
 # MediaPipe Tasks Vision — HandLandmarker loads runners via JNI + reflection;
 # R8 must not strip these or the app crashes on the first gesture attempt.
@@ -22,15 +11,8 @@
 -keepclassmembers class com.google.mediapipe.** { *; }
 -dontwarn com.google.mediapipe.**
 
-# CameraX — background-thread image accessors located reflectively.
--keep class androidx.camera.** { *; }
--dontwarn androidx.camera.**
-
 # AutoValue annotation-processor leakage (transitive) — not present on Android.
 -dontwarn javax.lang.model.**
 -dontwarn javax.annotation.processing.**
 -dontwarn autovalue.shaded.**
 -dontwarn com.google.auto.value.**
-
-# Timber
--dontwarn timber.log.**
