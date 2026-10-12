@@ -107,13 +107,11 @@ fun RollCallScreen(onBack: () -> Unit, viewModel: RollCallViewModel = hiltViewMo
         val missing = RequiredPermissions.missing(context)
         if (missing.isNotEmpty()) permissionLauncher.launch(missing.toTypedArray())
     }
-    // Scanning and advertising both stall once the screen sleeps.
+    // Scanning and advertising both stall once the screen sleeps. The radio itself stops in
+    // the ViewModel, so rotating the phone does not end a roll call.
     DisposableEffect(Unit) {
         view.keepScreenOn = true
-        onDispose {
-            view.keepScreenOn = false
-            viewModel.stop()
-        }
+        onDispose { view.keepScreenOn = false }
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
