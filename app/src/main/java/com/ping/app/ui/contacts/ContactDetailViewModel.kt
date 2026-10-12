@@ -36,6 +36,13 @@ class ContactDetailViewModel @Inject constructor(
         viewModelScope.launch { contactRepository.delete(contact) }
     }
 
+    fun save(contact: Contact) {
+        viewModelScope.launch {
+            contactRepository.update(contact)
+            _contact.value = contact
+        }
+    }
+
     fun toggleFavorite(contact: Contact) {
         viewModelScope.launch {
             val updated = contact.copy(isFavorite = !contact.isFavorite)

@@ -26,4 +26,12 @@ object Pairing {
      * advertisement wins; equal advertisements (same nonce) leave both waiting.
      */
     fun shouldInitiate(localName: String, remoteName: String): Boolean = localName < remoteName
+
+    /** The first already-discovered endpoint holding [code], from endpointId to advertisement. */
+    fun firstMatch(code: String, seen: Map<String, String>): Map.Entry<String, String>? =
+        seen.entries.firstOrNull { matches(code, it.value) }
+
+    /** Ping phones in range that locked a different gesture. */
+    fun othersNearby(code: String, seen: Map<String, String>): Int =
+        seen.values.count { !matches(code, it) }
 }

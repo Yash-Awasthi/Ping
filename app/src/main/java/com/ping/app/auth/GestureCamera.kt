@@ -59,7 +59,7 @@ class GestureCamera @Inject constructor(
     /** Optional callback for raw landmark data (used by air-drawing overlay) */
     var onLandmarks: ((List<Triple<Float, Float, Float>>) -> Unit)? = null
 
-    private var landmarker: HandLandmarker? = null
+    @Volatile private var landmarker: HandLandmarker? = null
     private var cameraProvider: ProcessCameraProvider? = null
     private var executor: ExecutorService? = null
 
@@ -75,7 +75,7 @@ class GestureCamera @Inject constructor(
 
     fun start(owner: LifecycleOwner, preview: PreviewView) {
         executor = Executors.newSingleThreadExecutor()
-        initLandmarker()
+        warmUp()
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
             cameraProvider = future.get()
@@ -84,8 +84,8 @@ class GestureCamera @Inject constructor(
     }
 
     fun stop() {
+        // The landmarker stays loaded: building it costs a noticeable pause on every open.
         cameraProvider?.unbindAll(); cameraProvider = null
-        landmarker?.close(); landmarker = null
         executor?.shutdown(); executor = null
         reset()
         _state.value = State.NoHand
@@ -105,7 +105,10 @@ class GestureCamera @Inject constructor(
         if (_state.value !is State.ModelError) _state.value = State.NoHand
     }
 
-    private fun initLandmarker() {
+    /** Load the hand model once; safe to call from a background thread at app start. */
+    @Synchronized
+    fun warmUp() {
+        if (landmarker != null) return
         try {
             val options = HandLandmarker.HandLandmarkerOptions.builder()
                 .setBaseOptions(BaseOptions.builder().setModelAssetPath(MODEL_ASSET).build())
@@ -238,8 +241,8 @@ class GestureCamera @Inject constructor(
 
     companion object {
         private const val MODEL_ASSET = "hand_landmarker.task"
-        /** Frames the same code must persist before we lock it. ~0.5s at 20fps. */
-        private const val COMMIT_FRAMES = 10
+        /** Frames the same code must persist before we lock it. ~0.3s at 20fps. */
+        private const val COMMIT_FRAMES = 6
         /** A motion locks after the fingers held one shape this long and the motion read the same this many frames. */
         private const val MOTION_POSE_FRAMES = 10
         private const val MOTION_FRAMES = 4

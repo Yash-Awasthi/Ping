@@ -1,11 +1,16 @@
 package com.ping.app
 
 import android.app.Application
+import com.ping.app.auth.GestureCamera
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
+import javax.inject.Inject
+import kotlin.concurrent.thread
 
 @HiltAndroidApp
 class PingApplication : Application() {
+
+    @Inject lateinit var gestureCamera: GestureCamera
 
     override fun onCreate() {
         super.onCreate()
@@ -13,5 +18,6 @@ class PingApplication : Application() {
             Timber.plant(Timber.DebugTree())
         }
         Timber.i("Ping starting — v%s", BuildConfig.VERSION_NAME)
+        thread(name = "hand-model") { gestureCamera.warmUp() }
     }
 }

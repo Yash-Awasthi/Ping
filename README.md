@@ -25,7 +25,10 @@ No server. No cloud. No account. Your data never leaves your phone.
 | 🤝 **Gesture Matchmaking** | About 40 named hand poses plus circle and wave motions, two-hand gestures, left or right hand, or chain two gestures — no enrollment needed |
 | 🖐️ **Practice Mode** | Live label, finger count and raw measurements for your hand, with a guide to every gesture; never connects |
 | 📤 **Export All** | Share every listed contact as one `.vcf` file |
-| 🗂️ **File Room** | Host or join a room by gesture; share file names, pull files on demand over a Nearby star link. The host approves every guest and both phones show a link code to compare |
+| 📥 **Import** | Load contacts from a `.vcf` file (vCard 2.1, 3.0 or 4.0); an exported file restores a backup |
+| ✏️ **Edit & Memo** | Edit any contact and keep a private "where we met" memo that is never swapped or exported |
+| ⚠️ **Mismatch Notice** | Shows when nearby phones are holding a different gesture instead of timing out silently |
+| 🗂️ **File Room** | Host or join a room by gesture; share file names, pull files on demand over a Nearby star link, each checked against its SHA-256. The host approves every guest and both phones show a link code to compare |
 | 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections |
 | 🔐 **E2E Encryption** | P-256 ECDH → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
 | 👤 **Contact Cards** | Name, phone, email, social handles, short note |
