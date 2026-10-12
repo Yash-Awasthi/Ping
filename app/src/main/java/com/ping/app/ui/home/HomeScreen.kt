@@ -50,6 +50,7 @@ fun HomeScreen(
     onShareClick: () -> Unit,
     onRoomClick: () -> Unit,
     onPracticeClick: () -> Unit,
+    onRollCallClick: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val profile by viewModel.profile.collectAsStateWithLifecycle()
@@ -130,6 +131,20 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
+
+        PingCard(modifier = Modifier.clickable(role = Role.Button, onClick = onRollCallClick)) {
+            Column {
+                Text(
+                    text = stringResource(R.string.home_roll_button),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = stringResource(R.string.home_roll_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

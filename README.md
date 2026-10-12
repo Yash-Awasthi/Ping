@@ -27,6 +27,7 @@ No server. No cloud. No account. Your data never leaves your phone.
 | 📤 **Export All** | Share every listed contact as one `.vcf` file |
 | 📥 **Import** | Load contacts from a `.vcf` file (vCard 2.1, 3.0 or 4.0); an exported file restores a backup |
 | ✏️ **Edit & Memo** | Edit any contact and keep a private "where we met" memo that is never swapped or exported |
+| 🧑‍🏫 **Roll Call** | Offline attendance for a whole class: the teacher's phone scans while students tap Check in; no connections, so 100+ students fit one scan. Live list, manual ticks, session history and CSV export |
 | ⚡ **Quick Launch** | Long-press the icon or add the Quick Settings tile to open a swap in one tap |
 | ⚠️ **Mismatch Notice** | Shows when nearby phones are holding a different gesture instead of timing out silently |
 | 🗂️ **File Room** | Host or join a room by gesture; share files or a whole folder, pull files on demand over a Nearby star link, each checked against its SHA-256. The host approves every guest and both phones show a link code to compare |

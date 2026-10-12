@@ -14,6 +14,7 @@ object Routes {
     const val EXCHANGE = "exchange"
     const val ROOM = "room"
     const val PRACTICE = "practice"
+    const val ROLL_CALL = "roll_call"
 }
 
 /** Bottom navigation items. */
