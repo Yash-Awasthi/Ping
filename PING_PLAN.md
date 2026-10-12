@@ -17,8 +17,6 @@ Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-
 - Work out left and right hand from more than the detector's call, to stop it flickering.
 
 ## 2b. Roll call
-- Load a class list from CSV so absent students show before their first check-in.
-- Remove or rename a student from the admin list.
 - Measure a full class (100+ phones) on real hardware; tune the scan and announce windows.
 - Check-in is proximity only: a phone carried by a friend counts as present.
 

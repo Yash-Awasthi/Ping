@@ -38,6 +38,9 @@ data class Attendance(
 
 data class SessionSummary(val id: String, val label: String, val startedAt: Long, val present: Int)
 
+/** How many sessions [roll] was marked present in. */
+data class RollRate(val roll: String, val present: Int)
+
 @Dao
 interface RollCallDao {
     @Query("SELECT * FROM students ORDER BY roll")
@@ -51,6 +54,23 @@ interface RollCallDao {
 
     @Query("DELETE FROM students WHERE roll = :roll")
     suspend fun deleteStudent(roll: String)
+
+    @Query("UPDATE students SET name = :name WHERE roll = :roll")
+    suspend fun renameStudent(roll: String, name: String)
+
+    /** Adds class-list rows; existing students keep their bound phone and only take the new name. */
+    @androidx.room.Transaction
+    suspend fun importRoster(rows: List<Pair<String, String>>) {
+        rows.forEach { (roll, name) ->
+            if (student(roll) == null) upsertStudent(Student(roll, name, "")) else renameStudent(roll, name)
+        }
+    }
+
+    @Query("SELECT roll, COUNT(*) AS present FROM attendance GROUP BY roll")
+    fun observeRates(): Flow<List<RollRate>>
+
+    @Query("SELECT COUNT(*) FROM roll_sessions")
+    fun observeSessionCount(): Flow<Int>
 
     @Insert
     suspend fun insertSession(session: RollSession)
