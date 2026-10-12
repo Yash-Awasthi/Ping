@@ -1,23 +1,27 @@
 package com.ping.app.ui.contacts
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ping.app.data.ContactRepository
 import com.ping.app.model.Contact
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class ContactDetailViewModel @Inject constructor(
+@HiltViewModel(assistedFactory = ContactDetailViewModel.Factory::class)
+class ContactDetailViewModel @AssistedInject constructor(
     private val contactRepository: ContactRepository,
-    savedStateHandle: SavedStateHandle,
+    @Assisted contactId: String,
 ) : ViewModel() {
 
-    private val contactId: String = savedStateHandle["contactId"] ?: ""
+    @AssistedFactory
+    interface Factory {
+        fun create(contactId: String): ContactDetailViewModel
+    }
 
     private val _contact = MutableStateFlow<Contact?>(null)
     val contact: StateFlow<Contact?> = _contact
@@ -26,10 +30,6 @@ class ContactDetailViewModel @Inject constructor(
         if (contactId.isNotBlank()) {
             viewModelScope.launch { _contact.value = contactRepository.getById(contactId) }
         }
-    }
-
-    fun loadContact(id: String) {
-        viewModelScope.launch { _contact.value = contactRepository.getById(id) }
     }
 
     fun deleteContact(contact: Contact) {

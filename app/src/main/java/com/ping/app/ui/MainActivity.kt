@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
+import androidx.navigation3.runtime.NavKey
 import com.ping.app.ui.navigation.AppNavHost
 import com.ping.app.ui.theme.PingTheme
 import com.ping.app.utils.RequiredPermissions
@@ -19,7 +20,7 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
 
     /** Screen asked for by a shortcut or the tile; consumed once navigated. */
-    private val pendingRoute = mutableStateOf<String?>(null)
+    private val pendingKey = mutableStateOf<NavKey?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,13 +30,13 @@ class MainActivity : ComponentActivity() {
             val missing = RequiredPermissions.missing(this)
             if (missing.isNotEmpty()) permissions.launch(missing.toTypedArray())
         }
-        if (savedInstanceState == null) pendingRoute.value = QuickLaunch.routeOf(intent)
+        if (savedInstanceState == null) pendingKey.value = QuickLaunch.keyOf(intent)
         QuickLaunch.publishShortcuts(this)
         setContent {
             PingTheme {
                 AppNavHost(
-                    launchRoute = pendingRoute.value,
-                    onLaunchRouteHandled = { pendingRoute.value = null },
+                    launchKey = pendingKey.value,
+                    onLaunchKeyHandled = { pendingKey.value = null },
                 )
             }
         }
@@ -43,6 +44,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        QuickLaunch.routeOf(intent)?.let { pendingRoute.value = it }
+        QuickLaunch.keyOf(intent)?.let { pendingKey.value = it }
     }
 }
