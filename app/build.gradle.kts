@@ -1,25 +1,28 @@
 import java.io.FileInputStream
 import java.io.IOException
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     namespace = "com.ping.app"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) { minorApiLevel = 2 }
+    }
 
     defaultConfig {
         applicationId = "com.ping.app"
         minSdk = 26           // BLE + Nearby Connections baseline
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 7
         versionName = "0.6.0"
 
@@ -80,19 +83,26 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-        freeCompilerArgs += listOf("-opt-in=kotlin.RequiresOptIn")
+    testOptions {
+        unitTests.all { it.useJUnitPlatform() }
     }
 
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+}
+
+kotlin {
+    jvmToolchain(25)
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_21
+        optIn.add("kotlin.RequiresOptIn")
     }
 }
 
@@ -105,9 +115,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
     // Room
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
+    implementation(libs.room3.runtime)
+    ksp(libs.room3.compiler)
 
     // Hilt
     implementation(libs.hilt.android)
@@ -121,37 +130,41 @@ dependencies {
     // Google Nearby Connections (offline BLE + Wi-Fi Direct transport)
     implementation(libs.play.services.nearby)
 
-    // Gson — contact card JSON
-    implementation(libs.gson)
+    // Contact card and file-room wire JSON
+    implementation(libs.kotlinx.serialization.json)
 
     // Timber
     implementation(libs.timber)
 
     // CameraX — front-camera preview + frame analysis for hand gesture detection
-    val cameraxVersion = "1.3.4"
-    implementation("androidx.camera:camera-core:$cameraxVersion")
-    implementation("androidx.camera:camera-camera2:$cameraxVersion")
-    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
-    implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.compose)
 
     // MediaPipe Tasks Vision — HandLandmarker (21 landmarks used to build the gesture fingerprint)
-    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    implementation(libs.mediapipe.tasks.vision)
 
     // Unit tests — pure JVM logic only (gesture fingerprint, crypto primitives).
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 
     // Instrumented tests: Room DAOs against an in-memory database (needs a device or emulator).
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.room3.testing)
 
     // Compose
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.core)
     implementation(libs.activity.compose)
-    implementation(libs.hilt.navigation.compose)
-    implementation(libs.androidx.navigation.compose)
+    implementation(libs.hilt.lifecycle.viewmodel.compose)
+    implementation(libs.navigation3.runtime)
+    implementation(libs.navigation3.ui)
+    implementation(libs.lifecycle.viewmodel.navigation3)
     implementation(libs.lifecycle.runtime.compose)
 }
 
@@ -175,7 +188,7 @@ tasks.register("downloadHandModel") {
         modelFile.parentFile.mkdirs()
         try {
             println("Downloading hand_landmarker.task from $handModelUrl …")
-            val conn = URL(handModelUrl).openConnection() as HttpURLConnection
+            val conn = URI(handModelUrl).toURL().openConnection() as HttpURLConnection
             conn.connectTimeout = 30_000
             conn.readTimeout = 300_000
             conn.connect()
@@ -192,11 +205,9 @@ tasks.register("downloadHandModel") {
     }
 }
 
-afterEvaluate {
-    tasks.matching { task ->
-        val n = task.name
-        (n.startsWith("merge") && n.endsWith("Assets")) ||
-            n.startsWith("lint") ||
-            (n.startsWith("generate") && n.contains("Lint"))
-    }.configureEach { dependsOn("downloadHandModel") }
+tasks.configureEach {
+    val n = name
+    if ((n.startsWith("merge") && n.endsWith("Assets")) || n.startsWith("lint") ||
+        (n.startsWith("generate") && n.contains("Lint"))
+    ) dependsOn("downloadHandModel")
 }
