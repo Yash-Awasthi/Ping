@@ -33,7 +33,7 @@ private fun NavBackStack<NavKey>.openFromHome(key: NavKey) {
 
 @Composable
 fun AppNavHost(launchKey: NavKey? = null, onLaunchKeyHandled: () -> Unit = {}) {
-    val backStack = rememberNavBackStack(Home)
+    val backStack = rememberNavBackStack(navStateConfiguration, Home)
     LaunchedEffect(launchKey) {
         val key = launchKey ?: return@LaunchedEffect
         backStack.openFromHome(key)
