@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
-import com.google.gson.Gson
 import com.ping.app.R
 import com.ping.app.data.ContactRepository
 import com.ping.app.data.ProfileRepository
@@ -21,6 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.security.KeyPair
 import java.security.PublicKey
@@ -52,7 +52,6 @@ class NearbyExchangeService : Service() {
     @Inject lateinit var contactRepo: ContactRepository
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val gson = Gson()
 
     /** Null until the gesture locks; callbacks only buffer endpoints before that. */
     private var gestureCode: String? = null
@@ -237,7 +236,7 @@ class NearbyExchangeService : Service() {
         if (!cardSent.add(endpointId)) return
         scope.launch {
             val map = profileRepo.getOrCreate().toShareableMap()
-            val sealed = CryptoUtils.encrypt(key, gson.toJson(map).toByteArray())
+            val sealed = CryptoUtils.encrypt(key, Json.encodeToString(map).toByteArray())
             transport.sendBytes(endpointId, frame(TYPE_CARD, sealed))
             Timber.i("Card sent to %s", endpointId)
         }
@@ -245,8 +244,7 @@ class NearbyExchangeService : Service() {
 
     private fun saveContact(json: String) {
         scope.launch {
-            @Suppress("UNCHECKED_CAST")
-            val map = runCatching { gson.fromJson(json, Map::class.java) as Map<String, String> }
+            val map = runCatching { Json.decodeFromString<Map<String, String>>(json) }
                 .getOrElse { emptyMap() }
             val contact = Contact.fromMap(map)
             if (contact.isEmptyCard) {
