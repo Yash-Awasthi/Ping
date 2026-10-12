@@ -68,6 +68,17 @@
         </activity>
 
         <service
+            android:name=".ui.SwapTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification"
+            android:label="@string/shortcut_swap"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
             android:name=".service.NearbyExchangeService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />

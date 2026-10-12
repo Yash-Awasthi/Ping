@@ -18,7 +18,7 @@ Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-
 
 ## 3. File room
 - Resume an interrupted transfer.
-- Share whole folders.
+- Keep a shared folder's subfolder layout; files currently arrive flat.
 - More than seven guests.
 
 ## 4. Contacts
