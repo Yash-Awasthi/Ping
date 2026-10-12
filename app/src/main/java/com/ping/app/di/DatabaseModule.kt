@@ -1,7 +1,7 @@
 package com.ping.app.di
 
 import android.content.Context
-import androidx.room.Room
+import androidx.room3.Room
 import com.ping.app.data.local.AppDatabase
 import com.ping.app.data.local.ContactDao
 import com.ping.app.data.local.ProfileDao
@@ -21,7 +21,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "ping.db")
             .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
 
     @Provides

@@ -1,23 +1,23 @@
 package com.ping.app.rollcall
 
-import androidx.room.Dao
-import androidx.room.Entity
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
+import androidx.room3.Dao
+import androidx.room3.Entity
+import androidx.room3.Insert
+import androidx.room3.OnConflictStrategy
+import androidx.room3.Query
 import kotlinx.coroutines.flow.Flow
 
 /** A student the admin's phone has seen; [device] is the phone they first checked in from. */
 @Entity(tableName = "students")
 data class Student(
-    @androidx.room.PrimaryKey val roll: String,
+    @androidx.room3.PrimaryKey val roll: String,
     val name: String,
     val device: String,
 )
 
 @Entity(tableName = "roll_sessions")
 data class RollSession(
-    @androidx.room.PrimaryKey val id: String,
+    @androidx.room3.PrimaryKey val id: String,
     val label: String,
     val startedAt: Long,
 )
@@ -59,7 +59,7 @@ interface RollCallDao {
     suspend fun renameStudent(roll: String, name: String)
 
     /** Adds class-list rows; existing students keep their bound phone and only take the new name. */
-    @androidx.room.Transaction
+    @androidx.room3.Transaction
     suspend fun importRoster(rows: List<Pair<String, String>>) {
         rows.forEach { (roll, name) ->
             if (student(roll) == null) upsertStudent(Student(roll, name, "")) else renameStudent(roll, name)

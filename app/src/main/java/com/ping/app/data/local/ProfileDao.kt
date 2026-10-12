@@ -1,6 +1,6 @@
 package com.ping.app.data.local
 
-import androidx.room.*
+import androidx.room3.*
 import com.ping.app.model.Profile
 import kotlinx.coroutines.flow.Flow
 

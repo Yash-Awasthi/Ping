@@ -1,7 +1,7 @@
 package com.ping.app.model
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room3.Entity
+import androidx.room3.PrimaryKey
 
 /**
  * The user's own card — what gets sent during a Ping swap.
