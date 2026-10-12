@@ -200,13 +200,25 @@ private fun StudentPane(viewModel: RollCallViewModel) {
     )
     val ready = RollCallProtocol.cleanRoll(roll).isNotEmpty()
     when {
-        checking?.joined != null -> {
+        checking?.confirmed == true -> {
             Text(
-                stringResource(R.string.roll_checked_in, checking.joined.label),
-                style = MaterialTheme.typography.titleMedium,
+                stringResource(R.string.roll_confirmed, checking.joined?.label.orEmpty()),
+                style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
             )
+            Button(onClick = viewModel::stop, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.action_done))
+            }
+        }
+        checking?.joined != null -> {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                CircularProgressIndicator()
+                Text(
+                    stringResource(R.string.roll_checked_in, checking.joined.label),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
             Text(stringResource(R.string.roll_stay_hint), style = MaterialTheme.typography.bodySmall)
         }
         checking != null -> {
