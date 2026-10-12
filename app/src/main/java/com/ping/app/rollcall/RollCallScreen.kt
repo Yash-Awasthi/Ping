@@ -51,7 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -115,7 +115,7 @@ fun RollCallScreen(onBack: () -> Unit, viewModel: RollCallViewModel = hiltViewMo
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = tab) {
+        PrimaryTabRow(selectedTabIndex = tab) {
             Tab(selected = tab == 0, onClick = { viewModel.stop(); tab = 0 }, text = { Text(stringResource(R.string.roll_tab_take)) })
             Tab(selected = tab == 1, onClick = { viewModel.stop(); tab = 1 }, text = { Text(stringResource(R.string.roll_tab_check_in)) })
         }
