@@ -2,6 +2,7 @@ package com.ping.app.rollcall
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RollCallProtocolTest {
@@ -21,11 +22,30 @@ class RollCallProtocolTest {
             RollCallProtocol.AdminAdvert("0a1b2c3d", "Physics2B"),
             RollCallProtocol.parseAdmin(RollCallProtocol.adminAdvert("0a1b2c3d", "Physics|2B")),
         )
-        assertNull(RollCallProtocol.parseAdmin("A|xyz|x"))
-        assertNull(RollCallProtocol.parseAdmin("S|0a1b2c3d|x"))
+        assertNull(RollCallProtocol.parseAdmin("A|xyz|x|"))
+        assertNull(RollCallProtocol.parseAdmin("S|0a1b2c3d|x|"))
         assertNull(RollCallProtocol.parseStudent("S|0a1b2c3d||deadbeef|x"))
         assertNull(RollCallProtocol.parseStudent("S|0a1b2c3d|7|nothex!!|x"))
         assertNull(RollCallProtocol.parseStudent("abc|token"))
+    }
+
+    @Test
+    fun `acks round trip inside the advertisement`() {
+        val ad = RollCallProtocol.adminAdvert("0a1b2c3d", "Physics", listOf("deadbeef", "00112233"))
+        assertEquals(setOf("deadbe", "001122"), RollCallProtocol.parseAdmin(ad)?.acks)
+        val full = RollCallProtocol.adminAdvert("0a1b2c3d", "x".repeat(40), List(40) { "%08x".format(it) })
+        assertTrue(full.length <= 131)
+    }
+
+    @Test
+    fun `fresh marks are acked first, then everyone in turn`() {
+        val all = List(20) { "%08x".format(it) }
+        val fresh = ArrayDeque(listOf(all[19]))
+        val (first, cursor) = RollCallProtocol.nextAcks(fresh, all, 0)
+        assertEquals(all[19], first.first())
+        assertEquals(RollCallProtocol.MAX_ACKS, first.size)
+        val (second, _) = RollCallProtocol.nextAcks(ArrayDeque(), all, cursor)
+        assertTrue(all.subList(11, 19).all { it in second })
     }
 
     @Test

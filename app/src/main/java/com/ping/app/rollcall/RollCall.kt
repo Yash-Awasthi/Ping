@@ -26,6 +26,8 @@ sealed class RollCallState {
     data class CheckingIn(
         val found: List<RollCallProtocol.AdminAdvert> = emptyList(),
         val joined: RollCallProtocol.AdminAdvert? = null,
+        /** The admin's advertisement acknowledged this phone, so it stopped announcing. */
+        val confirmed: Boolean = false,
     ) : RollCallState()
 }
 
@@ -46,6 +48,10 @@ class RollCall @Inject constructor(
     val state: StateFlow<RollCallState> = _state
 
     private var timeout: Job? = null
+    private var ackLoop: Job? = null
+    /** Admin side, main thread only: devices marked this session and those not yet acknowledged. */
+    private val markedDevices = mutableListOf<String>()
+    private val freshAcks = ArrayDeque<String>()
 
     /** Stable per install, so the admin can notice a student checking in from a new phone. */
     val deviceTag: String
@@ -59,6 +65,11 @@ class RollCall @Inject constructor(
     var savedName: String
         get() = prefs.getString(KEY_NAME, "").orEmpty()
         set(v) = prefs.edit().putString(KEY_NAME, v).apply()
+
+    /** The class this phone last checked in to; finding it again checks in without a tap. */
+    private var savedClass: String
+        get() = prefs.getString(KEY_CLASS, "").orEmpty()
+        set(v) = prefs.edit().putString(KEY_CLASS, v).apply()
 
     // Admin
 
@@ -76,6 +87,24 @@ class RollCall @Inject constructor(
             transport.startAdvertising(RollCallProtocol.adminAdvert(token, clean), RollCallProtocol.SERVICE_ID)
             transport.startDiscovery(RollCallProtocol.SERVICE_ID)
             Timber.i("Roll call %s started", clean)
+            ackLoop = scope.launch { ackLoop(token, clean) }
+        }
+    }
+
+    /** Re-advertises with fresh acks; Nearby offers no way to edit a live advertisement. */
+    private suspend fun ackLoop(token: String, label: String) {
+        var cursor = 0
+        var last = ""
+        while (true) {
+            delay(ACK_EVERY_MS)
+            if (markedDevices.isEmpty()) continue
+            val (acks, next) = RollCallProtocol.nextAcks(freshAcks, markedDevices, cursor)
+            cursor = next
+            val advert = RollCallProtocol.adminAdvert(token, label, acks)
+            if (advert == last) continue
+            last = advert
+            transport.stopAdvertising()
+            transport.startAdvertising(advert, RollCallProtocol.SERVICE_ID)
         }
     }
 
@@ -88,6 +117,10 @@ class RollCall @Inject constructor(
                 else -> ""
             }
             dao.mark(Attendance(sessionId, ad.roll, System.currentTimeMillis(), flag))
+            if (ad.device !in markedDevices) {
+                markedDevices += ad.device
+                freshAcks.addLast(ad.device)
+            }
         }
     }
 
@@ -104,11 +137,16 @@ class RollCall @Inject constructor(
     fun startCheckingIn() {
         stop()
         _state.value = RollCallState.CheckingIn()
-        transport.onEndpointFound = { _, name ->
-            val ad = RollCallProtocol.parseAdmin(name)
-            val s = _state.value as? RollCallState.CheckingIn
-            if (ad != null && s != null && s.found.none { it.session == ad.session }) {
-                _state.value = s.copy(found = s.found + ad)
+        val myAck = RollCallProtocol.ackOf(deviceTag)
+        transport.onEndpointFound = onFound@{ _, name ->
+            val ad = RollCallProtocol.parseAdmin(name) ?: return@onFound
+            val s = _state.value as? RollCallState.CheckingIn ?: return@onFound
+            when {
+                s.joined?.session == ad.session -> if (myAck in ad.acks && !s.confirmed) confirmed(s)
+                s.found.none { it.session == ad.session } -> {
+                    _state.value = s.copy(found = s.found + ad)
+                    if (s.joined == null && ad.label.isNotEmpty() && ad.label == savedClass) join(ad)
+                }
             }
         }
         transport.startDiscovery(RollCallProtocol.SERVICE_ID)
@@ -124,8 +162,19 @@ class RollCall @Inject constructor(
             RollCallProtocol.SERVICE_ID,
         )
         _state.value = s.copy(joined = ad)
-        // The admin only needs one sighting; staying on air a while covers a slow scan.
+        savedClass = ad.label
+        // Stays on air until the admin acknowledges it; the timeout only covers a lost ack.
         stopAfter(ANNOUNCE_MS)
+    }
+
+    private fun confirmed(s: RollCallState.CheckingIn) {
+        timeout?.cancel()
+        runCatching {
+            transport.onEndpointFound = null
+            transport.stopAdvertising()
+            transport.stopDiscovery()
+        }
+        _state.value = s.copy(confirmed = true)
     }
 
     private fun stopAfter(ms: Long) {
@@ -135,6 +184,9 @@ class RollCall @Inject constructor(
 
     fun stop() {
         timeout?.cancel()
+        ackLoop?.cancel()
+        markedDevices.clear()
+        freshAcks.clear()
         if (_state.value == RollCallState.Idle) return
         runCatching {
             transport.onEndpointFound = null
@@ -169,6 +221,8 @@ class RollCall @Inject constructor(
         const val KEY_DEVICE = "device"
         const val KEY_ROLL = "roll"
         const val KEY_NAME = "name"
+        const val KEY_CLASS = "class"
+        const val ACK_EVERY_MS = 2_000L
         const val SCAN_MS = 5 * 60_000L
         const val ANNOUNCE_MS = 3 * 60_000L
     }
