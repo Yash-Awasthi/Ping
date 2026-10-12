@@ -94,14 +94,14 @@ The frame is rotated and mirrored to match the preview before detection, so dire
 
 ### Prerequisites
 
-- Android SDK (platform 36)
-- JDK 17–21
+- Android SDK (platform 37.2)
+- JDK 25
 - Two physical Android phones with Google Play Services (emulators can't do BLE)
 
 ### Build
 
 ```bash
-export JAVA_HOME=/opt/android-studio/jbr  # or any JDK 17–21
+export JAVA_HOME=/path/to/jdk-25
 export ANDROID_HOME=$HOME/Android/Sdk
 
 ./gradlew :app:assembleDebug
