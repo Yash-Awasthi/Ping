@@ -96,7 +96,8 @@ object RollCallProtocol {
         val n = if (nameCol >= 0) nameCol else if (r == 0) 1 else 0
         val out = LinkedHashMap<String, String>()
         for (row in if (hasHeader) rows.drop(1) else rows) {
-            val roll = cleanRoll(row.getOrNull(r).orEmpty()).ifEmpty { continue }
+            val roll = cleanRoll(row.getOrNull(r).orEmpty())
+            if (roll.isEmpty()) continue
             out[roll] = cleanName(row.getOrNull(n).orEmpty()).ifEmpty { roll }
             if (out.size >= MAX_ROSTER) break
         }
