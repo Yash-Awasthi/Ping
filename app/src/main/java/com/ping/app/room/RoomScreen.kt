@@ -8,7 +8,6 @@ import android.webkit.MimeTypeMap
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.view.PreviewView
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -50,7 +49,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.LifecycleOwner
@@ -60,6 +58,7 @@ import com.ping.app.auth.GestureCamera
 import com.ping.app.room.RoomProtocol.RoomFile
 import com.ping.app.ui.components.FileBadge
 import com.ping.app.ui.components.GestureGuideButton
+import com.ping.app.ui.components.GesturePreview
 import com.ping.app.ui.components.HeroBanner
 import com.ping.app.ui.components.ModeTile
 import com.ping.app.ui.theme.PingCyan
@@ -133,17 +132,16 @@ private fun GestureLock(viewModel: RoomViewModel, onLocked: (String) -> Unit, on
     val context = LocalContext.current
     val lifecycleOwner = context as? LifecycleOwner
     var granted by remember { mutableStateOf(RequiredPermissions.missing(context).isEmpty()) }
-    var previewView by remember { mutableStateOf<PreviewView?>(null) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         granted = RequiredPermissions.missing(context).isEmpty()
     }
     val camera by viewModel.cameraState.collectAsStateWithLifecycle()
+    val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
     val previewDescription = stringResource(R.string.gesture_camera_preview_desc)
 
     LaunchedEffect(granted) { if (!granted) launcher.launch(RequiredPermissions.all) }
-    LaunchedEffect(granted, previewView) {
-        val preview = previewView
-        if (granted && preview != null && lifecycleOwner != null) viewModel.startCamera(lifecycleOwner, preview)
+    LaunchedEffect(granted) {
+        if (granted && lifecycleOwner != null) viewModel.startCamera(lifecycleOwner)
     }
     LaunchedEffect(camera) {
         val locked = camera as? GestureCamera.State.Locked ?: return@LaunchedEffect
@@ -165,19 +163,9 @@ private fun GestureLock(viewModel: RoomViewModel, onLocked: (String) -> Unit, on
         style = MaterialTheme.typography.bodyMedium,
     )
     if (granted) {
-        AndroidView(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(320.dp)
-                .clip(MaterialTheme.shapes.extraLarge)
-                .border(2.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.extraLarge)
-                .semantics { contentDescription = previewDescription },
-            factory = { ctx ->
-                PreviewView(ctx).also {
-                    it.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                    previewView = it
-                }
-            },
+        GesturePreview(
+            surfaceRequest,
+            Modifier.semantics { contentDescription = previewDescription },
         )
     } else {
         Text(stringResource(R.string.perm_rationale_subtitle), textAlign = TextAlign.Center)

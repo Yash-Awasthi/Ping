@@ -6,7 +6,6 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -54,7 +53,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -65,6 +63,7 @@ import com.ping.app.model.ExchangeSession
 import com.ping.app.service.NearbyExchangeService
 import com.ping.app.ui.ConnectionState
 import com.ping.app.ui.components.GestureGuideButton
+import com.ping.app.ui.components.GesturePreview
 import com.ping.app.ui.ConnectionStatusIndicator
 import com.ping.app.utils.RequiredPermissions
 import com.ping.app.utils.vibrateDouble
@@ -93,7 +92,6 @@ fun ExchangeScreen(
     var searchStarted by remember { mutableStateOf(false) }
     var twoStep by remember { mutableStateOf(false) }
     var firstCode by remember { mutableStateOf<String?>(null) }
-    var previewView by remember { mutableStateOf<PreviewView?>(null) }
     var restartKey by remember { mutableStateOf(0) }
     var remaining by remember { mutableStateOf(NearbyExchangeService.WINDOW_SECONDS) }
     var memo by remember { mutableStateOf("") }
@@ -103,6 +101,7 @@ fun ExchangeScreen(
     ) { permissionsGranted = RequiredPermissions.missing(context).isEmpty() }
 
     val cameraState by viewModel.cameraState.collectAsStateWithLifecycle()
+    val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
     val session by viewModel.session.collectAsStateWithLifecycle()
     val previewDescription = stringResource(R.string.gesture_camera_preview_desc)
 
@@ -125,11 +124,8 @@ fun ExchangeScreen(
         if (permissionsGranted) NearbyExchangeService.prewarm(context)
     }
 
-    LaunchedEffect(permissionsGranted, previewView, restartKey) {
-        val preview = previewView
-        if (permissionsGranted && preview != null && lifecycleOwner != null && !searchStarted) {
-            viewModel.startCamera(lifecycleOwner, preview)
-        }
+    LaunchedEffect(permissionsGranted, restartKey) {
+        if (permissionsGranted && lifecycleOwner != null && !searchStarted) viewModel.startCamera(lifecycleOwner)
     }
 
     LaunchedEffect(cameraState) {
@@ -321,19 +317,9 @@ fun ExchangeScreen(
                 modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
                 color = MaterialTheme.colorScheme.secondary,
             )
-            AndroidView(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(320.dp)
-                    .clip(MaterialTheme.shapes.extraLarge)
-                    .border(2.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.extraLarge)
-                    .semantics { contentDescription = previewDescription },
-                factory = { ctx ->
-                    PreviewView(ctx).also {
-                        it.implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                        previewView = it
-                    }
-                },
+            GesturePreview(
+                surfaceRequest,
+                Modifier.semantics { contentDescription = previewDescription },
             )
         } else if (!permissionsGranted) {
             Text(
@@ -377,7 +363,6 @@ fun ExchangeScreen(
                     viewModel.resetCamera()
                     searchStarted = false
                     firstCode = null
-                    previewView = null
                     restartKey++
                 }) {
                     Text(stringResource(R.string.exchange_retry))

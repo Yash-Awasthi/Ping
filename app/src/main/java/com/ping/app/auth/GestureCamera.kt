@@ -8,8 +8,8 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.google.mediapipe.framework.image.BitmapImageBuilder
@@ -56,6 +56,10 @@ class GestureCamera @Inject constructor(
     private val _state = MutableStateFlow<State>(State.NoHand)
     val state: StateFlow<State> = _state
 
+    private val _surfaceRequest = MutableStateFlow<SurfaceRequest?>(null)
+    /** Where the preview wants to draw; null while the camera is stopped. */
+    val surfaceRequest: StateFlow<SurfaceRequest?> = _surfaceRequest
+
     /** Optional callback for raw landmark data (used by air-drawing overlay) */
     var onLandmarks: ((List<Triple<Float, Float, Float>>) -> Unit)? = null
 
@@ -73,19 +77,20 @@ class GestureCamera @Inject constructor(
     private val palmVotes = ArrayDeque<GestureFingerprint.Palm>()
     private val handVotes = ArrayDeque<Boolean>()
 
-    fun start(owner: LifecycleOwner, preview: PreviewView) {
+    fun start(owner: LifecycleOwner) {
         executor = Executors.newSingleThreadExecutor()
         warmUp()
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
             cameraProvider = future.get()
-            bind(owner, preview)
+            bind(owner)
         }, ContextCompat.getMainExecutor(context))
     }
 
     fun stop() {
         // The landmarker stays loaded: building it costs a noticeable pause on every open.
         cameraProvider?.unbindAll(); cameraProvider = null
+        _surfaceRequest.value = null
         executor?.shutdown(); executor = null
         reset()
         _state.value = State.NoHand
@@ -128,10 +133,10 @@ class GestureCamera @Inject constructor(
         }
     }
 
-    private fun bind(owner: LifecycleOwner, previewView: PreviewView) {
+    private fun bind(owner: LifecycleOwner) {
         val provider = cameraProvider ?: return
         val preview = Preview.Builder().build().also {
-            it.setSurfaceProvider(previewView.surfaceProvider)
+            it.setSurfaceProvider { request -> _surfaceRequest.value = request }
         }
         val analysis = ImageAnalysis.Builder()
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)

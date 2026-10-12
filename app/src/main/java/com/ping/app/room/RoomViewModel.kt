@@ -2,7 +2,6 @@ package com.ping.app.room
 
 import android.content.Context
 import android.net.Uri
-import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import com.ping.app.auth.GestureCamera
@@ -19,8 +18,9 @@ class RoomViewModel @Inject constructor(
 
     val state = hub.state
     val cameraState = gestureCamera.state
+    val surfaceRequest = gestureCamera.surfaceRequest
 
-    fun startCamera(owner: LifecycleOwner, preview: PreviewView) = gestureCamera.start(owner, preview)
+    fun startCamera(owner: LifecycleOwner) = gestureCamera.start(owner)
 
     fun stopCamera() = gestureCamera.stop()
 
