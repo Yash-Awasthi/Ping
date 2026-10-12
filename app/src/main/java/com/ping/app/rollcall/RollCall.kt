@@ -113,6 +113,8 @@ class RollCall @Inject constructor(
             val known = dao.student(ad.roll)
             val flag = when {
                 known == null -> { dao.upsertStudent(Student(ad.roll, ad.name.ifBlank { ad.roll }, ad.device)); "" }
+                // Imported from a class list: the first phone to answer for this roll is bound to it.
+                known.device.isEmpty() -> { dao.upsertStudent(known.copy(device = ad.device)); "" }
                 known.device != ad.device -> Attendance.FLAG_OTHER_PHONE
                 else -> ""
             }
@@ -195,6 +197,17 @@ class RollCall @Inject constructor(
         }
         _state.value = RollCallState.Idle
     }
+
+    suspend fun importRoster(text: String): Int {
+        val rows = RollCallProtocol.parseRoster(text)
+        dao.importRoster(rows)
+        return rows.size
+    }
+
+    suspend fun renameStudent(roll: String, name: String) =
+        dao.renameStudent(roll, RollCallProtocol.cleanName(name).ifEmpty { roll })
+
+    suspend fun removeStudent(roll: String) = dao.deleteStudent(roll)
 
     suspend fun deleteSession(id: String) {
         dao.deleteSessionAttendance(id)

@@ -2,11 +2,16 @@ package com.ping.app.rollcall
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +27,37 @@ import javax.inject.Inject
 class RollCallViewModel @Inject constructor(
     private val rollCall: RollCall,
     dao: RollCallDao,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: Context,
 ) : ViewModel() {
+
+    /** roll to sessions present, for each student's attendance rate. */
+    val rates: StateFlow<Map<String, Int>> = dao.observeRates().map { list -> list.associate { it.roll to it.present } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    val sessionCount: StateFlow<Int> =
+        dao.observeSessionCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    private val _imported = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    /** Rows read from the last class-list import; -1 when the file could not be read. */
+    val imported: SharedFlow<Int> = _imported
+
+    fun importRoster(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val n = runCatching {
+                val text = appContext.contentResolver.openInputStream(uri)!!.use { input ->
+                    val bytes = input.readNBytesCapped(MAX_ROSTER_BYTES + 1)
+                    require(bytes.size <= MAX_ROSTER_BYTES) { "class list too large" }
+                    bytes.toString(Charsets.UTF_8)
+                }
+                rollCall.importRoster(text)
+            }.getOrDefault(-1)
+            _imported.tryEmit(n)
+        }
+    }
+
+    fun renameStudent(roll: String, name: String) { viewModelScope.launch { rollCall.renameStudent(roll, name) } }
+
+    fun removeStudent(roll: String) { viewModelScope.launch { rollCall.removeStudent(roll) } }
 
     val state = rollCall.state
 
@@ -85,4 +120,17 @@ class RollCallViewModel @Inject constructor(
             }
         }
     }
+}
+
+private const val MAX_ROSTER_BYTES = 1024 * 1024
+
+private fun java.io.InputStream.readNBytesCapped(limit: Int): ByteArray {
+    val out = java.io.ByteArrayOutputStream()
+    val buf = ByteArray(8192)
+    while (out.size() < limit) {
+        val n = read(buf, 0, minOf(buf.size, limit - out.size()))
+        if (n < 0) break
+        out.write(buf, 0, n)
+    }
+    return out.toByteArray()
 }

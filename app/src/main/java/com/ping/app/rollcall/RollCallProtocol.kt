@@ -73,6 +73,55 @@ object RollCallProtocol {
     fun cleanName(raw: String): String =
         raw.filter { it >= ' ' && it != '|' && it != '\u007f' }.trim().take(MAX_NAME)
 
+    const val MAX_ROSTER = 2000
+
+    /**
+     * Roll numbers and names from a class list: comma, semicolon or tab separated, quotes
+     * allowed, an optional header row, name optional. Later rows win on a repeated roll.
+     */
+    fun parseRoster(text: String): List<Pair<String, String>> {
+        val lines = text.removePrefix("\uFEFF").lines().filter { it.isNotBlank() }
+        if (lines.isEmpty()) return emptyList()
+        val sep = listOf(',', ';', '\t').maxBy { c -> lines.first().count { it == c } }
+        val rows = lines.map { splitCsvLine(it, sep) }
+        val header = rows.first().map { it.trim().lowercase() }
+        // A header names its columns and holds no digits; a first data row always has a roll number.
+        val looksLikeHeader = header.none { f -> f.any(Char::isDigit) }
+        val rollCol = if (!looksLikeHeader) -1 else header.indexOfFirst {
+            it.startsWith("roll") || it == "id" || it.startsWith("enrol") || it.startsWith("reg")
+        }
+        val nameCol = if (!looksLikeHeader) -1 else header.indexOfFirst { "name" in it }
+        val hasHeader = looksLikeHeader && (rollCol >= 0 || nameCol >= 0)
+        val r = if (rollCol >= 0) rollCol else 0
+        val n = if (nameCol >= 0) nameCol else if (r == 0) 1 else 0
+        val out = LinkedHashMap<String, String>()
+        for (row in if (hasHeader) rows.drop(1) else rows) {
+            val roll = cleanRoll(row.getOrNull(r).orEmpty()).ifEmpty { continue }
+            out[roll] = cleanName(row.getOrNull(n).orEmpty()).ifEmpty { roll }
+            if (out.size >= MAX_ROSTER) break
+        }
+        return out.toList()
+    }
+
+    private fun splitCsvLine(line: String, sep: Char): List<String> {
+        val fields = mutableListOf<String>()
+        val cur = StringBuilder()
+        var quoted = false
+        var i = 0
+        while (i < line.length) {
+            val c = line[i]
+            when {
+                quoted && c == '"' && line.getOrNull(i + 1) == '"' -> { cur.append('"'); i++ }
+                c == '"' -> quoted = !quoted
+                c == sep && !quoted -> { fields += cur.toString(); cur.clear() }
+                else -> cur.append(c)
+            }
+            i++
+        }
+        fields += cur.toString()
+        return fields
+    }
+
     /** One CSV field; a leading formula character is neutralised so spreadsheets do not run it. */
     fun csvField(v: String): String {
         val safe = if (v.firstOrNull() in setOf('=', '+', '-', '@', '\t', '\r')) "'$v" else v
