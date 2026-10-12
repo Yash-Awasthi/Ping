@@ -33,13 +33,14 @@
     <string name="roll_present_of">%1$d of %2$d present</string>
     <string name="roll_live_hint">Listening for students. Tick a box to mark someone by hand. Students are added the first time they check in.</string>
     <string name="roll_export">Export CSV</string>
-    <string name="roll_student_intro">Enter your roll number once, then tap Find roll call when your teacher starts one.</string>
+    <string name="roll_student_intro">Enter your roll number once, then tap Find roll call when your teacher starts one. Next time your class is found, you are checked in automatically.</string>
     <string name="roll_number">Roll number</string>
     <string name="roll_find">Find roll call</string>
     <string name="roll_searching">Looking for your teacher\'s phone…</string>
     <string name="roll_join">Check in to %1$s</string>
-    <string name="roll_checked_in">Checked in to %1$s</string>
-    <string name="roll_stay_hint">Keep this screen open for a minute so the teacher\'s phone picks you up.</string>
+    <string name="roll_checked_in">Sent to %1$s…</string>
+    <string name="roll_confirmed">✓ Marked present in %1$s</string>
+    <string name="roll_stay_hint">Keep this screen open until the tick appears; it usually takes a few seconds.</string>
     <string name="roll_last_done">Last check-in: %1$s</string>
 
     <!-- File room -->
