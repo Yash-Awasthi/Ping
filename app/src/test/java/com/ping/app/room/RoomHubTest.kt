@@ -8,13 +8,12 @@ import com.ping.app.room.RoomProtocol.FileMeta
 import com.ping.app.service.NearbyTransport
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Before
-import org.junit.Rule
-import org.junit.Test
-import org.junit.rules.TemporaryFolder
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
@@ -22,18 +21,18 @@ import java.io.InputStream
 /** Runs whole rooms in-process: hubs talk through [FakeAir] instead of Nearby Connections. */
 class RoomHubTest {
 
-    @get:Rule val tmp = TemporaryFolder()
+    @TempDir lateinit var tmp: File
 
     private val hubs = mutableListOf<RoomHub>()
     private val radios = mutableMapOf<String, NearbyTransport>()
     private lateinit var air: FakeAir
 
-    @Before fun setUp() { air = FakeAir() }
+    @BeforeEach fun setUp() { air = FakeAir() }
 
-    @After fun tearDown() { hubs.forEach { it.leave() } }
+    @AfterEach fun tearDown() { hubs.forEach { it.leave() } }
 
     private fun newHub(id: String, name: String): RoomHub {
-        val root = tmp.newFolder(id)
+        val root = File(tmp, id).apply { mkdirs() }
         val context = object : ContextWrapper(null) {
             override fun getCacheDir() = File(root, "cache").apply { mkdirs() }
             override fun getFilesDir() = File(root, "files").apply { mkdirs() }

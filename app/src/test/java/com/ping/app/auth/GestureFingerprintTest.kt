@@ -2,12 +2,12 @@ package com.ping.app.auth
 
 import kotlin.math.cos
 import kotlin.math.sin
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 /**
  * The gesture code is the pairing key, so each pose family is built from a small hand model
@@ -83,7 +83,7 @@ class GestureFingerprintTest {
     fun `one finger points in four directions`() {
         val labels = listOf(0.0 to "☝️", 90.0 to "👉", 180.0 to "👇", -90.0 to "👈")
         for ((deg, emoji) in labels) {
-            assertTrue("$deg", fp(Hand().fingers(1).rotated(deg)).label.startsWith(emoji))
+            assertTrue(fp(Hand().fingers(1).rotated(deg)).label.startsWith(emoji), "$deg")
         }
     }
 
@@ -218,7 +218,7 @@ class GestureFingerprintTest {
             "thumbdown" to Hand().set(4, 0.32f, 0.85f).set(3, 0.36f, 0.72f),
         )
         val codes = poses.mapValues { fp(it.value).code }
-        assertEquals(codes.toString(), poses.size, codes.values.toSet().size)
+        assertEquals(poses.size, codes.values.toSet().size, codes.toString())
     }
 
     @Test

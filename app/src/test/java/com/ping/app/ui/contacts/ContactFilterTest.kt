@@ -1,8 +1,8 @@
 package com.ping.app.ui.contacts
 
 import com.ping.app.model.Contact
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 
 class ContactFilterTest {
 

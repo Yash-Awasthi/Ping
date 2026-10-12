@@ -1,9 +1,9 @@
 package com.ping.app.utils
 
-import org.junit.Assert.assertArrayEquals
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Test
 import java.security.GeneralSecurityException
 
 /**
@@ -19,6 +19,22 @@ class CryptoUtilsTest {
         val bob = CryptoUtils.generateEphemeralKeyPair()
         return CryptoUtils.deriveSharedKey(alice.private, bob.public) to
             CryptoUtils.deriveSharedKey(bob.private, alice.public)
+    }
+
+    private fun hex(s: String) = s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+    private fun range(from: Int, to: Int) = (from..to).map { it.toByte() }.toByteArray()
+
+    // RFC 5869 appendix A.1 and A.2; only the first 32 bytes, since the key uses one block.
+    @Test
+    fun `hkdf matches rfc 5869 test case 1`() {
+        val okm = CryptoUtils.hkdfSha256(ByteArray(22) { 0x0b }, range(0x00, 0x0c), range(0xf0, 0xf9))
+        assertArrayEquals(hex("3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf"), okm)
+    }
+
+    @Test
+    fun `hkdf matches rfc 5869 test case 2`() {
+        val okm = CryptoUtils.hkdfSha256(range(0x00, 0x4f), range(0x60, 0xaf), range(0xb0, 0xff))
+        assertArrayEquals(hex("b11e398dc80327a1c8e7f78c596a49344f012eda2d4efad8a050cc4c19afa97c"), okm)
     }
 
     @Test
