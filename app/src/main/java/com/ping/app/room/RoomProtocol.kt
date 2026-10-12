@@ -1,6 +1,5 @@
 package com.ping.app.room
 
-import com.google.gson.Gson
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -10,6 +9,12 @@ import java.io.InputStream
 import java.io.SequenceInputStream
 import java.security.DigestInputStream
 import java.security.MessageDigest
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
 
 /**
  * Wire format and pure rules of the file room.
@@ -35,9 +40,11 @@ object RoomProtocol {
     private const val DIGEST_SIZE = 32
 
     /** A file a member offers: [id] is unique within that member only. */
+    @Serializable
     data class FileMeta(val id: String, val name: String, val size: Long)
 
     /** A file as the whole room sees it; [id] is globally unique (see [globalId]). */
+    @Serializable
     data class RoomFile(
         val id: String,
         val name: String,
@@ -46,12 +53,18 @@ object RoomProtocol {
         val ownerName: String,
     )
 
+    @Serializable
     data class Manifest(val files: List<RoomFile>, val members: List<String>)
 
     /** What one approved guest currently offers. */
+    @Serializable
     data class GuestShare(val key: String, val name: String, val files: List<FileMeta>)
 
-    private val gson = Gson()
+    private val json = Json { ignoreUnknownKeys = true }
+
+    /** Decodes each element on its own, so one malformed entry drops only itself. */
+    private inline fun <reified T> JsonElement?.items(): List<T> = (this as? JsonArray).orEmpty()
+        .mapNotNull { runCatching { json.decodeFromJsonElement<T>(it) }.getOrNull() }
 
     fun frame(type: Byte, body: ByteArray = ByteArray(0)): ByteArray =
         ByteArray(body.size + 1).also {
@@ -78,28 +91,26 @@ object RoomProtocol {
         return Manifest(files, listOf(hostName) + guests.map { it.name })
     }
 
-    fun encodeMetas(files: List<FileMeta>): String = gson.toJson(files)
+    fun encodeMetas(files: List<FileMeta>): String = json.encodeToString(files)
 
-    fun encodeManifest(m: Manifest): String = gson.toJson(m)
+    fun encodeManifest(m: Manifest): String = json.encodeToString(m)
 
     /** Parses a peer's file list; malformed input yields an empty list rather than an error. */
-    fun decodeMetas(json: String): List<FileMeta> = runCatching {
-        gson.fromJson(json, Array<FileMeta>::class.java).orEmpty().asSequence()
-            .filter { !it.id.isNullOrBlank() && !it.id.contains(':') && it.size >= 0 }
+    fun decodeMetas(text: String): List<FileMeta> = runCatching {
+        json.parseToJsonElement(text).items<FileMeta>().asSequence()
+            .filter { it.id.isNotBlank() && !it.id.contains(':') && it.size >= 0 }
             .take(MAX_FILES_PER_MEMBER)
             .map { FileMeta(it.id, safeName(it.name), it.size) }
             .toList()
     }.getOrDefault(emptyList())
 
-    fun decodeManifest(json: String): Manifest? = runCatching {
-        val m = gson.fromJson(json, Manifest::class.java)
+    fun decodeManifest(text: String): Manifest? = runCatching {
+        val m = json.parseToJsonElement(text).jsonObject
         Manifest(
-            // Gson skips Kotlin null checks, so absent fields must be screened by hand.
-            files = m.files.orEmpty().filter {
-                it.size >= 0 && (it.id as String?)?.contains(':') == true &&
-                    !(it.ownerKey as String?).isNullOrBlank() && !(it.ownerName as String?).isNullOrBlank()
+            files = m["files"].items<RoomFile>().filter {
+                it.size >= 0 && it.id.contains(':') && it.ownerKey.isNotBlank() && it.ownerName.isNotBlank()
             }.map { it.copy(name = safeName(it.name), ownerName = safeName(it.ownerName)) },
-            members = m.members.orEmpty().filterNotNull().map { safeName(it) },
+            members = m["members"].items<String>().map { safeName(it) },
         )
     }.getOrNull()
 
