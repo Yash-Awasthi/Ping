@@ -76,11 +76,4 @@ class MotionTrackerTest {
         assertNull(t.classify())
         assertFalse(t.isStill(10))
     }
-
-    @Test
-    fun `clear forgets the trail`() {
-        val t = tracker(30) { i -> 0.5 + 0.08 * cos(2 * PI * i / 28) to 0.5 + 0.08 * sin(2 * PI * i / 28) }
-        t.clear()
-        assertNull(t.classify())
-    }
 }

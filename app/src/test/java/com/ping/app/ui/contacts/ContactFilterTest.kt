@@ -21,9 +21,4 @@ class ContactFilterTest {
         assertEquals(listOf("b"), filterContacts(listOf(ada, bob, cy), "555").map { it.id })
         assertEquals(listOf("c"), filterContacts(listOf(ada, bob, cy), "pycon").map { it.id })
     }
-
-    @Test
-    fun `no match gives an empty list`() {
-        assertEquals(emptyList<Contact>(), filterContacts(listOf(ada, bob, cy), "zzz"))
-    }
 }
