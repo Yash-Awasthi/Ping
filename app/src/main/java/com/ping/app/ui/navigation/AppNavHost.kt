@@ -25,6 +25,7 @@ import com.ping.app.ui.contacts.ContactDetailScreen
 import com.ping.app.ui.exchange.ExchangeScreen
 import com.ping.app.room.RoomScreen
 import com.ping.app.ui.practice.PracticeScreen
+import com.ping.app.rollcall.RollCallScreen
 
 @Composable
 fun AppNavHost(launchRoute: String? = null, onLaunchRouteHandled: () -> Unit = {}) {
@@ -76,6 +77,7 @@ fun AppNavHost(launchRoute: String? = null, onLaunchRouteHandled: () -> Unit = {
                     onShareClick = { navController.navigate(Routes.EXCHANGE) },
                     onRoomClick = { navController.navigate(Routes.ROOM) },
                     onPracticeClick = { navController.navigate(Routes.PRACTICE) },
+                    onRollCallClick = { navController.navigate(Routes.ROLL_CALL) },
                 )
             }
 
@@ -102,6 +104,10 @@ fun AppNavHost(launchRoute: String? = null, onLaunchRouteHandled: () -> Unit = {
 
             composable(Routes.PRACTICE) {
                 PracticeScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Routes.ROLL_CALL) {
+                RollCallScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Routes.ROOM) {

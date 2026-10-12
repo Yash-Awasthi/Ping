@@ -20,6 +20,27 @@
     <string name="home_practice_button">Practice gestures</string>
     <string name="practice_title">Practice</string>
     <string name="home_room_hint">Share files with people nearby</string>
+    <string name="home_roll_button">Roll call</string>
+    <string name="home_roll_hint">Take attendance for a whole class, offline</string>
+    <string name="roll_tab_take">Take attendance</string>
+    <string name="roll_tab_check_in">Check in</string>
+    <string name="roll_admin_intro">Start a roll call and keep this screen open. Students in the room tap Check in on their phones and appear here; no one connects, so a class of any size works.</string>
+    <string name="roll_class_label">Class name</string>
+    <string name="roll_start">Start roll call</string>
+    <string name="roll_stop">End roll call</string>
+    <string name="roll_history">Past sessions</string>
+    <string name="roll_present_count">%1$d present</string>
+    <string name="roll_present_of">%1$d of %2$d present</string>
+    <string name="roll_live_hint">Listening for students. Tick a box to mark someone by hand. Students are added the first time they check in.</string>
+    <string name="roll_export">Export CSV</string>
+    <string name="roll_student_intro">Enter your roll number once, then tap Find roll call when your teacher starts one.</string>
+    <string name="roll_number">Roll number</string>
+    <string name="roll_find">Find roll call</string>
+    <string name="roll_searching">Looking for your teacher\'s phone…</string>
+    <string name="roll_join">Check in to %1$s</string>
+    <string name="roll_checked_in">Checked in to %1$s</string>
+    <string name="roll_stay_hint">Keep this screen open for a minute so the teacher\'s phone picks you up.</string>
+    <string name="roll_last_done">Last check-in: %1$s</string>
 
     <!-- File room -->
     <string name="room_title">File room</string>

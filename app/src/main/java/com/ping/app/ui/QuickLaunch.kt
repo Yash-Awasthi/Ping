@@ -13,7 +13,7 @@ object QuickLaunch {
     const val EXTRA_ROUTE = "com.ping.app.extra.ROUTE"
 
     /** MainActivity is exported, so only these routes may be opened from outside. */
-    private val allowed = setOf(Routes.EXCHANGE, Routes.ROOM)
+    private val allowed = setOf(Routes.EXCHANGE, Routes.ROOM, Routes.ROLL_CALL)
 
     fun routeOf(intent: Intent?): String? = intent?.getStringExtra(EXTRA_ROUTE)?.takeIf { it in allowed }
 
@@ -28,6 +28,7 @@ object QuickLaunch {
         val shortcuts = listOf(
             Triple("swap", Routes.EXCHANGE, R.string.shortcut_swap),
             Triple("room", Routes.ROOM, R.string.shortcut_room),
+            Triple("roll", Routes.ROLL_CALL, R.string.home_roll_button),
         ).map { (id, route, label) ->
             ShortcutInfoCompat.Builder(context, id)
                 .setShortLabel(context.getString(label))
