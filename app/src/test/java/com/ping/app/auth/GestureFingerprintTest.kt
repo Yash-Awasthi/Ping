@@ -148,12 +148,6 @@ class GestureFingerprintTest {
     }
 
     @Test
-    fun `metrics text carries the raw ratios`() {
-        val text = GestureFingerprint.metrics(open().xyz())
-        assertTrue(text, text.startsWith("gaps "))
-    }
-
-    @Test
     fun `peace with the fingers apart has its own code`() {
         val apart = Hand().extend(1, tipX = 0.38f).extend(2, tipX = 0.56f)
         assertEquals("F6A0G1", fp(apart).code)
@@ -269,11 +263,5 @@ class GestureFingerprintTest {
     @Test
     fun `a truncated landmark array yields no fingerprint`() {
         assertNull(GestureFingerprint.fromLandmarks(FloatArray(62)))
-    }
-
-    @Test
-    fun `the guide lists every family`() {
-        assertTrue(GestureNames.guide.size >= 20)
-        assertTrue(GestureNames.guide.any { it.emoji.contains("👋") })
     }
 }

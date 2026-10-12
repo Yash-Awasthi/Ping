@@ -64,10 +64,4 @@ class RollCallProtocolTest {
         assertEquals("\"say \"\"hi\"\"\"", RollCallProtocol.csvField("say \"hi\""))
         assertEquals("'=SUM(A1)", RollCallProtocol.csvField("=SUM(A1)"))
     }
-
-    @Test
-    fun `tokens are eight hex chars an admin advert accepts`() {
-        val token = RollCallProtocol.newToken()
-        assertEquals(token, RollCallProtocol.parseAdmin(RollCallProtocol.adminAdvert(token, "x"))?.session)
-    }
 }

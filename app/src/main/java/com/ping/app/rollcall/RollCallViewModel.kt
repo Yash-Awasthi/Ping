@@ -89,6 +89,8 @@ class RollCallViewModel @Inject constructor(
 
     fun stop() = rollCall.stop()
 
+    override fun onCleared() = rollCall.stop()
+
     fun startCheckingIn() = rollCall.startCheckingIn()
 
     fun join(ad: RollCallProtocol.AdminAdvert) = rollCall.join(ad)

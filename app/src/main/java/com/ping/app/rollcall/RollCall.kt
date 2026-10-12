@@ -52,6 +52,7 @@ class RollCall @Inject constructor(
     /** Admin side, main thread only: devices marked this session and those not yet acknowledged. */
     private val markedDevices = mutableListOf<String>()
     private val freshAcks = ArrayDeque<String>()
+    private val ackCounts = HashMap<String, Int>()
 
     /** Stable per install, so the admin can notice a student checking in from a new phone. */
     val deviceTag: String
@@ -97,9 +98,13 @@ class RollCall @Inject constructor(
         var last = ""
         while (true) {
             delay(ACK_EVERY_MS)
-            if (markedDevices.isEmpty()) continue
-            val (acks, next) = RollCallProtocol.nextAcks(freshAcks, markedDevices, cursor)
+            // A device leaves the rotation after a few acks, so the advertisement settles once
+            // everyone has had the chance to see theirs.
+            val pool = markedDevices.filter { (ackCounts[it] ?: 0) < ACK_ROUNDS }
+            if (pool.isEmpty() && freshAcks.isEmpty()) continue
+            val (acks, next) = RollCallProtocol.nextAcks(freshAcks, pool, cursor)
             cursor = next
+            acks.forEach { ackCounts[it] = (ackCounts[it] ?: 0) + 1 }
             val advert = RollCallProtocol.adminAdvert(token, label, acks)
             if (advert == last) continue
             last = advert
@@ -189,6 +194,7 @@ class RollCall @Inject constructor(
         ackLoop?.cancel()
         markedDevices.clear()
         freshAcks.clear()
+        ackCounts.clear()
         if (_state.value == RollCallState.Idle) return
         runCatching {
             transport.onEndpointFound = null
@@ -236,6 +242,7 @@ class RollCall @Inject constructor(
         const val KEY_NAME = "name"
         const val KEY_CLASS = "class"
         const val ACK_EVERY_MS = 2_000L
+        const val ACK_ROUNDS = 5
         const val SCAN_MS = 5 * 60_000L
         const val ANNOUNCE_MS = 3 * 60_000L
     }

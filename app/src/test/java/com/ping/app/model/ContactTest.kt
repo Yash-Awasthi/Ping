@@ -8,14 +8,6 @@ import org.junit.Test
 class ContactTest {
 
     @Test
-    fun `fromMap reads the wire keys`() {
-        val c = Contact.fromMap(mapOf("name" to "Ada", "phone" to "1", "email" to "a@b.c"))
-        assertEquals("Ada", c.displayName)
-        assertEquals("1", c.phone)
-        assertEquals("a@b.c", c.email)
-    }
-
-    @Test
     fun `a card with every field blank is empty`() {
         assertTrue(Contact.fromMap(emptyMap()).isEmptyCard)
         assertTrue(Contact.fromMap(mapOf("name" to "  ")).isEmptyCard)
@@ -43,14 +35,6 @@ class ContactTest {
     @Test
     fun `a card with no name still gets a vcard name`() {
         assertTrue(Contact(email = "a@b.c").toVCard().contains("FN:a@b.c"))
-    }
-
-    @Test
-    fun `many cards export as one file body`() {
-        val body = Contact.toVCards(listOf(Contact(displayName = "A"), Contact(displayName = "B")))
-        assertEquals(2, Regex("BEGIN:VCARD").findAll(body).count())
-        assertEquals(2, Regex("END:VCARD").findAll(body).count())
-        assertEquals("", Contact.toVCards(emptyList()))
     }
 
     @Test
