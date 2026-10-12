@@ -3,6 +3,7 @@ package com.ping.app.room
 import com.ping.app.room.RoomProtocol.FileMeta
 import com.ping.app.room.RoomProtocol.GuestShare
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -95,5 +96,18 @@ class RoomProtocolTest {
         assertEquals("a (2).txt", RoomProtocol.uniqueName("a.txt", setOf("a.txt")))
         assertEquals("a (3).txt", RoomProtocol.uniqueName("a.txt", setOf("a.txt", "a (2).txt")))
         assertNotEquals("noext", RoomProtocol.uniqueName("noext", setOf("noext")))
+    }
+
+    @Test
+    fun `a body carries its checksum and a changed byte fails it`() {
+        val body = "hello room".toByteArray()
+        val sent = RoomProtocol.withDigest(ByteArrayInputStream(body)).readBytes()
+        assertEquals(body.size + 32, sent.size)
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(body)
+        assertTrue(RoomProtocol.trailerMatches(ByteArrayInputStream(sent, body.size, 32), digest))
+        sent[body.size] = (sent[body.size] + 1).toByte()
+        assertFalse(RoomProtocol.trailerMatches(ByteArrayInputStream(sent, body.size, 32), digest))
+        assertFalse(RoomProtocol.trailerMatches(ByteArrayInputStream(sent, body.size, 10), digest))
+        assertFalse(RoomProtocol.trailerMatches(ByteArrayInputStream(sent + 0, body.size, 33), digest))
     }
 }

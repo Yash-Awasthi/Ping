@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -33,9 +34,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -80,6 +84,7 @@ fun ExchangeScreen(
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
     var restartKey by remember { mutableStateOf(0) }
     var remaining by remember { mutableStateOf(NearbyExchangeService.WINDOW_SECONDS) }
+    var memo by remember { mutableStateOf("") }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -94,12 +99,18 @@ fun ExchangeScreen(
         NearbyExchangeService.clearSession()
         onDispose {
             viewModel.stopCamera()
+            // A scan that never locked has nothing to finish, so it must not outlive the screen.
+            if (!searchStarted) NearbyExchangeService.stop(context)
             NearbyExchangeService.clearSession()
         }
     }
 
     LaunchedEffect(permissionsGranted) {
         if (!permissionsGranted) permissionLauncher.launch(RequiredPermissions.all)
+    }
+
+    LaunchedEffect(permissionsGranted, restartKey) {
+        if (permissionsGranted) NearbyExchangeService.prewarm(context)
     }
 
     LaunchedEffect(permissionsGranted, previewView, restartKey) {
@@ -164,8 +175,7 @@ fun ExchangeScreen(
         ExchangeSession.State.SEARCHING ->
             stringResource(R.string.exchange_waiting_peer_countdown, remaining)
         ExchangeSession.State.CONNECTING -> stringResource(R.string.status_connecting)
-        ExchangeSession.State.AWAITING_CONFIRM ->
-            stringResource(R.string.exchange_confirm_prompt, session?.sas.orEmpty())
+        ExchangeSession.State.AWAITING_CONFIRM -> stringResource(R.string.exchange_confirm_title)
         ExchangeSession.State.EXCHANGING -> stringResource(R.string.status_exchanging)
         ExchangeSession.State.COMPLETED -> stringResource(
             R.string.exchange_completed,
@@ -202,7 +212,9 @@ fun ExchangeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        ConnectionStatusIndicator(state = connectionState, modifier = Modifier.padding(bottom = 24.dp))
+        ConnectionStatusIndicator(state = connectionState, modifier = Modifier.padding(bottom = 8.dp))
+
+        StageRow(session?.state)
 
         if (session == null && firstCode == null) {
             FilterChip(
@@ -220,11 +232,47 @@ fun ExchangeScreen(
             textAlign = TextAlign.Center,
         )
 
+        val others = session?.othersNearby ?: 0
+        if (others > 0 && (session?.state == ExchangeSession.State.SEARCHING || session?.state == ExchangeSession.State.NO_MATCH)) {
+            Text(
+                text = pluralStringResource(R.plurals.exchange_others_nearby, others, others),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
+        }
+
         if (busy) {
             CircularProgressIndicator()
         }
 
-        if (permissionsGranted) {
+        val sas = session?.sas
+        if (session?.state == ExchangeSession.State.AWAITING_CONFIRM && sas != null) {
+            Text(
+                text = sas.chunked(3).joinToString(" "),
+                style = MaterialTheme.typography.displayLarge,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = stringResource(R.string.exchange_confirm_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+            )
+        }
+
+        val received = session?.receivedContact
+        if (session?.state == ExchangeSession.State.COMPLETED && received != null) {
+            OutlinedTextField(
+                value = memo,
+                onValueChange = { memo = it },
+                label = { Text(stringResource(R.string.contact_label_memo)) },
+                placeholder = { Text(stringResource(R.string.exchange_memo_hint)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        if (permissionsGranted && !searchStarted) {
             AndroidView(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -239,7 +287,7 @@ fun ExchangeScreen(
                     }
                 },
             )
-        } else {
+        } else if (!permissionsGranted) {
             Text(
                 text = stringResource(R.string.perm_rationale_title),
                 style = MaterialTheme.typography.titleMedium,
@@ -281,6 +329,7 @@ fun ExchangeScreen(
                     viewModel.resetCamera()
                     searchStarted = false
                     firstCode = null
+                    previewView = null
                     restartKey++
                 }) {
                     Text(stringResource(R.string.exchange_retry))
@@ -288,10 +337,41 @@ fun ExchangeScreen(
             }
 
             if (session?.state == ExchangeSession.State.COMPLETED) {
-                Button(onClick = onDone) {
+                Button(onClick = {
+                    session?.receivedContact?.let { viewModel.saveMemo(it, memo) }
+                    onDone()
+                }) {
                     Text(stringResource(R.string.action_done))
                 }
             }
+        }
+    }
+}
+
+/** Gesture, find, check, swap: which step of the swap is running now. */
+@Composable
+private fun StageRow(state: ExchangeSession.State?) {
+    val current = when (state) {
+        null -> 0
+        ExchangeSession.State.SEARCHING, ExchangeSession.State.CONNECTING -> 1
+        ExchangeSession.State.AWAITING_CONFIRM -> 2
+        else -> 3
+    }
+    val labels = listOf(
+        R.string.stage_gesture, R.string.stage_find, R.string.stage_check, R.string.stage_swap,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        labels.forEachIndexed { i, label ->
+            Text(
+                text = stringResource(label),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (i == current) FontWeight.Bold else FontWeight.Normal,
+                color = when {
+                    i == current -> MaterialTheme.colorScheme.primary
+                    i < current -> MaterialTheme.colorScheme.onSurface
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
         }
     }
 }

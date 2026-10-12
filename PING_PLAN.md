@@ -12,7 +12,6 @@ Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-
 - Soak-test the foreground services when the app is backgrounded.
 
 ## 2. Gestures
-- Tell two peers when they locked different gestures, so a mismatch is not silent.
 - Let people define their own gesture sets.
 - Swipes and other motions beyond the circle and the wave.
 - Work out left and right hand from more than the detector's call, to stop it flickering.
@@ -20,13 +19,10 @@ Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-
 ## 3. File room
 - Resume an interrupted transfer.
 - Share whole folders.
-- Verify a checksum after each download.
 - More than seven guests.
 
 ## 4. Contacts
-- Import a `.vcf` file.
-- Edit a received contact.
-- Back up and restore contacts.
+- Keep the private memo in a backup; the vCard export leaves it out because it is also used for sharing.
 
 ## 5. Platform
 - A de-Googled transport (Wi-Fi Direct without Play Services) behind the `NearbyTransport` interface.

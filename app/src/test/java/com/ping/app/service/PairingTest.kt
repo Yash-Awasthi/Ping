@@ -43,4 +43,16 @@ class PairingTest {
         assertFalse(Pairing.matches("F3A0", "no-delimiter"))
         assertFalse(Pairing.matches("F3A0", ""))
     }
+
+    @Test
+    fun `phones seen before the lock are matched and counted after it`() {
+        val seen = mapOf(
+            "e1" to Pairing.advertisement("F1A0", "n1"),
+            "e2" to Pairing.advertisement("F3A0", "n2"),
+            "e3" to Pairing.advertisement("F7A2", "n3"),
+        )
+        assertEquals("e2", Pairing.firstMatch("F3A0", seen)?.key)
+        assertEquals(2, Pairing.othersNearby("F3A0", seen))
+        assertEquals(null, Pairing.firstMatch("F9A0", seen))
+    }
 }

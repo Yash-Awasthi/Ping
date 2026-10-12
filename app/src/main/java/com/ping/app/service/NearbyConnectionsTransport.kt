@@ -40,6 +40,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     override var onDisconnected: ((endpointId: String) -> Unit)? = null
     override var onEndpointFound: ((endpointId: String, remoteName: String) -> Unit)? = null
     override var onConnectionInitiated: ((endpointId: String, remoteName: String) -> Unit)? = null
+    override var onEndpointLost: ((endpointId: String) -> Unit)? = null
     override var onAuthDigits: ((endpointId: String, digits: String) -> Unit)? = null
 
     // Streaming — NearbyTransport optional extension
@@ -123,6 +124,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
 
         override fun onEndpointLost(endpointId: String) {
             Timber.d("NearbyConnectionsTransport: endpoint lost $endpointId")
+            onEndpointLost?.invoke(endpointId)
         }
     }
 

@@ -49,6 +49,11 @@ interface NearbyTransport {
      */
     var onEndpointFound: ((endpointId: String, remoteName: String) -> Unit)?
 
+    /** Callback when a discovered endpoint goes out of range or stops advertising. */
+    var onEndpointLost: ((endpointId: String) -> Unit)?
+        get() = null
+        @Suppress("UNUSED_PARAMETER") set(value) {}
+
     /**
      * Register a callback invoked when an incoming connection is initiated
      * but before it has been accepted or rejected.

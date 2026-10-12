@@ -63,7 +63,16 @@
     <string name="status_connecting">Found a match! Connecting…</string>
     <string name="status_exchanging">Swapping cards…</string>
     <string name="exchange_completed">Swapped with %1$s!</string>
-    <string name="exchange_confirm_prompt">Both phones must show this code: %1$s</string>
+    <string name="exchange_confirm_title">Check the code</string>
+    <string name="exchange_confirm_hint">The other phone must show the same six digits. Tap “It matches” only if it does.</string>
+    <string name="stage_gesture">Gesture</string>
+    <string name="stage_find">Find</string>
+    <string name="stage_check">Check</string>
+    <string name="stage_swap">Swap</string>
+    <plurals name="exchange_others_nearby">
+        <item quantity="one">%1$d phone nearby is holding a different gesture. Agree on one and try again.</item>
+        <item quantity="other">%1$d phones nearby are holding a different gesture. Agree on one and try again.</item>
+    </plurals>
     <string name="exchange_confirm_match">It matches</string>
     <string name="exchange_confirm_mismatch">It differs</string>
     <string name="exchange_cancelled">Cancelled</string>
@@ -111,6 +120,20 @@
     <string name="action_delete">Delete</string>
     <string name="action_close">Close</string>
     <string name="contact_copied">Copied</string>
+    <string name="contact_label_name">Name</string>
+    <string name="contact_label_memo">Where we met</string>
+    <string name="exchange_memo_hint">Meetup, conference, café…</string>
+    <string name="contact_memo_hint">Your memo stays on this phone. It is never swapped or exported.</string>
+    <string name="contact_edit_title">Edit contact</string>
+    <string name="contact_swapped_on">Swapped %1$s</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_save">Save</string>
+    <string name="contacts_import">Import</string>
+    <string name="contacts_import_failed">Could not read that file.</string>
+    <plurals name="contacts_imported">
+        <item quantity="one">Imported %1$d contact</item>
+        <item quantity="other">Imported %1$d contacts</item>
+    </plurals>
     <string name="contacts_count">%1$d people</string>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_no_results">No contacts match.</string>
