@@ -73,6 +73,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -139,10 +140,11 @@ private fun ColumnScope.AdminPane(viewModel: RollCallViewModel, onBack: () -> Un
     val sessionCount by viewModel.sessionCount.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Student?>(null) }
 
+    val resources = LocalResources.current
     LaunchedEffect(Unit) {
         viewModel.imported.collect { n ->
-            val text = if (n < 0) context.getString(R.string.roll_import_failed)
-            else context.resources.getQuantityString(R.plurals.roll_imported, n, n)
+            val text = if (n < 0) resources.getString(R.string.roll_import_failed)
+            else resources.getQuantityString(R.plurals.roll_imported, n, n)
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
