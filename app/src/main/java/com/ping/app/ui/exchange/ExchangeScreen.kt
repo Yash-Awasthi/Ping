@@ -7,7 +7,19 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.graphics.Color
+import com.ping.app.ui.components.Avatar
+import com.ping.app.ui.components.PingCard
+import com.ping.app.ui.theme.BrandBrush
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -247,21 +259,50 @@ fun ExchangeScreen(
         }
 
         val sas = session?.sas
+        val received = session?.receivedContact
         if (session?.state == ExchangeSession.State.AWAITING_CONFIRM && sas != null) {
-            Text(
-                text = sas.chunked(3).joinToString(" "),
-                style = MaterialTheme.typography.displayLarge,
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = stringResource(R.string.exchange_confirm_hint),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-            )
+            PingCard {
+                Text(
+                    text = sas.chunked(3).joinToString(" "),
+                    style = MaterialTheme.typography.displayLarge,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.secondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = stringResource(R.string.exchange_confirm_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
 
-        val received = session?.receivedContact
+        if (session?.state == ExchangeSession.State.COMPLETED && received != null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.large)
+                    .background(BrandBrush)
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Avatar(name = received.displayName, size = 72.dp)
+                Text(
+                    received.displayName.ifBlank { stringResource(R.string.someone) },
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+                Text(
+                    listOf(received.phone, received.email).filter { it.isNotBlank() }.joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.85f),
+                )
+            }
+        }
+
         if (session?.state == ExchangeSession.State.COMPLETED && received != null) {
             OutlinedTextField(
                 value = memo,
@@ -273,6 +314,13 @@ fun ExchangeScreen(
         }
 
         if (permissionsGranted && !searchStarted) {
+            val steady = (cameraState as? GestureCamera.State.Detecting)?.stability
+                ?: if (cameraState is GestureCamera.State.Locked) 1f else 0f
+            LinearProgressIndicator(
+                progress = { steady },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                color = MaterialTheme.colorScheme.secondary,
+            )
             AndroidView(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -360,18 +408,45 @@ private fun StageRow(state: ExchangeSession.State?) {
     val labels = listOf(
         R.string.stage_gesture, R.string.stage_find, R.string.stage_check, R.string.stage_swap,
     )
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         labels.forEachIndexed { i, label ->
-            Text(
-                text = stringResource(label),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (i == current) FontWeight.Bold else FontWeight.Normal,
-                color = when {
-                    i == current -> MaterialTheme.colorScheme.primary
-                    i < current -> MaterialTheme.colorScheme.onSurface
-                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                },
-            )
+            val done = i < current
+            val now = i == current
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(
+                            when {
+                                now -> MaterialTheme.colorScheme.primary
+                                done -> MaterialTheme.colorScheme.secondary
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            },
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (done) Icon(Icons.Default.Check, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                    else Text("${i + 1}", style = MaterialTheme.typography.labelMedium, color = Color.White)
+                }
+                Text(
+                    text = stringResource(label),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (now) FontWeight.Bold else FontWeight.Normal,
+                    color = if (now || done) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            if (i < labels.lastIndex) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .padding(horizontal = 4.dp)
+                        .padding(bottom = 18.dp)
+                        .height(2.dp)
+                        .background(if (done) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant),
+                )
+            }
         }
     }
 }
