@@ -59,8 +59,10 @@ import com.ping.app.ui.components.PingCard
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactDetailScreen(
+    contactId: String,
     onBack: () -> Unit,
-    viewModel: ContactDetailViewModel = hiltViewModel(),
+    viewModel: ContactDetailViewModel =
+        hiltViewModel<ContactDetailViewModel, ContactDetailViewModel.Factory> { it.create(contactId) },
 ) {
     val contact by viewModel.contact.collectAsStateWithLifecycle()
     val context = LocalContext.current

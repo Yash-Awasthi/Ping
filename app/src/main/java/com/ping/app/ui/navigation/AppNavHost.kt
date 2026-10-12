@@ -8,122 +8,91 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavType
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
-import com.ping.app.ui.home.HomeScreen
-import com.ping.app.ui.profile.ProfileScreen
-import com.ping.app.ui.contacts.ContactsScreen
-import com.ping.app.ui.contacts.ContactDetailScreen
-import com.ping.app.ui.exchange.ExchangeScreen
-import com.ping.app.room.RoomScreen
-import com.ping.app.ui.practice.PracticeScreen
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
+import androidx.navigation3.runtime.NavBackStack
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
+import androidx.navigation3.ui.NavDisplay
 import com.ping.app.rollcall.RollCallScreen
+import com.ping.app.room.RoomScreen
+import com.ping.app.ui.contacts.ContactDetailScreen
+import com.ping.app.ui.contacts.ContactsScreen
+import com.ping.app.ui.exchange.ExchangeScreen
+import com.ping.app.ui.home.HomeScreen
+import com.ping.app.ui.practice.PracticeScreen
+import com.ping.app.ui.profile.ProfileScreen
+
+/** Drops everything above [Home], then opens [key] on top of it. */
+private fun NavBackStack<NavKey>.openFromHome(key: NavKey) {
+    while (size > 1) removeAt(lastIndex)
+    if (key != Home) add(key)
+}
 
 @Composable
-fun AppNavHost(launchRoute: String? = null, onLaunchRouteHandled: () -> Unit = {}) {
-    val navController = rememberNavController()
-    LaunchedEffect(launchRoute) {
-        val route = launchRoute ?: return@LaunchedEffect
-        navController.navigate(route) {
-            popUpTo(Routes.HOME)
-            launchSingleTop = true
-        }
-        onLaunchRouteHandled()
+fun AppNavHost(launchKey: NavKey? = null, onLaunchKeyHandled: () -> Unit = {}) {
+    val backStack = rememberNavBackStack(Home)
+    LaunchedEffect(launchKey) {
+        val key = launchKey ?: return@LaunchedEffect
+        backStack.openFromHome(key)
+        onLaunchKeyHandled()
     }
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
+    val current = backStack.lastOrNull()
+    val pop: () -> Unit = { backStack.removeLastOrNull() }
 
     Scaffold(
         bottomBar = {
             // Only show bottom nav on root destinations.
-            val showBottomBar = currentDestination?.route in bottomNavItems.map { it.route }
-            if (showBottomBar) {
+            if (bottomNavItems.any { it.key == current }) {
                 NavigationBar {
                     bottomNavItems.forEach { item ->
                         NavigationBarItem(
                             icon = { Icon(item.icon, contentDescription = item.label) },
                             label = { Text(item.label) },
-                            selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
-                            onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
+                            selected = current == item.key,
+                            onClick = { if (current != item.key) backStack.openFromHome(item.key) },
                         )
                     }
                 }
             }
         },
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Routes.HOME,
+        NavDisplay(
+            backStack = backStack,
             modifier = Modifier.padding(innerPadding),
-        ) {
-            composable(Routes.HOME) {
-                HomeScreen(
-                    onShareClick = { navController.navigate(Routes.EXCHANGE) },
-                    onRoomClick = { navController.navigate(Routes.ROOM) },
-                    onPracticeClick = { navController.navigate(Routes.PRACTICE) },
-                    onRollCallClick = { navController.navigate(Routes.ROLL_CALL) },
-                )
-            }
-
-            composable(Routes.PROFILE) {
-                ProfileScreen()
-            }
-
-            composable(Routes.CONTACTS) {
-                ContactsScreen(
-                    onContactClick = { contactId ->
-                        navController.navigate("contact_detail/$contactId")
-                    },
-                )
-            }
-
-            composable(
-                route = "contact_detail/{contactId}",
-                arguments = listOf(navArgument("contactId") { type = NavType.StringType }),
-            ) {
-                ContactDetailScreen(
-                    onBack = { navController.popBackStack() },
-                )
-            }
-
-            composable(Routes.PRACTICE) {
-                PracticeScreen(onBack = { navController.popBackStack() })
-            }
-
-            composable(Routes.ROLL_CALL) {
-                RollCallScreen(onBack = { navController.popBackStack() })
-            }
-
-            composable(Routes.ROOM) {
-                RoomScreen(onBack = { navController.popBackStack() })
-            }
-
-            composable(Routes.EXCHANGE) {
-                ExchangeScreen(
-                    onDone = {
-                        navController.navigate(Routes.CONTACTS) {
-                            popUpTo(Routes.HOME)
-                        }
-                    },
-                    onBack = { navController.popBackStack() },
-                )
-            }
-        }
+            onBack = pop,
+            entryDecorators = listOf(
+                rememberSaveableStateHolderNavEntryDecorator(),
+                rememberViewModelStoreNavEntryDecorator(),
+            ),
+            entryProvider = entryProvider {
+                entry<Home> {
+                    HomeScreen(
+                        onShareClick = { backStack.add(Exchange) },
+                        onRoomClick = { backStack.add(Room) },
+                        onPracticeClick = { backStack.add(Practice) },
+                        onRollCallClick = { backStack.add(RollCall) },
+                    )
+                }
+                entry<Profile> { ProfileScreen() }
+                entry<Contacts> {
+                    ContactsScreen(onContactClick = { backStack.add(ContactDetail(it)) })
+                }
+                entry<ContactDetail> { key ->
+                    ContactDetailScreen(contactId = key.contactId, onBack = pop)
+                }
+                entry<Practice> { PracticeScreen(onBack = pop) }
+                entry<RollCall> { RollCallScreen(onBack = pop) }
+                entry<Room> { RoomScreen(onBack = pop) }
+                entry<Exchange> {
+                    ExchangeScreen(
+                        onDone = { backStack.openFromHome(Contacts) },
+                        onBack = pop,
+                    )
+                }
+            },
+        )
     }
 }
