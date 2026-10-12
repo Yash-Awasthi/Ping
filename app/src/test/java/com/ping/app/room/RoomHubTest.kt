@@ -227,6 +227,8 @@ class RoomHubTest {
         await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
         val gid = guest.state.value.manifest.files.single().id
         guest.download(gid)
+        // download() registers the request asynchronously; a stream arriving earlier is ignored.
+        await("queued") { guest.state.value.transfers[gid] != null }
         val forged = RoomProtocol.header(gid) + "abc".toByteArray() + ByteArray(32)
         radios.getValue("h").sendStream("g", ByteArrayInputStream(forged), 3)
         await("failed") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }

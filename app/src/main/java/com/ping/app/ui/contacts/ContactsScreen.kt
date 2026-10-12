@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -62,10 +63,11 @@ fun ContactsScreen(
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(viewModel::importVCards)
     }
+    val resources = LocalResources.current
     LaunchedEffect(Unit) {
         viewModel.imported.collect { n ->
-            val text = if (n < 0) context.getString(R.string.contacts_import_failed)
-            else context.resources.getQuantityString(R.plurals.contacts_imported, n, n)
+            val text = if (n < 0) resources.getString(R.string.contacts_import_failed)
+            else resources.getQuantityString(R.plurals.contacts_imported, n, n)
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
