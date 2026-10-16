@@ -130,7 +130,7 @@ fun PracticeScreen(
     }
     val locked by remember { derivedStateOf { (state.value as? GestureCamera.State.Locked)?.fingerprint } }
     LaunchedEffect(fingerprint?.code) {
-        fingerprint?.let { Timber.d("Practice %s | %s | %s", it.code, it.label, viewModel.metrics.value) }
+        fingerprint?.let { Timber.d("Practice %s | %s", it.label, viewModel.metrics.value) }
     }
 
     val steps = remember { mutableStateListOf<String>() }

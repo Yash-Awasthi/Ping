@@ -71,37 +71,62 @@ class GestureCamera @Inject constructor(
     private var cameraProvider: ProcessCameraProvider? = null
     private var executor: ExecutorService? = null
 
+    /** Results arrive on MediaPipe's thread and resets on main, so the streak below is held under [streak]. */
+    private val streak = Any()
     private val lock = GestureLock()
     private val tracker = MotionTracker()
     private val palmVotes = ArrayDeque<GestureFingerprint.Palm>()
     private val handedness = Handedness()
+    /** Results for frames older than this are dropped; MAX_VALUE while stopped. Guarded by [streak]. */
+    private var acceptFrom = Long.MAX_VALUE
+    /** Main thread only: bumped by each start and stop so a late provider callback cannot bind. */
+    private var generation = 0
 
     fun start(owner: LifecycleOwner) {
+        val gen = ++generation
+        cameraProvider?.unbindAll()
+        executor?.shutdown()
         // Off main: warmUp() is synchronized, so it would block on a load still running from app start.
-        executor = Executors.newSingleThreadExecutor().also { it.execute(::warmUp) }
+        val exec = Executors.newSingleThreadExecutor().also { it.execute(::warmUp) }
+        executor = exec
+        synchronized(streak) {
+            clearStreak()
+            acceptFrom = SystemClock.uptimeMillis()
+        }
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
+            if (gen != generation || executor !== exec) return@addListener
             cameraProvider = future.get()
-            bind(owner)
+            bind(owner, exec)
         }, ContextCompat.getMainExecutor(context))
     }
 
     fun stop() {
+        generation++
         // The landmarker stays loaded: building it costs a noticeable pause on every open.
         cameraProvider?.unbindAll(); cameraProvider = null
         _surfaceRequest.value = null
         executor?.shutdown(); executor = null
-        reset()
-        _state.value = State.NoHand
+        synchronized(streak) {
+            acceptFrom = Long.MAX_VALUE
+            forget()
+            _state.value = State.NoHand
+        }
     }
 
     /** Forget the current streak so the next lock is a fresh capture. */
-    fun reset() {
+    fun reset() = synchronized(streak) { clearStreak() }
+
+    private fun clearStreak() {
+        forget()
+        if (_state.value !is State.ModelError) _state.value = State.NoHand
+    }
+
+    private fun forget() {
         lock.clear()
         palmVotes.clear()
         handedness.clear()
         tracker.clear()
-        if (_state.value !is State.ModelError) _state.value = State.NoHand
     }
 
     /** Load the hand model once; safe to call from a background thread at app start. */
@@ -131,7 +156,7 @@ class GestureCamera @Inject constructor(
         }
     }
 
-    private fun bind(owner: LifecycleOwner) {
+    private fun bind(owner: LifecycleOwner, exec: ExecutorService) {
         val provider = cameraProvider ?: return
         val preview = Preview.Builder().build().also {
             it.setSurfaceProvider { request -> _surfaceRequest.value = request }
@@ -139,7 +164,7 @@ class GestureCamera @Inject constructor(
         val analysis = ImageAnalysis.Builder()
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build().also { ia -> ia.setAnalyzer(executor!!) { proxy -> process(proxy) } }
+            .build().also { ia -> ia.setAnalyzer(exec) { proxy -> process(proxy) } }
         try {
             provider.unbindAll()
             provider.bindToLifecycle(owner, CameraSelector.DEFAULT_FRONT_CAMERA, preview, analysis)
@@ -193,9 +218,13 @@ class GestureCamera @Inject constructor(
             ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
 
     private fun onResult(result: HandLandmarkerResult, @Suppress("UNUSED_PARAMETER") image: com.google.mediapipe.framework.image.MPImage) {
+        synchronized(streak) { if (result.timestampMs() >= acceptFrom) analyse(result) }
+    }
+
+    private fun analyse(result: HandLandmarkerResult) {
         val hands = result.landmarks()
         if (hands.isEmpty()) {
-            reset()
+            clearStreak()
             return
         }
         fun flatten(i: Int): FloatArray {
@@ -215,7 +244,7 @@ class GestureCamera @Inject constructor(
         // The detector sees the mirrored frame, so its "Right" is the user's left hand.
         val hand = handedness.update(isRight(0)?.let { !it }, GestureFingerprint.shapeIsRight(first))
         val detectorRight = hand?.let { it == GestureFingerprint.Hand.LEFT } ?: isRight(0)
-        var fp = GestureFingerprint.fromLandmarks(first, detectorRight) ?: run { reset(); return }
+        var fp = GestureFingerprint.fromLandmarks(first, detectorRight) ?: run { clearStreak(); return }
         var pointerSource = first
 
         // Two hands held together make one gesture; each phone must pick the same "main" hand.
@@ -247,7 +276,7 @@ class GestureCamera @Inject constructor(
 
         val locked = lock.update(fp, motion, tracker.isStill(GestureLock.COMMIT_FRAMES))
         _state.value = if (locked != null) {
-            Timber.d("Locked gesture %s | %s", locked.code, locked.label)
+            Timber.d("Gesture locked")
             State.Locked(locked)
         } else State.Detecting(fp, lock.stability)
     }
