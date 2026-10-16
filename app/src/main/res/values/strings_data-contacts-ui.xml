@@ -20,4 +20,10 @@
     <string name="indicator_paired">Paired</string>
     <string name="indicator_error">Error</string>
     <string name="indicator_idle">Idle</string>
+    <string name="onboarding_title">How a swap works</string>
+    <string name="onboarding_step_profile">Set up your card in Profile.</string>
+    <string name="onboarding_step_gesture">You and your friend both show the same hand gesture.</string>
+    <string name="onboarding_step_hold">Hold it steady until the phones find each other.</string>
+    <string name="onboarding_practice">Practice</string>
+    <string name="onboarding_dismiss">Got it</string>
 </resources>
