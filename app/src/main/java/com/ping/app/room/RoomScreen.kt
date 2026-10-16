@@ -217,6 +217,7 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White,
                 maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         if (inRoom) {
@@ -234,17 +235,6 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
             Text(stringResource(R.string.room_allow_all, state.pending.size))
         }
     }
-    state.pending.forEach { guest ->
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                stringResource(R.string.room_wants_in, guest.name),
-                modifier = Modifier.weight(1f),
-            )
-            Button(onClick = { viewModel.decide(guest.endpointId, true) }) { Text(stringResource(R.string.room_allow)) }
-            TextButton(onClick = { viewModel.decide(guest.endpointId, false) }) { Text(stringResource(R.string.room_deny)) }
-        }
-    }
-
     val others = state.manifest.files.filter { it.ownerKey != state.myKey }
     val fetchable = others.count { state.transfers[it.id]?.status.let { s -> s == null || s == Transfer.Status.FAILED } }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -256,6 +246,16 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
 
     if (inRoom) {
         LazyColumn(modifier = Modifier.weight(1f)) {
+            items(state.pending, key = { "p" + it.endpointId }) { guest ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        stringResource(R.string.room_wants_in, guest.name),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Button(onClick = { viewModel.decide(guest.endpointId, true) }) { Text(stringResource(R.string.room_allow)) }
+                    TextButton(onClick = { viewModel.decide(guest.endpointId, false) }) { Text(stringResource(R.string.room_deny)) }
+                }
+            }
             if (state.shared.isNotEmpty()) {
                 item { SectionLabel(stringResource(R.string.room_you_share)) }
                 items(state.shared, key = { "s" + it.id }) { f ->
@@ -264,7 +264,7 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
                             FileBadge(f.name)
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(f.name, style = MaterialTheme.typography.titleMedium)
+                                Text(shownName(f.path, f.name), style = MaterialTheme.typography.titleMedium)
                                 Text(Formatter.formatShortFileSize(context, f.size), style = MaterialTheme.typography.bodySmall)
                             }
                             TextButton(onClick = { viewModel.removeShared(f.id) }) {
@@ -294,7 +294,12 @@ private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> U
         FileBadge(file.name)
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(file.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                shownName(file.path, file.name),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 stringResource(R.string.room_file_meta, Formatter.formatShortFileSize(context, file.size), file.ownerName),
                 style = MaterialTheme.typography.bodySmall,
@@ -324,17 +329,27 @@ private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> U
                 Text(stringResource(R.string.room_open_file))
             }
             Transfer.Status.FAILED, null -> TextButton(onClick = onDownload) {
-                Text(stringResource(if (transfer == null) R.string.room_download else R.string.room_retry))
+                Text(
+                    stringResource(
+                        when {
+                            transfer == null -> R.string.room_download
+                            transfer.bytes > 0 -> R.string.room_resume
+                            else -> R.string.room_retry
+                        },
+                    ),
+                )
             }
         }
     }
 }
 
+private fun shownName(path: String, name: String) = if (path.isEmpty()) name else "$path/$name"
+
 /** Bytes per second and seconds left, once enough has arrived to say. */
 private fun transferRate(t: Transfer): Pair<Long, Long>? {
     val elapsed = (System.currentTimeMillis() - t.startedAt) / 1000.0
-    if (t.startedAt == 0L || elapsed < 1 || t.bytes <= 0) return null
-    val perSecond = (t.bytes / elapsed).toLong().coerceAtLeast(1)
+    if (t.startedAt == 0L || elapsed < 1 || t.bytes <= t.from) return null
+    val perSecond = ((t.bytes - t.from) / elapsed).toLong().coerceAtLeast(1)
     return perSecond to (t.total - t.bytes) / perSecond
 }
 
