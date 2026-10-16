@@ -2,6 +2,7 @@ package com.ping.app.ui.contacts
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ping.app.data.BackupLockedException
@@ -75,8 +76,18 @@ class ContactsViewModel @Inject constructor(
         backupPassphrase = passphrase
     }
 
-    fun backUp(uri: Uri) {
+    fun backUp(uri: Uri) = write(uri, backupPassphrase.also { backupPassphrase = null })
+
+    /** Like [backUp] but never plain: a passphrase lost to process death fails instead of leaking. */
+    fun backUpSealed(uri: Uri) {
         val passphrase = backupPassphrase.also { backupPassphrase = null }
+        if (passphrase == null || passphrase.all(Char::isWhitespace)) {
+            runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+            _backedUp.tryEmit(false)
+        } else write(uri, passphrase)
+    }
+
+    private fun write(uri: Uri, passphrase: CharArray?) {
         viewModelScope.launch(Dispatchers.IO) {
             val ok = runCatching {
                 val file = encodeBackup(contactRepository.contacts.first(), passphrase)

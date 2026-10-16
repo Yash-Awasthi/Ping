@@ -79,7 +79,7 @@ fun ContactsScreen(
         uri?.let(viewModel::backUp)
     }
     val sealedWriter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null) viewModel.backUp(uri) else viewModel.setBackupPassphrase(null)
+        if (uri != null) viewModel.backUpSealed(uri) else viewModel.setBackupPassphrase(null)
     }
     val backupReader = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(viewModel::restore)
