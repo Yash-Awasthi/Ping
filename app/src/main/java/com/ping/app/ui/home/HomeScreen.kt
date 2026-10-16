@@ -34,11 +34,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -152,31 +151,37 @@ fun HomeScreen(
     }
 }
 
-/** The big Share button, with sonar rings that pulse outward while it is available. */
+/** Three rings pulsing outward; the phase is read only while drawing, so they never recompose. */
 @Composable
-private fun ShareOrb(enabled: Boolean, onClick: () -> Unit) {
-    val transition = rememberInfiniteTransition(label = "sonar")
-    val phase by transition.animateFloat(
+private fun SonarRings() {
+    val phase = rememberInfiniteTransition(label = "sonar").animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(2800, easing = LinearEasing), RepeatMode.Restart),
         label = "phase",
     )
+    repeat(3) { i ->
+        Box(
+            modifier = Modifier
+                .size(210.dp)
+                .graphicsLayer {
+                    val p = (phase.value + i / 3f) % 1f
+                    scaleX = 1f + p * 0.45f
+                    scaleY = scaleX
+                    alpha = (1f - p) * 0.55f
+                }
+                .border(2.dp, PingCyan, CircleShape),
+        )
+    }
+}
+
+/** The big Share button, with sonar rings that pulse outward while it is available. */
+@Composable
+private fun ShareOrb(enabled: Boolean, onClick: () -> Unit) {
     val disabledFill = MaterialTheme.colorScheme.surfaceVariant
     val onFill = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(300.dp)) {
-        if (enabled) {
-            repeat(3) { i ->
-                val p = (phase + i / 3f) % 1f
-                Box(
-                    modifier = Modifier
-                        .size(210.dp)
-                        .scale(1f + p * 0.45f)
-                        .alpha((1f - p) * 0.55f)
-                        .border(2.dp, PingCyan, CircleShape),
-                )
-            }
-        }
+        if (enabled) SonarRings()
         Box(
             modifier = Modifier
                 .size(210.dp)

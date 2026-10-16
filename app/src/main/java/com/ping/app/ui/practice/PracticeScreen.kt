@@ -18,6 +18,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
 import com.ping.app.auth.CustomGesture
 import com.ping.app.auth.GestureCamera
+import com.ping.app.auth.GestureFingerprint
 import com.ping.app.ui.components.GestureGuideButton
 import com.ping.app.ui.components.GesturePreview
 import com.ping.app.ui.components.PingCard
@@ -43,6 +45,7 @@ import com.ping.app.ui.components.SectionLabel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -79,6 +82,23 @@ class PracticeViewModel @Inject constructor(
     fun stop() = camera.stop()
 }
 
+/** Metrics change every frame, so only this line reads them. */
+@Composable
+private fun LiveMetrics(fingerprint: GestureFingerprint?, metricsFlow: StateFlow<String>) {
+    val metrics by metricsFlow.collectAsStateWithLifecycle()
+    Text(
+        text = listOf(
+            fingerprint?.code.orEmpty(),
+            fingerprint?.let { "open ${it.openFingers} · closed ${it.closedFingers}" }.orEmpty(),
+            metrics,
+        ).filter { it.isNotEmpty() }.joinToString(" · "),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
 /**
  * Shows what Ping sees your hand doing, live, and never connects to anything. Use it to learn a
  * gesture before agreeing on it with someone, or to record one of your own.
@@ -90,8 +110,7 @@ fun PracticeScreen(
 ) {
     val context = LocalContext.current
     val owner = context as? LifecycleOwner
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val metrics by viewModel.metrics.collectAsStateWithLifecycle()
+    val state = viewModel.state.collectAsStateWithLifecycle()
     val saved by viewModel.saved.collectAsStateWithLifecycle()
 
     val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
@@ -99,19 +118,24 @@ fun PracticeScreen(
     LaunchedEffect(Unit) { if (owner != null) viewModel.start(owner) }
     DisposableEffect(Unit) { onDispose { viewModel.stop() } }
 
-    val fingerprint = when (val s = state) {
-        is GestureCamera.State.Detecting -> s.fingerprint
-        is GestureCamera.State.Locked -> s.fingerprint
-        else -> null
+    // State changes every frame (stability ticks); the screen only needs to redraw when the pose does.
+    val fingerprint by remember {
+        derivedStateOf {
+            when (val s = state.value) {
+                is GestureCamera.State.Detecting -> s.fingerprint
+                is GestureCamera.State.Locked -> s.fingerprint
+                else -> null
+            }
+        }
     }
+    val locked by remember { derivedStateOf { (state.value as? GestureCamera.State.Locked)?.fingerprint } }
     LaunchedEffect(fingerprint?.code) {
-        fingerprint?.let { Timber.d("Practice %s | %s | %s", it.code, it.label, metrics) }
+        fingerprint?.let { Timber.d("Practice %s | %s | %s", it.code, it.label, viewModel.metrics.value) }
     }
 
     val steps = remember { mutableStateListOf<String>() }
     val labels = remember { mutableStateListOf<String>() }
     var name by remember { mutableStateOf("") }
-    val locked = (state as? GestureCamera.State.Locked)?.fingerprint
 
     Column(
         modifier = Modifier
@@ -129,17 +153,7 @@ fun PracticeScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Text(
-                text = listOf(
-                    fingerprint?.code.orEmpty(),
-                    fingerprint?.let { "open ${it.openFingers} · closed ${it.closedFingers}" }.orEmpty(),
-                    metrics,
-                ).filter { it.isNotEmpty() }.joinToString(" · "),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            LiveMetrics(fingerprint, viewModel.metrics)
         }
         GesturePreview(surfaceRequest)
         GestureGuideButton()
@@ -155,7 +169,7 @@ fun PracticeScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // A second step equal to the first could never be made live: the swap screen waits for a change.
                 OutlinedButton(
-                    enabled = locked != null && steps.size < CustomGesture.MAX_STEPS && steps.lastOrNull() != locked.code,
+                    enabled = locked.let { it != null && steps.size < CustomGesture.MAX_STEPS && steps.lastOrNull() != it.code },
                     onClick = { locked?.let { steps += it.code; labels += it.label } },
                 ) { Text(stringResource(R.string.custom_gesture_add_step)) }
                 if (steps.isNotEmpty()) {

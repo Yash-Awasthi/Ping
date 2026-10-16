@@ -182,12 +182,13 @@ private fun ContactList(
             }
         }
     } else {
+        val favourites = remember(contacts) { contacts.filter { it.isFavorite } }
+        val rest = remember(contacts, query) { if (query.isBlank()) contacts.filterNot { it.isFavorite } else contacts }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            val favourites = contacts.filter { it.isFavorite }
             if (query.isBlank() && favourites.isNotEmpty()) {
                 item { SectionLabel(stringResource(R.string.contacts_favourites)) }
                 items(favourites, key = { "f-" + it.id }) { contact ->
@@ -195,7 +196,6 @@ private fun ContactList(
                 }
                 item { SectionLabel(stringResource(R.string.contacts_everyone)) }
             }
-            val rest = if (query.isBlank()) contacts.filterNot { it.isFavorite } else contacts
             items(rest, key = { it.id }) { contact ->
                 ContactItem(contact = contact, onClick = { onContactClick(contact.id) })
             }
