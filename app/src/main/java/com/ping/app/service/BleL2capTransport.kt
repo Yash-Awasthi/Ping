@@ -37,8 +37,12 @@ import java.io.InputStream
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
 import java.nio.ByteBuffer
+import java.util.Queue
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
+import java.util.concurrent.Semaphore
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -242,10 +246,10 @@ class BleL2capTransport(context: Context) : NearbyTransport {
                     while (true) {
                         val n = input.read(buf)
                         if (n < 0) break
-                        if (n > 0) link.send(BleWire.chunk(streamId, buf, n))
+                        if (n > 0) link.enqueueChunk(BleWire.chunk(streamId, buf, n))
                     }
                 }
-                link.send(BleWire.end(streamId))
+                link.enqueueChunk(BleWire.end(streamId))
             }.onFailure { Timber.e(it, "BleL2capTransport: stream to $endpointId failed") }
         }
         return true
@@ -260,13 +264,15 @@ class BleL2capTransport(context: Context) : NearbyTransport {
         @Volatile var remoteName: String,
     ) {
         private val input = DataInputStream(BufferedInputStream(socket.inputStream))
-        private val out = DataOutputStream(BufferedOutputStream(socket.outputStream))
+        private val out = DataOutputStream(BufferedOutputStream(socket.outputStream, OUT_BUFFER))
         private lateinit var cipher: LinkCipher
         val writer = Executors.newSingleThreadExecutor { Thread(it, "ble-l2cap-$id").apply { isDaemon = true } }
         val nextStream = AtomicInteger()
         private val inbound = ConcurrentHashMap<Int, PipedOutputStream>()
         private val dropped: MutableSet<Int> = ConcurrentHashMap.newKeySet()
-        private val writeLock = Any()
+        private val control = ConcurrentLinkedQueue<ByteArray>()
+        private val chunks = ConcurrentLinkedQueue<ByteArray>()
+        private val chunkRoom = Semaphore(QUEUED_CHUNKS)
 
         @Volatile var localAccepted = false
         @Volatile private var remoteAccepted = false
@@ -314,7 +320,7 @@ class BleL2capTransport(context: Context) : NearbyTransport {
             }
         }
 
-        // ponytail: a slow stream reader stalls this link's other traffic; per-stream credits if that bites.
+        // ponytail: a stream reader slower than the radio stalls this link's inbound control; per-stream credits if that bites.
         private fun receiveChunk(streamId: Int, msg: ByteArray) {
             if (streamId in dropped) return
             val sink = inbound[streamId] ?: run {
@@ -331,6 +337,8 @@ class BleL2capTransport(context: Context) : NearbyTransport {
             }
             try {
                 sink.write(msg, 5, msg.size - 5)
+                // A JDK pipe's reader otherwise naps up to a second before it sees the bytes.
+                sink.flush()
             } catch (_: IOException) {
                 inbound.remove(streamId)
                 dropped += streamId
@@ -345,11 +353,29 @@ class BleL2capTransport(context: Context) : NearbyTransport {
             main.post { onConnected?.invoke(id, remoteName, !initiator) }
         }
 
-        /** Seal and write one message; the lock keeps seal order equal to wire order. */
-        fun send(plain: ByteArray) = synchronized(writeLock) { BleWire.writeBlob(out, cipher.seal(plain)) }
+        /** Seal and write one message; only [run] before the link is listed, then only [writer], calls it. */
+        private fun send(plain: ByteArray, flush: Boolean = true) = BleWire.writeBlob(out, cipher.seal(plain), flush)
 
         fun enqueue(plain: ByteArray) {
-            runCatching { writer.execute { runCatching { send(plain) }.onFailure { Timber.w(it, "BleL2capTransport: send to $id failed") } } }
+            runCatching { post(control, plain) }
+        }
+
+        /** Blocks while [QUEUED_CHUNKS] wait, so a stream never runs far ahead of the radio. */
+        fun enqueueChunk(plain: ByteArray) {
+            while (!chunkRoom.tryAcquire(1, TimeUnit.SECONDS)) if (closed) throw IOException("link closed")
+            post(chunks, plain)
+        }
+
+        private fun post(queue: Queue<ByteArray>, plain: ByteArray) {
+            queue += plain
+            writer.execute(::drain)
+        }
+
+        /** One task per queued frame; control frames jump queued chunks, and a flush waits until both run dry. */
+        private fun drain() {
+            val plain = control.poll() ?: chunks.poll()?.also { chunkRoom.release() } ?: return
+            runCatching { send(plain, flush = control.isEmpty() && chunks.isEmpty()) }
+                .onFailure { Timber.w(it, "BleL2capTransport: send to $id failed") }
         }
 
         @Synchronized
@@ -368,7 +394,11 @@ class BleL2capTransport(context: Context) : NearbyTransport {
     private companion object {
         const val SWEEP_MS = 3_000L
         const val LOST_MS = 10_000L
+        /** A control frame waits behind at most one chunk on the air; 32 KiB is ~0.2 s at LE rates. */
         const val CHUNK_BYTES = 32 * 1024
+        const val QUEUED_CHUNKS = 4
+        /** Holds a whole chunk frame, so its length prefix never goes out as a separate SDU. */
+        const val OUT_BUFFER = 64 * 1024
         const val PIPE_BYTES = 256 * 1024
     }
 }
