@@ -30,7 +30,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,13 +78,19 @@ fun ContactsScreen(
     val backupWriter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let(viewModel::backUp)
     }
+    val sealedWriter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null) viewModel.backUp(uri) else viewModel.setBackupPassphrase(null)
+    }
     val backupReader = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(viewModel::restore)
     }
     var menuOpen by remember { mutableStateOf(false) }
+    var askBackupPassphrase by remember { mutableStateOf(false) }
+    var lockedBackup by remember { mutableStateOf<Pair<android.net.Uri, Boolean>?>(null) }
     val resources = LocalResources.current
     LaunchedEffect(Unit) {
         fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+        launch { viewModel.locked.collect { lockedBackup = it } }
         launch {
             viewModel.imported.collect { n ->
                 toast(if (n < 0) resources.getString(R.string.contacts_import_failed)
@@ -137,7 +147,7 @@ fun ContactsScreen(
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.contacts_backup)) },
-                        onClick = { menuOpen = false; backupWriter.launch("Ping-backup.json") },
+                        onClick = { menuOpen = false; askBackupPassphrase = true },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.contacts_restore)) },
@@ -148,6 +158,72 @@ fun ContactsScreen(
         }
         ContactList(contacts, query, onContactClick)
     }
+
+    if (askBackupPassphrase) {
+        PassphraseDialog(
+            title = R.string.backup_passphrase_title,
+            message = R.string.backup_passphrase_message,
+            wrong = false,
+            onConfirm = { pass ->
+                askBackupPassphrase = false
+                viewModel.setBackupPassphrase(pass.takeIf { it.isNotEmpty() })
+                if (pass.isEmpty()) backupWriter.launch("Ping-backup.json") else sealedWriter.launch("Ping-backup.pingseal")
+            },
+            onDismiss = { askBackupPassphrase = false },
+        )
+    }
+    lockedBackup?.let { (uri, wrong) ->
+        PassphraseDialog(
+            title = R.string.restore_passphrase_title,
+            message = R.string.restore_passphrase_message,
+            wrong = wrong,
+            onConfirm = { pass -> lockedBackup = null; viewModel.restore(uri, pass) },
+            onDismiss = { lockedBackup = null },
+        )
+    }
+}
+
+/** Asks for a backup passphrase; [onConfirm] gets it trimmed, empty when left blank. */
+@Composable
+private fun PassphraseDialog(
+    title: Int,
+    message: Int,
+    wrong: Boolean,
+    onConfirm: (CharArray) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var pass by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(title)) },
+        text = {
+            Column {
+                Text(stringResource(message), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = pass,
+                    onValueChange = { pass = it },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.backup_passphrase_hint)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    isError = wrong,
+                    supportingText = if (wrong) {
+                        { Text(stringResource(R.string.restore_passphrase_wrong)) }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(pass.trim().toCharArray()) }) {
+                Text(stringResource(R.string.action_continue))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }
 
 @Composable

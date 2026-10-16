@@ -3,7 +3,9 @@ package com.ping.app.utils
 import javax.crypto.Cipher
 import javax.crypto.Mac
 import javax.crypto.SecretKey
+import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
@@ -27,20 +29,33 @@ object CryptoUtils {
         return expand.doFinal()
     }
 
-    /** AES-256-GCM seal. Returns IV(12) || ciphertext || tag(16). */
-    fun encrypt(key: SecretKey, plaintext: ByteArray): ByteArray {
+    /** PBKDF2-HMAC-SHA256 to a 256-bit AES key; wiping [passphrase] is left to the caller. */
+    fun deriveKey(passphrase: CharArray, salt: ByteArray, iterations: Int): SecretKey {
+        val spec = PBEKeySpec(passphrase, salt, iterations, 256)
+        try {
+            val raw = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
+            return SecretKeySpec(raw, "AES").also { raw.fill(0) }
+        } finally {
+            spec.clearPassword()
+        }
+    }
+
+    /** AES-256-GCM seal that also authenticates [aad]. Returns IV(12) || ciphertext || tag(16). */
+    fun encrypt(key: SecretKey, plaintext: ByteArray, aad: ByteArray? = null): ByteArray {
         val cipher = Cipher.getInstance(AES_GCM).apply { init(Cipher.ENCRYPT_MODE, key) }
+        if (aad != null) cipher.updateAAD(aad)
         return cipher.iv + cipher.doFinal(plaintext)
     }
 
-    /** AES-256-GCM open of a blob produced by [encrypt]. Throws on tamper/wrong key. */
-    fun decrypt(key: SecretKey, blob: ByteArray): ByteArray {
+    /** AES-256-GCM open of a blob from [encrypt] with the same [aad]. Throws on tamper/wrong key. */
+    fun decrypt(key: SecretKey, blob: ByteArray, aad: ByteArray? = null): ByteArray {
         require(blob.size > GCM_IV_SIZE) { "blob too short" }
         val iv = blob.copyOf(GCM_IV_SIZE)
         val body = blob.copyOfRange(GCM_IV_SIZE, blob.size)
         val cipher = Cipher.getInstance(AES_GCM).apply {
             init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_BITS, iv))
         }
+        if (aad != null) cipher.updateAAD(aad)
         return cipher.doFinal(body)
     }
 }

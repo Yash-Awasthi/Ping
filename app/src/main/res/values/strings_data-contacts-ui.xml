@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_passphrase_title">Protect backup</string>
+    <string name="backup_passphrase_message">Optional passphrase. Leave blank to save a plain file anyone can read.</string>
+    <string name="restore_passphrase_title">Locked backup</string>
+    <string name="restore_passphrase_message">Enter the passphrase this backup was saved with.</string>
+    <string name="restore_passphrase_wrong">Wrong passphrase, or the file is damaged.</string>
+    <string name="backup_passphrase_hint">Passphrase</string>
+    <string name="action_continue">Continue</string>
+</resources>
