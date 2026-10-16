@@ -1,8 +1,10 @@
 package com.ping.app.utils
 
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 
-/** Prints per-side PAKE cost on this JVM: what runs at gesture lock vs after the peer's share. */
+/** Prints per-side PAKE cost; excluded by default, run with `./gradlew :app:testDebugUnitTest -Pbench --tests '*PakeBench'`. */
+@Tag("bench")
 class PakeBench {
     @Test
     fun bench() {

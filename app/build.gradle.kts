@@ -2,6 +2,7 @@ import java.io.FileInputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
+import java.security.MessageDigest
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -23,8 +24,8 @@ android {
         applicationId = "com.ping.app"
         minSdk = 26           // BLE + Nearby Connections baseline
         targetSdk = 37
-        versionCode = 7
-        versionName = "0.6.0"
+        versionCode = 8
+        versionName = "0.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -91,7 +92,18 @@ android {
     }
 
     testOptions {
-        unitTests.all { it.useJUnitPlatform() }
+        // Benchmarks run only on request: ./gradlew :app:testDebugUnitTest -Pbench
+        val bench = providers.gradleProperty("bench").isPresent
+        unitTests.all { t -> t.useJUnitPlatform { if (!bench) excludeTags("bench") } }
+    }
+
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+
+    lint {
+        checkReleaseBuilds = true
+        abortOnError = true
     }
 
     packaging {
@@ -99,6 +111,10 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 kotlin {
@@ -181,10 +197,23 @@ tasks.register("downloadHandModel") {
     group = "ping"
     val modelFile = file("src/main/assets/hand_landmarker.task")
     val handModelUrl = "https://storage.googleapis.com/mediapipe-models/" +
-        "hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task"
+        "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+    val handModelSha256 = "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1"
+    inputs.property("url", handModelUrl)
+    inputs.property("sha256", handModelSha256)
     outputs.file(modelFile)
     doLast {
+        fun sha256(f: File): String = f.inputStream().use { inp ->
+            val md = MessageDigest.getInstance("SHA-256")
+            val buf = ByteArray(1 shl 16)
+            while (true) { val n = inp.read(buf); if (n < 0) break; md.update(buf, 0, n) }
+            md.digest().joinToString("") { "%02x".format(it) }
+        }
         if (modelFile.exists() && modelFile.length() > 0) {
+            val have = sha256(modelFile)
+            if (have != handModelSha256) throw GradleException(
+                "hand_landmarker.task SHA-256 is $have, expected $handModelSha256. Delete it to re-download."
+            )
             println("hand_landmarker.task already present — skipping download.")
             return@doLast
         }
@@ -197,6 +226,8 @@ tasks.register("downloadHandModel") {
             conn.connect()
             if (conn.responseCode != 200) throw IOException("HTTP ${conn.responseCode}")
             conn.inputStream.use { inp -> modelFile.outputStream().use { out -> inp.copyTo(out) } }
+            val got = sha256(modelFile)
+            if (got != handModelSha256) throw IOException("SHA-256 mismatch: got $got, expected $handModelSha256")
             println("Downloaded ${modelFile.length()} bytes to ${modelFile.absolutePath}")
         } catch (e: Exception) {
             modelFile.takeIf { it.exists() }?.delete()
