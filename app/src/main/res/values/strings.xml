@@ -147,6 +147,12 @@
     <string name="exchange_two_gestures">Two-gesture password</string>
     <string name="exchange_second_gesture">First gesture locked. Now switch to a different one.</string>
     <string name="gesture_guide_button">Gesture guide</string>
+    <string name="custom_gestures_title">Your gestures</string>
+    <string name="custom_gestures_intro">Hold a pose until it locks, then add it. Add a second pose to chain them. Anyone making the same poses in the same order matches, saved or not.</string>
+    <string name="custom_gesture_add_step">Add this pose</string>
+    <string name="custom_gesture_clear">Start over</string>
+    <string name="custom_gesture_name">Name</string>
+    <string name="custom_gestures_pick">Or use a saved gesture</string>
     <string name="gesture_guide_title">Gestures Ping knows</string>
     <string name="gesture_guide_intro">Both phones must make the same gesture. Names are a best guess; what counts is the shape, direction and motion. Keep a pose still for a moment, or keep a motion going.</string>
     <string name="exchange_retry">Try again</string>
