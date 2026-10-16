@@ -112,6 +112,7 @@
     <string name="room_file_meta">%1$s · from %2$s</string>
     <string name="room_download">Download</string>
     <string name="room_retry">Retry</string>
+    <string name="room_resume">Resume</string>
     <string name="room_receiving">Receiving…</string>
     <string name="room_open_file">Open</string>
     <string name="notif_room">File room is open</string>

@@ -10,6 +10,7 @@ import com.ping.app.service.Pairing
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -17,7 +18,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
+import java.util.Collections
+import kotlin.random.Random
 
 /** Runs whole rooms in-process: hubs talk through [FakeAir] instead of Nearby Connections. */
 class RoomHubTest {
@@ -251,7 +255,7 @@ class RoomHubTest {
     }
 
     @Test
-    fun `a file shorter than announced fails`() {
+    fun `a file shorter than announced fails and only its part is kept`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
         host.host("F5A3"); Thread.sleep(50)
@@ -261,7 +265,80 @@ class RoomHubTest {
         val gid = guest.state.value.manifest.files.single().id
         guest.download(gid)
         await("failed") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
-        assertEquals(0, downloads("g").size)
+        assertEquals(listOf("short.bin.part"), downloads("g").map { it.name })
+    }
+
+    @Test
+    fun `an interrupted download resumes from its offset and matches byte for byte`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        val data = Random(7).nextBytes(200_000)
+        var opens = 0
+        host.host("F6A1"); Thread.sleep(50)
+        host.addShared(FileMeta("", "big.bin", data.size.toLong())) {
+            if (opens++ == 0) CutAfter(data, 70_000) else ByteArrayInputStream(data)
+        }
+        guest.join("F6A1"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
+        val gid = guest.state.value.manifest.files.single().id
+
+        guest.download(gid)
+        await("cut") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+        assertEquals(70_000L, guest.state.value.transfers.getValue(gid).bytes)
+        assertArrayEquals(data.copyOf(70_000), File(downloads("g").single().path).readBytes())
+
+        guest.download(gid)
+        await("resumed") { guest.state.value.transfers[gid]?.status == Transfer.Status.DONE }
+        assertArrayEquals(data, File(guest.state.value.transfers.getValue(gid).path!!).readBytes())
+        assertEquals(listOf(gid, "$gid 70000"), air.texts("g", "h", RoomProtocol.T_REQUEST))
+    }
+
+    @Test
+    fun `a file that changed since the cut restarts from zero once`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        val before = Random(1).nextBytes(100_000)
+        val after = Random(2).nextBytes(100_000)
+        var opens = 0
+        host.host("F6A2"); Thread.sleep(50)
+        host.addShared(FileMeta("", "doc.bin", before.size.toLong())) {
+            if (opens++ == 0) CutAfter(before, 40_000) else ByteArrayInputStream(after)
+        }
+        guest.join("F6A2"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
+        val gid = guest.state.value.manifest.files.single().id
+
+        guest.download(gid)
+        await("cut") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+        guest.download(gid)
+        await("restarted") { guest.state.value.transfers[gid]?.status == Transfer.Status.DONE }
+        assertArrayEquals(after, File(guest.state.value.transfers.getValue(gid).path!!).readBytes())
+        assertEquals(listOf(gid, "$gid 40000", gid), air.texts("g", "h", RoomProtocol.T_REQUEST))
+    }
+
+    @Test
+    fun `a relayed file resumes into the host cache from where it stopped`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        val bob = newHub("b", "Bob")
+        val data = Random(3).nextBytes(150_000)
+        var opens = 0
+        host.host("F6A3"); Thread.sleep(50)
+        ada.join("F6A3"); admitted(host, ada)
+        ada.addShared(FileMeta("", "ada.bin", data.size.toLong())) {
+            if (opens++ == 0) CutAfter(data, 50_000) else ByteArrayInputStream(data)
+        }
+        bob.join("F6A3"); admitted(host, bob)
+        await("bob sees file") { bob.state.value.manifest.files.isNotEmpty() }
+        val gid = bob.state.value.manifest.files.single().id
+
+        bob.download(gid)
+        await("cut") { bob.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+        bob.download(gid)
+        await("done") { bob.state.value.transfers[gid]?.status == Transfer.Status.DONE }
+        assertArrayEquals(data, File(bob.state.value.transfers.getValue(gid).path!!).readBytes())
+        val local = RoomProtocol.localIdOf(gid)
+        assertEquals(listOf(local, "$local 50000"), air.texts("h", "a", RoomProtocol.T_PUSH))
     }
 
     @Test
@@ -318,9 +395,29 @@ class RoomHubTest {
     }
 }
 
+/** Hands out the first [cut] bytes of [data], then fails like a dropped link. */
+private class CutAfter(private val data: ByteArray, private val cut: Int) : InputStream() {
+    private var pos = 0
+    override fun read(): Int = ByteArray(1).let { if (read(it, 0, 1) < 0) -1 else it[0].toInt() and 0xff }
+    override fun read(b: ByteArray, off: Int, len: Int): Int {
+        if (pos >= cut) throw IOException("link dropped")
+        val n = minOf(len, cut - pos)
+        System.arraycopy(data, pos, b, off, n)
+        pos += n
+        return n
+    }
+}
+
 /** In-memory stand-in for the radio: endpoint ids are the names passed to [endpoint]. */
 private class FakeAir {
     private val nodes = mutableMapOf<String, Node>()
+    private val frames: MutableList<Triple<String, String, ByteArray>> = Collections.synchronizedList(mutableListOf())
+
+    /** Bodies of the [type] frames [from] sent [to], in order. */
+    fun texts(from: String, to: String, type: Byte): List<String> = synchronized(frames) {
+        frames.filter { it.first == from && it.second == to && it.third.firstOrNull() == type }
+            .map { it.third.copyOfRange(1, it.third.size).toString(Charsets.UTF_8) }
+    }
 
     fun endpoint(id: String): NearbyTransport = Node(id).also { nodes[id] = it }
 
@@ -364,18 +461,22 @@ private class FakeAir {
             peer.onConnectionInitiated?.invoke(id, localName)
         }
 
+        // Both ends accept on their own threads; unlocked, each can miss the other's accept.
         override fun acceptConnection(endpointId: String) {
-            accepted += endpointId
-            val peer = nodes[endpointId] ?: return
-            if (id in peer.accepted) {
-                onConnected?.invoke(endpointId, names[endpointId].orEmpty(), false)
-                peer.onConnected?.invoke(id, peer.names[id].orEmpty(), true)
+            synchronized(this@FakeAir) {
+                accepted += endpointId
+                val peer = nodes[endpointId] ?: return
+                if (id in peer.accepted) {
+                    onConnected?.invoke(endpointId, names[endpointId].orEmpty(), false)
+                    peer.onConnected?.invoke(id, peer.names[id].orEmpty(), true)
+                }
             }
         }
 
         override fun rejectConnection(endpointId: String) {}
 
         override fun sendBytes(endpointId: String, data: ByteArray) {
+            frames += Triple(id, endpointId, data)
             nodes[endpointId]?.onPayloadReceived?.invoke(id, data)
         }
 

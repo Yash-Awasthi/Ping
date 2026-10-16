@@ -99,6 +99,33 @@ class RoomProtocolTest {
     }
 
     @Test
+    fun `requests carry an offset only when resuming and old bare ids still parse`() {
+        assertEquals("host:f1", RoomProtocol.request("host:f1"))
+        assertEquals("host:f1" to 0L, RoomProtocol.parseRequest("host:f1"))
+        assertEquals("host:f1" to 42L, RoomProtocol.parseRequest(RoomProtocol.request("host:f1", 42)))
+        assertNull(RoomProtocol.parseRequest("host:f1 -3"))
+        assertNull(RoomProtocol.parseRequest("host:f1 x"))
+        assertNull(RoomProtocol.parseRequest(" 5"))
+        val stream = ByteArrayInputStream(RoomProtocol.header("host:f1", 9))
+        assertEquals("host:f1" to 9L, RoomProtocol.parseRequest(RoomProtocol.readHeader(stream)!!))
+    }
+
+    @Test
+    fun `a resumed body skips the prefix but its checksum covers the whole file`() {
+        val body = "hello resumed room".toByteArray()
+        val sent = RoomProtocol.withDigest(ByteArrayInputStream(body), 6).readBytes()
+        assertEquals("resumed room", String(sent, 0, body.size - 6))
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(body)
+        assertTrue(RoomProtocol.trailerMatches(ByteArrayInputStream(sent, body.size - 6, 32), digest))
+    }
+
+    @Test
+    fun `ids with spaces or that are too long are dropped`() {
+        val json = """[{"id":"a b","name":"x","size":1},{"id":"${"z".repeat(41)}","name":"y","size":1},{"id":"ok","name":"z","size":1}]"""
+        assertEquals(listOf("ok"), RoomProtocol.decodeMetas(json).map { it.id })
+    }
+
+    @Test
     fun `a body carries its checksum and a changed byte fails it`() {
         val body = "hello room".toByteArray()
         val sent = RoomProtocol.withDigest(ByteArrayInputStream(body)).readBytes()

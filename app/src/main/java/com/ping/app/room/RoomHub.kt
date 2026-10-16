@@ -10,6 +10,7 @@ import com.ping.app.room.RoomProtocol.FileMeta
 import com.ping.app.room.RoomProtocol.GuestShare
 import com.ping.app.room.RoomProtocol.HOST_KEY
 import com.ping.app.room.RoomProtocol.Manifest
+import com.ping.app.room.RoomProtocol.RoomFile
 import com.ping.app.service.NearbyTransport
 import com.ping.app.service.Pairing
 import com.ping.app.utils.Pake
@@ -29,7 +30,9 @@ import timber.log.Timber
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.InputStream
+import java.io.RandomAccessFile
 import java.io.SequenceInputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -67,6 +70,8 @@ data class Transfer(
     val path: String? = null,
     /** When bytes started arriving, for speed and time left. */
     val startedAt: Long = 0,
+    /** Bytes already on disk when this attempt started; a failed transfer with bytes can resume. */
+    val from: Long = 0,
 ) {
     enum class Status { QUEUED, RECEIVING, DONE, FAILED }
 }
@@ -117,11 +122,16 @@ class RoomHub @Inject constructor(
     private val guests = ConcurrentHashMap<String, GuestInfo>()
     private val sharedOpeners = ConcurrentHashMap<String, () -> InputStream?>()
     private val wanted: MutableSet<String> = ConcurrentHashMap.newKeySet()
-    private val relay = ConcurrentHashMap<String, MutableSet<String>>()
+    /** Host: guest files on their way into the cache, and who waits for them from which offset. */
+    private val relay = ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>()
     private val cache = ConcurrentHashMap<String, File>()
     private val linkTokens = ConcurrentHashMap<String, ByteArray>()
     private val links = ConcurrentHashMap<String, Link>()
     private val earlyShares = ConcurrentHashMap<String, ByteArray>()
+    /** Guest: where each requested file lands; its `.part` survives a failed attempt for a resume. */
+    private val partials = ConcurrentHashMap<String, File>()
+    /** Files that already fell back from a resume to a full download this attempt. */
+    private val restarted: MutableSet<String> = ConcurrentHashMap.newKeySet()
     /** Guest: rooms whose gesture check failed, never retried this search. */
     private val tried: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val downloadLock = Any()
@@ -226,6 +236,9 @@ class RoomHub @Inject constructor(
         links.clear()
         earlyShares.clear()
         tried.clear()
+        partials.values.forEach { partOf(it).delete() }
+        partials.clear()
+        restarted.clear()
         cacheDir().deleteRecursively()
         hostEndpoint = null
         nextLocalId = 1
@@ -381,56 +394,90 @@ class RoomHub @Inject constructor(
 
     // Downloads
 
-    /** Ask for [globalId]; the file arrives as a stream and lands in [RoomState.transfers]. */
+    /**
+     * Ask for [globalId]; the file arrives as a stream and lands in [RoomState.transfers]. After a
+     * failed attempt this resumes from the bytes already kept.
+     */
     fun download(globalId: String) {
         scope.launch {
             val s = _state.value
             val file = s.manifest.files.firstOrNull { it.id == globalId } ?: return@launch
             if (file.ownerKey == s.myKey || s.transfers[globalId]?.status in ACTIVE) return@launch
-            wanted += globalId
-            setTransfer(globalId, Transfer(Transfer.Status.QUEUED, 0, file.size))
-            if (s.role == RoomRole.HOST) serve(HOST_KEY, globalId)
-            else hostEndpoint?.let { transport.sendBytes(it, RoomProtocol.frameText(RoomProtocol.T_REQUEST, globalId)) }
+            restarted -= globalId
+            fetch(file)
         }
     }
 
-    /** Host: get [globalId] to [requester] (an endpoint id, or [HOST_KEY] for the host itself). */
-    private fun serve(requester: String, globalId: String) {
+    private fun fetch(file: RoomFile) {
+        val gid = file.id
+        wanted += gid
+        if (_state.value.role == RoomRole.HOST) {
+            setTransfer(gid, Transfer(Transfer.Status.QUEUED, keptBytes(gid), file.size))
+            serve(HOST_KEY, gid, 0)
+            return
+        }
+        val dest = partials.getOrPut(gid) { downloadFile(file.name) }
+        val offset = freshPart(dest, file.size).length()
+        setTransfer(gid, Transfer(Transfer.Status.QUEUED, offset, file.size))
+        hostEndpoint?.let {
+            transport.sendBytes(it, RoomProtocol.frameText(RoomProtocol.T_REQUEST, RoomProtocol.request(gid, offset)))
+        }
+    }
+
+    /** Host: get [globalId] from byte [offset] to [requester] (an endpoint id, or [HOST_KEY] for the host itself). */
+    private fun serve(requester: String, globalId: String, offset: Long) {
         val file = _state.value.manifest.files.firstOrNull { it.id == globalId } ?: return
         val owner = file.ownerKey
         when {
-            owner == HOST_KEY -> if (requester != HOST_KEY) sendShared(requester, globalId)
-            cache[globalId]?.exists() == true -> deliver(requester, globalId, cache.getValue(globalId))
+            owner == HOST_KEY -> if (requester != HOST_KEY) sendShared(requester, globalId, offset)
+            cache[globalId]?.exists() == true -> deliver(requester, globalId, cache.getValue(globalId), offset)
             guests.containsKey(owner) -> {
                 val fresh = relay[globalId] == null
-                relay.getOrPut(globalId) { ConcurrentHashMap.newKeySet() }.add(requester)
-                if (fresh) {
-                    transport.sendBytes(
-                        owner,
-                        RoomProtocol.frameText(RoomProtocol.T_PUSH, RoomProtocol.localIdOf(globalId)),
-                    )
-                }
+                relay.getOrPut(globalId) { ConcurrentHashMap() }[requester] = offset
+                if (fresh) push(file)
             }
-            else -> failTransfer(globalId)
+            requester == HOST_KEY -> failTransfer(globalId)
+            else -> transport.sendBytes(requester, RoomProtocol.frameText(RoomProtocol.T_FAILED, globalId))
         }
     }
 
-    private fun deliver(requester: String, globalId: String, file: File) {
-        if (requester == HOST_KEY) io.launch { finish(globalId, file) }
-        else streamOut(requester, globalId, FileInputStream(file), file.length())
+    /** Host: ask a guest for its file, resuming whatever part of it the cache already holds. */
+    private fun push(file: RoomFile) {
+        val offset = freshPart(cacheFile(file.id), file.size).length()
+        transport.sendBytes(
+            file.ownerKey,
+            RoomProtocol.frameText(RoomProtocol.T_PUSH, RoomProtocol.request(RoomProtocol.localIdOf(file.id), offset)),
+        )
     }
 
-    private fun sendShared(endpointId: String, globalId: String) {
+    /** Host: a relayed file will not come; everyone waiting for it hears so. */
+    private fun relayFailed(gid: String) {
+        relay.remove(gid)?.keys?.forEach { who ->
+            if (who == HOST_KEY) failTransfer(gid)
+            else transport.sendBytes(who, RoomProtocol.frameText(RoomProtocol.T_FAILED, gid))
+        }
+    }
+
+    private fun deliver(requester: String, globalId: String, file: File, offset: Long) {
+        if (requester == HOST_KEY) io.launch { finish(globalId, file) }
+        else streamOut(requester, globalId, FileInputStream(file), file.length(), offset)
+    }
+
+    private fun sendShared(endpointId: String, globalId: String, offset: Long) {
         val localId = RoomProtocol.localIdOf(globalId)
         val meta = _state.value.shared.firstOrNull { it.id == localId }
         val input = sharedOpeners[localId]?.let { runCatching { it() }.getOrNull() }
         if (meta == null || input == null) return
-        streamOut(endpointId, globalId, input, meta.size)
+        streamOut(endpointId, globalId, input, meta.size, offset)
     }
 
-    private fun streamOut(endpointId: String, globalId: String, body: InputStream, size: Long) {
-        val stream = SequenceInputStream(ByteArrayInputStream(RoomProtocol.header(globalId)), RoomProtocol.withDigest(body))
-        if (!transport.sendStream(endpointId, stream, size)) runCatching { body.close() }
+    private fun streamOut(endpointId: String, globalId: String, body: InputStream, size: Long, offset: Long) {
+        val skip = offset.coerceIn(0, size)
+        val stream = SequenceInputStream(
+            ByteArrayInputStream(RoomProtocol.header(globalId, skip)),
+            RoomProtocol.withDigest(body, skip),
+        )
+        if (!transport.sendStream(endpointId, stream, size - skip)) runCatching { body.close() }
     }
 
     // Incoming
@@ -530,9 +577,7 @@ class RoomHub @Inject constructor(
         if (s.role == RoomRole.HOST) {
             val g = guests.remove(endpointId) ?: return
             relay.values.forEach { it.remove(endpointId) }
-            relay.keys.filter { RoomProtocol.ownerOf(it) == endpointId }.forEach { gid ->
-                if (relay.remove(gid)?.contains(HOST_KEY) == true) failTransfer(gid)
-            }
+            relay.keys.filter { RoomProtocol.ownerOf(it) == endpointId }.forEach(::relayFailed)
             refreshPending()
             if (g.approved) broadcastManifest()
         } else if (endpointId == hostEndpoint && s.phase == RoomPhase.SEARCHING) {
@@ -587,7 +632,9 @@ class RoomHub @Inject constructor(
                 g.files = RoomProtocol.decodeMetas(text)
                 broadcastManifest()
             }
-            RoomProtocol.T_REQUEST -> if (g.approved) serve(endpointId, text)
+            RoomProtocol.T_REQUEST -> if (g.approved) {
+                RoomProtocol.parseRequest(text)?.let { (gid, offset) -> serve(endpointId, gid, offset) }
+            }
         }
     }
 
@@ -604,46 +651,79 @@ class RoomHub @Inject constructor(
             }
             RoomProtocol.T_PUSH -> if (_state.value.phase == RoomPhase.IN_ROOM) {
                 val s = _state.value
-                if (s.shared.any { it.id == text }) sendShared(endpointId, RoomProtocol.globalId(s.myKey, text))
+                val (localId, offset) = RoomProtocol.parseRequest(text) ?: return
+                if (s.shared.any { it.id == localId }) sendShared(endpointId, RoomProtocol.globalId(s.myKey, localId), offset)
             }
+            RoomProtocol.T_FAILED -> if (text in wanted) failTransfer(text)
         }
     }
 
     private fun onStream(endpointId: String, stream: InputStream) {
         stream.use { input ->
-            val gid = RoomProtocol.readHeader(input) ?: return
+            val (gid, offset) = RoomProtocol.readHeader(input)?.let(RoomProtocol::parseRequest) ?: return
             val s = _state.value
             val file = s.manifest.files.firstOrNull { it.id == gid } ?: return
             if (s.role == RoomRole.GUEST) {
                 if (endpointId != hostEndpoint || gid !in wanted) return
-                val dest = downloadFile(file.name)
-                if (receive(input, dest, gid, file.size)) finish(gid, dest)
+                val dest = partials[gid] ?: return
+                when (receive(input, dest, gid, file.size, offset)) {
+                    Outcome.DONE -> {
+                        partials.remove(gid)
+                        finish(gid, dest)
+                    }
+                    Outcome.CUT -> failTransfer(gid)
+                    Outcome.BAD -> if (offset > 0 && restarted.add(gid)) {
+                        scope.launch { fetch(file) }
+                    } else {
+                        partials.remove(gid)
+                        failTransfer(gid)
+                    }
+                }
             } else {
                 // The host only takes bytes from the guest that owns the file, and only if someone asked.
                 if (endpointId != file.ownerKey || relay[gid].isNullOrEmpty()) return
-                val dest = cacheDir().resolve(UUID.randomUUID().toString())
-                if (receive(input, dest, gid, file.size)) {
-                    cache[gid] = dest
-                    relay.remove(gid)?.forEach { deliver(it, gid, dest) }
-                } else {
-                    relay.remove(gid)
+                val dest = cacheFile(gid)
+                when (receive(input, dest, gid, file.size, offset)) {
+                    Outcome.DONE -> {
+                        cache[gid] = dest
+                        relay.remove(gid)?.forEach { (who, from) -> deliver(who, gid, dest, from) }
+                    }
+                    Outcome.CUT -> relayFailed(gid)
+                    Outcome.BAD -> if (offset > 0 && restarted.add(gid)) scope.launch { push(file) } else relayFailed(gid)
                 }
             }
         }
     }
 
-    /** Copies exactly [size] bytes into [dest] and checks their SHA-256; anything else is a failed transfer. */
-    private fun receive(input: InputStream, dest: File, gid: String, size: Long): Boolean {
-        val hostWaiting = _state.value.role == RoomRole.GUEST || relay[gid]?.contains(HOST_KEY) == true
+    private enum class Outcome { DONE, CUT, BAD }
+
+    /**
+     * Writes the bytes after [offset] into [dest]'s part file and checks the whole file's SHA-256.
+     * A stream that stops early keeps the part for a resume; wrong or extra bytes delete it.
+     */
+    private fun receive(input: InputStream, dest: File, gid: String, size: Long, offset: Long): Outcome {
+        val hostWaiting = _state.value.role == RoomRole.GUEST || relay[gid]?.containsKey(HOST_KEY) == true
+        val part = partOf(dest)
+        if (offset > size || offset > part.length()) {
+            part.delete()
+            return Outcome.BAD
+        }
         val started = System.currentTimeMillis()
-        if (hostWaiting) setTransfer(gid, Transfer(Transfer.Status.RECEIVING, 0, size, startedAt = started))
-        val part = File(dest.path + ".part")
-        val ok = runCatching {
-            var count = 0L
-            var lastReport = 0L
+        var count = offset
+        val outcome = try {
             val digest = MessageDigest.getInstance("SHA-256")
-            part.outputStream().use { out ->
-                val buf = ByteArray(BUFFER)
+            val buf = ByteArray(BUFFER)
+            RandomAccessFile(part, "rw").use { it.setLength(offset) }
+            part.inputStream().use { prefix ->
+                var n = prefix.read(buf)
+                while (n >= 0) {
+                    digest.update(buf, 0, n)
+                    n = prefix.read(buf)
+                }
+            }
+            if (hostWaiting) setTransfer(gid, Transfer(Transfer.Status.RECEIVING, count, size, startedAt = started, from = offset))
+            var lastReport = count
+            FileOutputStream(part, true).use { out ->
                 while (count < size) {
                     val n = input.read(buf, 0, minOf(buf.size.toLong(), size - count).toInt())
                     if (n < 0) break
@@ -652,33 +732,53 @@ class RoomHub @Inject constructor(
                     out.write(buf, 0, n)
                     if (hostWaiting && count - lastReport >= REPORT_EVERY) {
                         lastReport = count
-                        setTransfer(gid, Transfer(Transfer.Status.RECEIVING, count, size, startedAt = started))
+                        setTransfer(gid, Transfer(Transfer.Status.RECEIVING, count, size, startedAt = started, from = offset))
                     }
                 }
             }
-            check(count == size) { "stream ended at $count of $size" }
-            check(RoomProtocol.trailerMatches(input, digest.digest())) { "checksum mismatch or extra bytes" }
-            Files.move(part.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        }.onFailure { Timber.w(it, "Room transfer %s failed", gid) }.isSuccess
-        if (!ok) {
-            part.delete()
-            dest.delete()
-            if (hostWaiting) failTransfer(gid)
+            when {
+                count < size -> Outcome.CUT
+                !RoomProtocol.trailerMatches(input, digest.digest()) -> Outcome.BAD
+                else -> {
+                    Files.move(part.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    Outcome.DONE
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Room transfer %s stopped at %d of %d", gid, count, size)
+            Outcome.CUT
         }
-        return ok
+        if (outcome == Outcome.BAD) {
+            Timber.w("Room transfer %s failed its checksum", gid)
+            part.delete()
+        }
+        return outcome
     }
 
     private fun finish(gid: String, file: File) {
         // Host copying a relayed file out of the cache; guests already wrote straight to the download.
         val name = _state.value.manifest.files.firstOrNull { it.id == gid }?.name ?: "file"
-        val dest = if (file.parentFile == cacheDir()) downloadFile(name).also { file.copyTo(it, overwrite = true) } else file
+        val dest = if (file.parentFile == cacheDir()) {
+            downloadFile(name).also {
+                file.copyTo(partOf(it), overwrite = true)
+                Files.move(partOf(it).toPath(), it.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } else file
         wanted -= gid
+        restarted -= gid
         setTransfer(gid, Transfer(Transfer.Status.DONE, dest.length(), dest.length(), dest.path))
     }
 
     private fun failTransfer(gid: String) {
         wanted -= gid
-        setTransfer(gid, Transfer(Transfer.Status.FAILED))
+        val total = _state.value.manifest.files.firstOrNull { it.id == gid }?.size ?: 0
+        setTransfer(gid, Transfer(Transfer.Status.FAILED, keptBytes(gid), total))
+    }
+
+    /** Bytes of [gid] already on disk from earlier attempts. */
+    private fun keptBytes(gid: String): Long {
+        val dest = if (_state.value.role == RoomRole.HOST) cacheFile(gid) else partials[gid] ?: return 0
+        return partOf(dest).length()
     }
 
     private fun setTransfer(gid: String, t: Transfer) =
@@ -688,17 +788,27 @@ class RoomHub @Inject constructor(
 
     private fun cacheDir() = File(context.cacheDir, "room").apply { mkdirs() }
 
+    /** Peer-chosen ids never reach the file system; the cache name only derives from them. */
+    private fun cacheFile(gid: String) = File(cacheDir(), UUID.nameUUIDFromBytes(gid.toByteArray()).toString())
+
+    private fun partOf(dest: File) = File(dest.path + ".part")
+
+    /** [dest]'s part file, emptied when it is longer than the file can be. */
+    private fun freshPart(dest: File, size: Long): File = partOf(dest).apply {
+        if (!exists() || length() > size) writeBytes(ByteArray(0))
+    }
+
     private fun downloadDir() = (context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir)
         .resolve("Ping").apply { mkdirs() }
 
     /**
-     * A path inside [downloadDir] that no earlier or concurrent download uses. The empty file
-     * created here holds the name until the transfer replaces it or fails.
+     * A path inside [downloadDir] that no earlier or concurrent download uses. The empty part
+     * file created here holds the name until the transfer completes or gives up.
      */
     private fun downloadFile(name: String): File = synchronized(downloadLock) {
         val dir = downloadDir()
         val taken = dir.list()?.map { it.removeSuffix(".part") }?.toSet().orEmpty()
-        File(dir, RoomProtocol.uniqueName(RoomProtocol.safeName(name), taken)).also { it.createNewFile() }
+        File(dir, RoomProtocol.uniqueName(RoomProtocol.safeName(name), taken)).also { partOf(it).createNewFile() }
     }
 
     private companion object {

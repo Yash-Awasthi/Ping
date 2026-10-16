@@ -324,7 +324,15 @@ private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> U
                 Text(stringResource(R.string.room_open_file))
             }
             Transfer.Status.FAILED, null -> TextButton(onClick = onDownload) {
-                Text(stringResource(if (transfer == null) R.string.room_download else R.string.room_retry))
+                Text(
+                    stringResource(
+                        when {
+                            transfer == null -> R.string.room_download
+                            transfer.bytes > 0 -> R.string.room_resume
+                            else -> R.string.room_retry
+                        },
+                    ),
+                )
             }
         }
     }
@@ -333,8 +341,8 @@ private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> U
 /** Bytes per second and seconds left, once enough has arrived to say. */
 private fun transferRate(t: Transfer): Pair<Long, Long>? {
     val elapsed = (System.currentTimeMillis() - t.startedAt) / 1000.0
-    if (t.startedAt == 0L || elapsed < 1 || t.bytes <= 0) return null
-    val perSecond = (t.bytes / elapsed).toLong().coerceAtLeast(1)
+    if (t.startedAt == 0L || elapsed < 1 || t.bytes <= t.from) return null
+    val perSecond = ((t.bytes - t.from) / elapsed).toLong().coerceAtLeast(1)
     return perSecond to (t.total - t.bytes) / perSecond
 }
 
