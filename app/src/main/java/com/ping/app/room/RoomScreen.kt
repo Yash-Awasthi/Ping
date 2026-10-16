@@ -43,7 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -206,15 +205,6 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
             },
         ),
     ) {
-        if (state.phase == RoomPhase.WAITING_APPROVAL && state.linkDigits.isNotBlank()) {
-            Text(stringResource(R.string.room_link_code_label), style = MaterialTheme.typography.labelMedium, color = Color.White)
-            Text(
-                state.linkDigits,
-                style = MaterialTheme.typography.displaySmall,
-                fontFamily = FontFamily.Monospace,
-                color = Color.White,
-            )
-        }
         if (state.manifest.members.isNotEmpty()) {
             Text(
                 pluralStringResource(R.plurals.room_member_count, state.manifest.members.size, state.manifest.members.size) +
@@ -242,8 +232,7 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
     state.pending.forEach { guest ->
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
-                stringResource(R.string.room_wants_in, guest.name) +
-                    if (guest.digits.isNotBlank()) stringResource(R.string.room_wants_in_code, guest.digits) else "",
+                stringResource(R.string.room_wants_in, guest.name),
                 modifier = Modifier.weight(1f),
             )
             Button(onClick = { viewModel.decide(guest.endpointId, true) }) { Text(stringResource(R.string.room_allow)) }

@@ -6,6 +6,7 @@ import com.ping.app.data.local.ProfileDao
 import com.ping.app.model.Profile
 import com.ping.app.room.RoomProtocol.FileMeta
 import com.ping.app.service.NearbyTransport
+import com.ping.app.service.Pairing
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.jupiter.api.AfterEach
@@ -92,7 +93,6 @@ class RoomHubTest {
         host.host("F6A0")
         await("open") { host.state.value.phase == RoomPhase.OPEN }
         assertEquals(RoomProtocol.HOST_KEY, host.state.value.myKey)
-        assertEquals("", host.state.value.linkDigits)
     }
 
     @Test
@@ -159,12 +159,13 @@ class RoomHubTest {
     }
 
     @Test
-    fun `both sides see the same link code before the host decides`() {
+    fun `the same gesture alone gets a guest to the host's decision`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
         host.host("F3A3"); Thread.sleep(50)
         guest.join("F3A3")
-        await("codes") { host.state.value.pending.singleOrNull()?.digits == "4821" && guest.state.value.linkDigits == "4821" }
+        await("knock") { host.state.value.pending.singleOrNull()?.name == "Gus" }
+        assertEquals(RoomPhase.WAITING_APPROVAL, guest.state.value.phase)
     }
 
     @Test
@@ -290,6 +291,31 @@ class RoomHubTest {
         assertEquals(RoomPhase.SEARCHING, guest.state.value.phase)
         assertTrue(host.state.value.pending.isEmpty())
     }
+
+    @Test
+    fun `a different gesture in the same advertised bucket fails the gesture check`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        val other = (0 until 64).map { "F${it}A3" }.first { it != "F2A2" && Pairing.token(it) == Pairing.token("F2A2") }
+        host.host("F2A2"); Thread.sleep(50)
+        guest.join(other)
+        Thread.sleep(300)
+        assertEquals(RoomPhase.SEARCHING, guest.state.value.phase)
+        assertTrue(host.state.value.pending.isEmpty())
+        assertTrue(guest.state.value.manifest.files.isEmpty())
+    }
+
+    @Test
+    fun `a link whose two ends see different tokens never gets in`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        air.splitLink("g")
+        host.host("F2A1"); Thread.sleep(50)
+        guest.join("F2A1")
+        Thread.sleep(300)
+        assertEquals(RoomPhase.SEARCHING, guest.state.value.phase)
+        assertTrue(host.state.value.pending.isEmpty())
+    }
 }
 
 /** In-memory stand-in for the radio: endpoint ids are the names passed to [endpoint]. */
@@ -298,14 +324,18 @@ private class FakeAir {
 
     fun endpoint(id: String): NearbyTransport = Node(id).also { nodes[id] = it }
 
-    private inner class Node(val id: String) : NearbyTransport {
+    fun splitLink(id: String) { nodes.getValue(id).tokenOverride = byteArrayOf(6, 6, 6) }
+
+    inner class Node(val id: String) : NearbyTransport {
         override var onPayloadReceived: ((String, ByteArray) -> Unit)? = null
         override var onConnected: ((String, String, Boolean) -> Unit)? = null
         override var onDisconnected: ((String) -> Unit)? = null
         override var onEndpointFound: ((String, String) -> Unit)? = null
         override var onConnectionInitiated: ((String, String) -> Unit)? = null
         override var onStreamReceived: ((String, InputStream) -> Unit)? = null
-        override var onAuthDigits: ((String, String) -> Unit)? = null
+        override var onAuthToken: ((String, ByteArray) -> Unit)? = null
+        /** Set to give the two legs different link tokens, as a relay in the middle would. */
+        var tokenOverride: ByteArray? = null
 
         var advertised: String? = null
         var discovering = false
@@ -328,8 +358,8 @@ private class FakeAir {
             val peer = nodes[endpointId] ?: return
             names[endpointId] = peer.advertised.orEmpty()
             peer.names[id] = localName
-            onAuthDigits?.invoke(endpointId, "4821")
-            peer.onAuthDigits?.invoke(id, "4821")
+            onAuthToken?.invoke(endpointId, tokenOverride ?: byteArrayOf(4, 8, 2, 1))
+            peer.onAuthToken?.invoke(id, byteArrayOf(4, 8, 2, 1))
             onConnectionInitiated?.invoke(endpointId, peer.advertised.orEmpty())
             peer.onConnectionInitiated?.invoke(id, localName)
         }

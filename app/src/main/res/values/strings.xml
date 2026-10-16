@@ -89,7 +89,6 @@
     <string name="room_none">No room found nearby. Check the gesture and try again.</string>
     <string name="room_closed">The room closed.</string>
     <string name="room_wants_in">%1$s wants to join</string>
-    <string name="room_wants_in_code"> — code %1$s</string>
     <string name="room_allow">Allow</string>
     <string name="room_deny">Deny</string>
     <string name="room_add_files">Add files</string>
@@ -98,7 +97,6 @@
     <string name="room_join_hint">Find a room by doing its gesture</string>
     <string name="room_you_host">You are hosting</string>
     <string name="room_you_guest">File room</string>
-    <string name="room_link_code_label">Read this code to the host</string>
     <plurals name="room_member_count">
         <item quantity="one">%1$d person</item>
         <item quantity="other">%1$d people</item>
@@ -128,8 +126,6 @@
     <string name="status_connecting">Found a match! Connecting…</string>
     <string name="status_exchanging">Swapping cards…</string>
     <string name="exchange_completed">Swapped with %1$s!</string>
-    <string name="exchange_confirm_title">Check the code</string>
-    <string name="exchange_confirm_hint">The other phone must show the same six digits. Tap “It matches” only if it does.</string>
     <string name="stage_gesture">Gesture</string>
     <string name="stage_find">Find</string>
     <string name="stage_check">Check</string>
@@ -138,8 +134,6 @@
         <item quantity="one">%1$d phone nearby is holding a different gesture. Agree on one and try again.</item>
         <item quantity="other">%1$d phones nearby are holding a different gesture. Agree on one and try again.</item>
     </plurals>
-    <string name="exchange_confirm_match">It matches</string>
-    <string name="exchange_confirm_mismatch">It differs</string>
     <string name="exchange_cancelled">Cancelled</string>
     <string name="exchange_error_generic">Something went wrong. Try again.</string>
     <string name="exchange_no_match">No match found nearby. Both do the same gesture and try again.</string>
@@ -169,7 +163,7 @@
     <string name="hint_social">Social / handle</string>
     <string name="hint_note">Note (2 lines)</string>
     <string name="profile_preview_label">Your card</string>
-    <string name="profile_privacy">Only what you fill in is sent, and only after both phones confirm the six-digit code.</string>
+    <string name="profile_privacy">Only what you fill in is sent, and only after the other phone proves it holds the same gesture.</string>
     <string name="profile_save">Save card</string>
     <string name="profile_saved">Card saved</string>
     <string name="profile_name_required">Enter a name first.</string>

@@ -32,6 +32,9 @@ object RoomProtocol {
     const val T_DENIED: Byte = 5
     const val T_REQUEST: Byte = 6
     const val T_PUSH: Byte = 7
+    /** [com.ping.app.utils.Pake] share, then its confirmation tag; nothing else is read until both check out. */
+    const val T_SHARE: Byte = 8
+    const val T_CONFIRM: Byte = 9
 
     const val HOST_KEY = "host"
     const val MAX_FILES_PER_MEMBER = 100

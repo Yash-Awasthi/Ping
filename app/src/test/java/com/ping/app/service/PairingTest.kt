@@ -16,8 +16,9 @@ class PairingTest {
     }
 
     @Test
-    fun `different gestures never match`() {
-        assertFalse(Pairing.matches("F3A0", Pairing.advertisement("F31A1", "x")))
+    fun `a gesture in another bucket never matches`() {
+        val other = (0 until 64).map { "F${it}A1" }.first { Pairing.token(it) != Pairing.token("F3A0") }
+        assertFalse(Pairing.matches("F3A0", Pairing.advertisement(other, "x")))
     }
 
     @Test
@@ -26,9 +27,10 @@ class PairingTest {
     }
 
     @Test
-    fun `every code has a distinct token`() {
+    fun `the token leaks at most four bits of the code`() {
         val tokens = (0 until 32).flatMap { m -> (0 until 4).map { "F${m}A$it" } }.map(Pairing::token)
-        assertEquals(128, tokens.toSet().size)
+        assertEquals(16, tokens.toSet().size)
+        assertTrue(tokens.all { it.length == 1 })
     }
 
     @Test
@@ -46,13 +48,17 @@ class PairingTest {
 
     @Test
     fun `phones seen before the lock are matched and counted after it`() {
+        val mine = "F3A0"
+        val others = (0 until 64).map { "F${it}A2" }.filter { Pairing.token(it) != Pairing.token(mine) }
         val seen = mapOf(
-            "e1" to Pairing.advertisement("F1A0", "n1"),
-            "e2" to Pairing.advertisement("F3A0", "n2"),
-            "e3" to Pairing.advertisement("F7A2", "n3"),
+            "e1" to Pairing.advertisement(others[0], "n1"),
+            "e2" to Pairing.advertisement(mine, "n2"),
+            "e3" to Pairing.advertisement(others[1], "n3"),
+            "e4" to Pairing.advertisement(mine, "n4"),
         )
-        assertEquals("e2", Pairing.firstMatch("F3A0", seen)?.key)
-        assertEquals(2, Pairing.othersNearby("F3A0", seen))
-        assertEquals(null, Pairing.firstMatch("F9A0", seen))
+        assertEquals("e2", Pairing.firstMatch(mine, seen)?.key)
+        assertEquals("e4", Pairing.firstMatch(mine, seen, tried = setOf("e2"))?.key)
+        assertEquals(null, Pairing.firstMatch(mine, seen, tried = setOf("e2", "e4")))
+        assertEquals(2, Pairing.othersNearby(mine, seen))
     }
 }

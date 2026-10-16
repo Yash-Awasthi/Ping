@@ -11,7 +11,7 @@
 
 **Ping** turns a shared hand gesture into an offline handshake. Two people agree on a gesture, hold it to the camera, and Ping matches on that pose to find the right device over Bluetooth LE — swapping contact cards with end-to-end encryption.
 
-The gesture decides *who* to connect to. It is not a secret: it is derived from the pose alone, so it has only a few hundred possible values (far more with the optional two-gesture password), and a device in radio range can enumerate them. What authenticates the peer is a six-digit code both phones show after the keys are exchanged: the cards are released only when both users confirm the digits match.
+The gesture is the only check. It is the password of a PAKE key exchange: two phones derive the same key only if they hold the same gesture, and no card or file moves until each phone has proved that to the other. There is no code to read out or compare. The gesture comes from the pose alone, so a single gesture has only a few hundred possible values (far more with the optional two-gesture password). A stranger in range cannot test guesses offline, but each connection they make is one guess, so Ping allows only three failed attempts per swap.
 
 No server. No cloud. No account. Your data never leaves your phone.
 
@@ -30,15 +30,15 @@ No server. No cloud. No account. Your data never leaves your phone.
 | 🧑‍🏫 **Roll Call** | Offline attendance for a whole class: the teacher's phone scans while students tap Check in; no connections, so 100+ students fit one scan. Class-list CSV import, a live seat grid that lights up as students arrive, per-student attendance rates, manual ticks, session history and CSV export |
 | ⚡ **Quick Launch** | Long-press the icon or add the Quick Settings tile to open a swap in one tap |
 | ⚠️ **Mismatch Notice** | Shows when nearby phones are holding a different gesture instead of timing out silently |
-| 🗂️ **File Room** | Host or join a room by gesture; share files or a whole folder, pull files on demand over a Nearby star link, each checked against its SHA-256. Guests start listening before their gesture locks, the host can let everyone in at once, and Download all fetches the whole room with live speed and time left. The host approves every guest and both phones show a link code to compare |
+| 🗂️ **File Room** | Host or join a room by gesture; share files or a whole folder, pull files on demand over a Nearby star link, each checked against its SHA-256. Guests start listening before their gesture locks, the host can let everyone in at once, and Download all fetches the whole room with live speed and time left. Guests prove the room's gesture before the host sees them, and the host approves every guest |
 | 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections |
 | 🔐 **E2E Encryption** | P-256 ECDH → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
 | 👤 **Contact Cards** | Name, phone, email, social handles, short note |
 | 🎯 **Auto-Matchmaking** | Phones only connect when the advertised gesture tokens match |
-| ✅ **Peer Check** | Compare a six-digit code on both phones before any card is sent |
+| ✅ **Gesture Proof** | The gesture keys the exchange itself; nothing is sent until both phones prove they hold it |
 | 📷 **Live Gesture Preview** | See the detected pose and its stability before it locks |
 | 🔎 **Contact Search** | Filter by any field; favourites sort first |
-| 📳 **Haptics** | Pulse on gesture lock, on the confirm screen, and on a finished swap |
+| 📳 **Haptics** | Pulse on gesture lock and on a finished swap |
 | 📇 **Contact Export** | Add a received card to the phone's contacts, or share it as a vCard |
 | 💾 **Offline Contacts** | Room v1 database — contacts persist on device |
 | 🔒 **Permission Denied UX** | Clear explanations when camera/Nearby permissions are missing |
@@ -63,13 +63,13 @@ No server. No cloud. No account. Your data never leaves your phone.
     └──────┼──────┘           └──────┼──────┘
            │                         │
            │    Nearby Connections    │
-           │   (only matches if      │
-           │    codes are equal)     │
+           │   (connects within the  │
+           │   same 4-bit bucket)    │
            └─────────────────────────┘
                      │
-              ECDH key exchange
+      PAKE keyed by the gesture code
                      │
-        both users confirm a 6-digit code
+     both phones prove the same key
                      │
             AES-256-GCM sealed card
                      │
@@ -138,14 +138,14 @@ adb -s SERIAL_A logcat -s Ping:* NearbyExchangeService:* GestureCamera:*
 
 | Layer | Implementation |
 |-------|---------------|
-| Key exchange | P-256 (secp256r1) ECDH, ephemeral per swap |
+| Key exchange | CPace-style PAKE on P-256: the gesture code is hashed to the generator, fresh scalar per attempt, bound to both advertisements and the link's own token |
 | Key derivation | HKDF-SHA256 |
 | Encryption | AES-256-GCM (authenticated encryption) |
 | Keys | Fresh every swap — nothing long-lived |
 | Transport | BLE + Wi-Fi Direct (no internet) |
 | Data | All on-device (Room v1 database) |
-| Matchmaking | The gesture is advertised only as a truncated SHA-256 token. With so few possible values a device in range can still recover it and try to join. |
-| Peer authentication | A six-digit short authentication string over both public keys. Users compare it on both screens; no card is sent until both confirm, and a man in the middle produces different digits on each phone. |
+| Matchmaking | The advertisement carries only a 4-bit bucket of the gesture, which narrows who to try without giving the gesture away. |
+| Peer authentication | HMAC key-confirmation tags over both shares. A peer without the gesture fails, and a relay in the middle fails because each leg has a different link token. One online guess per connection; a swap gives up after three failed peers, a guest after three failed rooms. |
 | Permissions | No `INTERNET` permission, by design: the manifest removes the one a Play Services dependency injects. Networking code cannot ship in this app. |
 
 ---

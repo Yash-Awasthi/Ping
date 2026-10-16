@@ -17,7 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.graphics.Color
 import com.ping.app.ui.components.Avatar
-import com.ping.app.ui.components.PingCard
 import com.ping.app.ui.theme.BrandBrush
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,7 +48,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -151,7 +149,7 @@ fun ExchangeScreen(
 
     LaunchedEffect(session?.state) {
         val s = session?.state
-        if (s == ExchangeSession.State.AWAITING_CONFIRM || s == ExchangeSession.State.COMPLETED) {
+        if (s == ExchangeSession.State.COMPLETED) {
             runCatching { context.vibrateDouble() }
         }
         if (session?.state != ExchangeSession.State.SEARCHING) return@LaunchedEffect
@@ -183,7 +181,6 @@ fun ExchangeScreen(
         ExchangeSession.State.SEARCHING ->
             stringResource(R.string.exchange_waiting_peer_countdown, remaining)
         ExchangeSession.State.CONNECTING -> stringResource(R.string.status_connecting)
-        ExchangeSession.State.AWAITING_CONFIRM -> stringResource(R.string.exchange_confirm_title)
         ExchangeSession.State.EXCHANGING -> stringResource(R.string.status_exchanging)
         ExchangeSession.State.COMPLETED -> stringResource(
             R.string.exchange_completed,
@@ -198,7 +195,6 @@ fun ExchangeScreen(
     val connectionState = when (session?.state) {
         ExchangeSession.State.SEARCHING -> ConnectionState.SCANNING
         ExchangeSession.State.CONNECTING,
-        ExchangeSession.State.AWAITING_CONFIRM,
         ExchangeSession.State.EXCHANGING,
         -> ConnectionState.CONNECTING
         ExchangeSession.State.COMPLETED -> ConnectionState.PAIRED
@@ -254,26 +250,7 @@ fun ExchangeScreen(
             CircularProgressIndicator()
         }
 
-        val sas = session?.sas
         val received = session?.receivedContact
-        if (session?.state == ExchangeSession.State.AWAITING_CONFIRM && sas != null) {
-            PingCard {
-                Text(
-                    text = sas.chunked(3).joinToString(" "),
-                    style = MaterialTheme.typography.displayLarge,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.secondary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    text = stringResource(R.string.exchange_confirm_hint),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
 
         if (session?.state == ExchangeSession.State.COMPLETED && received != null) {
             Column(
@@ -347,15 +324,6 @@ fun ExchangeScreen(
                 Text(stringResource(R.string.action_cancel))
             }
 
-            if (session?.state == ExchangeSession.State.AWAITING_CONFIRM) {
-                Button(onClick = { NearbyExchangeService.confirm(context) }) {
-                    Text(stringResource(R.string.exchange_confirm_match))
-                }
-                OutlinedButton(onClick = { NearbyExchangeService.reject(context) }) {
-                    Text(stringResource(R.string.exchange_confirm_mismatch))
-                }
-            }
-
             if (permissionsGranted && retryable) {
                 Button(onClick = {
                     NearbyExchangeService.stop(context)
@@ -386,8 +354,8 @@ fun ExchangeScreen(
 private fun StageRow(state: ExchangeSession.State?) {
     val current = when (state) {
         null -> 0
-        ExchangeSession.State.SEARCHING, ExchangeSession.State.CONNECTING -> 1
-        ExchangeSession.State.AWAITING_CONFIRM -> 2
+        ExchangeSession.State.SEARCHING -> 1
+        ExchangeSession.State.CONNECTING -> 2
         else -> 3
     }
     val labels = listOf(

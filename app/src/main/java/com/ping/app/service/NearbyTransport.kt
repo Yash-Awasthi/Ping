@@ -68,10 +68,10 @@ interface NearbyTransport {
     var onConnectionInitiated: ((endpointId: String, remoteName: String) -> Unit)?
 
     /**
-     * Callback with the short code both phones derive for a pending connection, so users can
-     * compare it out loud. Transports that cannot provide one never invoke it.
+     * Raw link token both phones derive for a pending connection; the app binds its PAKE to it
+     * so a relay fails. Fired before [onConnectionInitiated]; transports without one never invoke it.
      */
-    var onAuthDigits: ((endpointId: String, digits: String) -> Unit)?
+    var onAuthToken: ((endpointId: String, token: ByteArray) -> Unit)?
         get() = null
         @Suppress("UNUSED_PARAMETER") set(value) {}
 

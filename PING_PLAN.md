@@ -4,8 +4,8 @@ What is still to do, most important first.
 
 ## 1. Field-test on real phones
 Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-Fi Direct.
-- Pair two phones by gesture end to end, including the six-digit check.
-- Run a file room with a host and two guests: approval, link code, download, guest-to-guest relay.
+- Pair two phones by gesture end to end, including a wrong gesture in the same bucket failing the check.
+- Run a file room with a host and two guests: gesture check, approval, download, guest-to-guest relay.
 - Tune the limits that came from one hand on one phone: pinch, finger gaps, thumb, palm edge-on,
   motion (circle and wave), `COMMIT_FRAMES` and `WINDOW_SECONDS`. The Practice screen prints the
   raw numbers for this.
