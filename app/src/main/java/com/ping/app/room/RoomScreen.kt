@@ -1,14 +1,20 @@
 package com.ping.app.room
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import android.text.format.DateUtils
 import android.text.format.Formatter
 import android.webkit.MimeTypeMap
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -44,7 +50,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,7 +62,9 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
 import com.ping.app.auth.GestureCamera
+import com.ping.app.room.RoomProtocol.Note
 import com.ping.app.room.RoomProtocol.RoomFile
+import com.ping.app.service.NearbyExchangeService
 import com.ping.app.ui.components.FileBadge
 import com.ping.app.ui.components.GestureGuideButton
 import com.ping.app.ui.components.GesturePreview
@@ -81,6 +91,10 @@ fun RoomScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var chosen by remember { mutableStateOf<RoomRole?>(null) }
+    val context = LocalContext.current
+
+    // The room and the swap share one radio; a swap still running would fight the room for it.
+    LaunchedEffect(Unit) { NearbyExchangeService.stop(context) }
 
     BackHandler {
         viewModel.leave()
@@ -173,6 +187,9 @@ private fun GestureLock(viewModel: RoomViewModel, onLocked: (String) -> Unit, on
         )
     } else {
         Text(stringResource(R.string.perm_rationale_subtitle), textAlign = TextAlign.Center)
+        Button(onClick = { runCatching { context.startActivity(openAppSettings(context)) } }) {
+            Text(stringResource(R.string.perm_rationale_open_settings))
+        }
     }
     OutlinedButton(onClick = {
         viewModel.stopCamera()
@@ -191,7 +208,11 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
     }
 
     LaunchedEffect(state.phase) {
-        if (state.phase == RoomPhase.IN_ROOM) runCatching { context.vibrateDouble() }
+        when (state.phase) {
+            RoomPhase.IN_ROOM -> runCatching { context.vibrateDouble() }
+            RoomPhase.DENIED, RoomPhase.NO_ROOM -> runCatching { context.vibrateShort() }
+            else -> Unit
+        }
     }
 
     val inRoom = state.phase == RoomPhase.OPEN || state.phase == RoomPhase.IN_ROOM
@@ -204,11 +225,12 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
                 RoomPhase.WAITING_APPROVAL -> R.string.room_waiting_approval
                 RoomPhase.IN_ROOM -> R.string.room_in
                 RoomPhase.DENIED -> R.string.room_denied
-                RoomPhase.NO_ROOM -> R.string.room_none
+                RoomPhase.NO_ROOM -> if (state.gestureMismatch) R.string.room_gesture_mismatch else R.string.room_none
                 RoomPhase.CLOSED -> R.string.room_closed
                 RoomPhase.IDLE -> R.string.room_searching
             },
         ),
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
     ) {
         if (state.manifest.members.isNotEmpty()) {
             Text(
@@ -230,6 +252,14 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
         }
     }
 
+    if (state.guessing) {
+        Text(
+            stringResource(R.string.room_guessing_warning),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
+    }
     if (state.pending.size > 1) {
         Button(onClick = viewModel::approveAll, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.room_allow_all, state.pending.size))
@@ -274,6 +304,15 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
                     }
                 }
             }
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) { SectionLabel(stringResource(R.string.room_notes)) }
+                    TextButton(onClick = { pasteNote(context, viewModel::postNote) }) {
+                        Text(stringResource(R.string.room_note_paste))
+                    }
+                }
+            }
+            items(state.notes) { note -> NoteRow(note) }
             item { SectionLabel(stringResource(R.string.room_in_room)) }
             if (others.isEmpty()) {
                 item { Text(stringResource(R.string.room_no_files), style = MaterialTheme.typography.bodyMedium) }
@@ -342,6 +381,39 @@ private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> U
         }
     }
 }
+
+@Composable
+private fun NoteRow(note: Note) {
+    val context = LocalContext.current
+    val copy = stringResource(R.string.action_copy)
+    PingCard(modifier = Modifier.padding(vertical = 4.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .clickable(onClickLabel = copy) {
+                    clipboard(context).setPrimaryClip(ClipData.newPlainText(note.from, note.text))
+                    Toast.makeText(context, R.string.contact_copied, Toast.LENGTH_SHORT).show()
+                }
+                .padding(vertical = 6.dp),
+        ) {
+            Text(note.from, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(note.text, style = MaterialTheme.typography.bodyMedium, maxLines = 6, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+private fun clipboard(context: Context) = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+
+private fun pasteNote(context: Context, post: (String) -> Unit) {
+    val text = clipboard(context).primaryClip?.takeIf { it.itemCount > 0 }
+        ?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
+    if (RoomProtocol.noteFits(text)) post(text)
+    else Toast.makeText(context, R.string.room_note_unusable, Toast.LENGTH_SHORT).show()
+}
+
+private fun openAppSettings(context: Context): Intent =
+    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+        data = Uri.fromParts("package", context.packageName, null)
+    }
 
 private fun shownName(path: String, name: String) = if (path.isEmpty()) name else "$path/$name"
 
