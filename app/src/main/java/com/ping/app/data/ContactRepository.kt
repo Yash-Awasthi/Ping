@@ -41,6 +41,12 @@ class ContactRepository @Inject constructor(
         return cards.size
     }
 
+    /** Merges contacts from a backup file without duplicating anyone; returns how many it held. */
+    suspend fun restore(backup: List<Contact>): Int {
+        contactDao.insertAll(mergeBackup(contacts.first(), backup))
+        return backup.size
+    }
+
     suspend fun update(contact: Contact) = contactDao.update(contact)
 
     suspend fun delete(contact: Contact) = contactDao.delete(contact)

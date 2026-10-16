@@ -184,7 +184,7 @@
     <string name="contact_label_name">Name</string>
     <string name="contact_label_memo">Where we met</string>
     <string name="exchange_memo_hint">Meetup, conference, café…</string>
-    <string name="contact_memo_hint">Your memo stays on this phone. It is never swapped or exported.</string>
+    <string name="contact_memo_hint">Your memo stays on this phone. It is never swapped or shared; only your own backup keeps it.</string>
     <string name="contact_edit_title">Edit contact</string>
     <string name="contact_swapped_on">Swapped %1$s</string>
     <string name="action_edit">Edit</string>
@@ -205,6 +205,16 @@
     <string name="action_add_to_phone">Add to phone</string>
     <string name="action_share_vcard">Share vCard</string>
     <string name="contacts_export_all">Export %1$d as vCard</string>
+    <string name="contacts_more">More options</string>
+    <string name="contacts_backup">Back up (with memos)</string>
+    <string name="contacts_restore">Restore backup</string>
+    <string name="contacts_backup_saved">Backup saved. It includes your private memos, so keep it safe.</string>
+    <string name="contacts_backup_failed">Could not save the backup.</string>
+    <string name="contacts_restore_failed">That is not a Ping backup this version can read, or it is too large.</string>
+    <plurals name="contacts_restored">
+        <item quantity="one">Restored %1$d contact</item>
+        <item quantity="other">Restored %1$d contacts</item>
+    </plurals>
     <string name="contact_toggle_favourite_initial">Toggle favourite</string>
 
     <!-- Exchange success sheet -->
