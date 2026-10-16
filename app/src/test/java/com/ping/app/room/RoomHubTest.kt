@@ -21,6 +21,7 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.util.Collections
+import java.util.concurrent.CountDownLatch
 import kotlin.random.Random
 
 /** Runs whole rooms in-process: hubs talk through [FakeAir] instead of Nearby Connections. */
@@ -228,6 +229,7 @@ class RoomHubTest {
         val guest = newHub("g", "Gus")
         host.host("F5A4"); Thread.sleep(50)
         host.addShared(FileMeta("", "s.txt", 3)) { null }
+        air.drop("h", RoomProtocol.T_FAILED)
         guest.join("F5A4"); admitted(host, guest)
         await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
         val gid = guest.state.value.manifest.files.single().id
@@ -418,6 +420,41 @@ class RoomHubTest {
     }
 
     @Test
+    fun `download all keeps a few files in flight and gets every one`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        val gate = CountDownLatch(1)
+        host.host("F9A8"); Thread.sleep(50)
+        repeat(5) { n -> host.addShared(FileMeta("", "f$n.txt", 1)) { Gated(byteArrayOf(n.toByte()), gate) } }
+        guest.join("F9A8"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.size == 5 }
+        try {
+            guest.downloadAll()
+            await("first requests") { air.texts("g", "h", RoomProtocol.T_REQUEST).size == 3 }
+            Thread.sleep(200)
+            assertEquals(3, air.texts("g", "h", RoomProtocol.T_REQUEST).size)
+            assertEquals(2, guest.state.value.transfers.values.count { it.status == Transfer.Status.QUEUED })
+        } finally {
+            gate.countDown()
+        }
+        await("all") { guest.state.value.transfers.values.count { it.status == Transfer.Status.DONE } == 5 }
+        assertEquals(5, air.texts("g", "h", RoomProtocol.T_REQUEST).size)
+    }
+
+    @Test
+    fun `an unreadable file fails the download instead of holding its slot`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F9A7"); Thread.sleep(50)
+        host.addShared(FileMeta("", "gone.txt", 3)) { null }
+        guest.join("F9A7"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
+        val gid = guest.state.value.manifest.files.single().id
+        guest.download(gid)
+        await("failed") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+    }
+
+    @Test
     fun `megabytes move host to guest and guest to guest byte for byte`() {
         val host = newHub("h", "Hana")
         val ada = newHub("a", "Ada")
@@ -481,6 +518,13 @@ class RoomHubTest {
     }
 }
 
+/** [data], but only once [gate] opens. */
+private class Gated(data: ByteArray, private val gate: CountDownLatch) : InputStream() {
+    private val inner = ByteArrayInputStream(data)
+    override fun read(): Int = gate.await().let { inner.read() }
+    override fun read(b: ByteArray, off: Int, len: Int): Int = gate.await().let { inner.read(b, off, len) }
+}
+
 /** Hands out the first [cut] bytes of [data], then fails like a dropped link. */
 private class CutAfter(private val data: ByteArray, private val cut: Int) : InputStream() {
     private var pos = 0
@@ -510,6 +554,9 @@ private class FakeAir {
 
     fun splitLink(id: String) { nodes.getValue(id).tokenOverride = byteArrayOf(6, 6, 6) }
 
+    /** [id] stops sending frames of [type], as a peer that never answers would. */
+    fun drop(id: String, type: Byte) { nodes.getValue(id).dropped += type }
+
     inner class Node(val id: String) : NearbyTransport {
         override var onPayloadReceived: ((String, ByteArray) -> Unit)? = null
         override var onConnected: ((String, String, Boolean) -> Unit)? = null
@@ -520,6 +567,7 @@ private class FakeAir {
         override var onAuthToken: ((String, ByteArray) -> Unit)? = null
         /** Set to give the two legs different link tokens, as a relay in the middle would. */
         var tokenOverride: ByteArray? = null
+        val dropped: MutableSet<Byte> = Collections.synchronizedSet(mutableSetOf())
 
         var advertised: String? = null
         var discovering = false
@@ -563,6 +611,7 @@ private class FakeAir {
         override fun rejectConnection(endpointId: String) {}
 
         override fun sendBytes(endpointId: String, data: ByteArray) {
+            if (data.firstOrNull() in dropped) return
             frames += Triple(id, endpointId, data)
             largestFrame = maxOf(largestFrame, data.size)
             nodes[endpointId]?.onPayloadReceived?.invoke(id, data)

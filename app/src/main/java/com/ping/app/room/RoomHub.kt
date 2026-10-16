@@ -124,6 +124,8 @@ class RoomHub @Inject constructor(
     private val guests = ConcurrentHashMap<String, GuestInfo>()
     private val sharedOpeners = ConcurrentHashMap<String, () -> InputStream?>()
     private val wanted: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Files asked for while [MAX_PARALLEL] were already on their way, in the order asked; control thread only. */
+    private val backlog = ArrayDeque<String>()
     /** Host: guest files on their way into the cache, and who waits for them from which offset. */
     private val relay = ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>()
     private val cache = ConcurrentHashMap<String, File>()
@@ -235,6 +237,7 @@ class RoomHub @Inject constructor(
         guests.clear()
         sharedOpeners.clear()
         wanted.clear()
+        backlog.clear()
         relay.clear()
         cache.clear()
         linkTokens.clear()
@@ -421,7 +424,17 @@ class RoomHub @Inject constructor(
             val file = s.manifest.files.firstOrNull { it.id == globalId } ?: return@launch
             if (file.ownerKey == s.myKey || s.transfers[globalId]?.status in ACTIVE) return@launch
             restarted -= globalId
-            fetch(file)
+            if (wanted.size < MAX_PARALLEL) return@launch fetch(file)
+            backlog += globalId
+            setTransfer(globalId, Transfer(Transfer.Status.QUEUED, keptBytes(globalId), file.size))
+        }
+    }
+
+    /** Starts held-back downloads while a slot is free; a file that left the room fails instead. */
+    private fun pump() {
+        while (wanted.size < MAX_PARALLEL) {
+            val gid = backlog.removeFirstOrNull() ?: return
+            _state.value.manifest.files.firstOrNull { it.id == gid }?.let(::fetch) ?: failTransfer(gid)
         }
     }
 
@@ -484,7 +497,11 @@ class RoomHub @Inject constructor(
         val localId = RoomProtocol.localIdOf(globalId)
         val meta = _state.value.shared.firstOrNull { it.id == localId }
         val input = sharedOpeners[localId]?.let { runCatching { it() }.getOrNull() }
-        if (meta == null || input == null) return
+        if (meta == null || input == null) {
+            // A guest holds a download slot until it hears back.
+            if (_state.value.role == RoomRole.HOST) transport.sendBytes(endpointId, RoomProtocol.frameText(RoomProtocol.T_FAILED, globalId))
+            return
+        }
         streamOut(endpointId, globalId, input, meta.size, offset)
     }
 
@@ -608,6 +625,7 @@ class RoomHub @Inject constructor(
                 knockNext()
             }
         } else if (endpointId == hostEndpoint && s.phase != RoomPhase.DENIED) {
+            backlog.clear()
             _state.update { st ->
                 st.copy(
                     phase = RoomPhase.CLOSED,
@@ -787,12 +805,14 @@ class RoomHub @Inject constructor(
         wanted -= gid
         restarted -= gid
         setTransfer(gid, Transfer(Transfer.Status.DONE, dest.length(), dest.length(), dest.path))
+        scope.launch { pump() }
     }
 
     private fun failTransfer(gid: String) {
         wanted -= gid
         val total = _state.value.manifest.files.firstOrNull { it.id == gid }?.size ?: 0
         setTransfer(gid, Transfer(Transfer.Status.FAILED, keptBytes(gid), total))
+        scope.launch { pump() }
     }
 
     /** Bytes of [gid] already on disk from earlier attempts. */
@@ -842,6 +862,8 @@ class RoomHub @Inject constructor(
         const val MAX_NAME = 30
         const val SEARCH_MS = 30_000L
         const val DISCONNECT_GRACE_MS = 500L
+        /** Downloads in flight at once: enough to hide each request's round trip, few enough to keep streams fast. */
+        const val MAX_PARALLEL = 3
         const val BUFFER = RoomProtocol.BUFFER
         /** Progress by time, not bytes: a fast link would otherwise rebuild the state many times a second. */
         const val REPORT_NANOS = 200_000_000L
