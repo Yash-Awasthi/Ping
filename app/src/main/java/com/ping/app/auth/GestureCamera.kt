@@ -75,7 +75,7 @@ class GestureCamera @Inject constructor(
     private var motionStreak = 0
     private val tracker = MotionTracker()
     private val palmVotes = ArrayDeque<GestureFingerprint.Palm>()
-    private val handVotes = ArrayDeque<Boolean>()
+    private val handedness = Handedness()
 
     fun start(owner: LifecycleOwner) {
         executor = Executors.newSingleThreadExecutor()
@@ -105,7 +105,7 @@ class GestureCamera @Inject constructor(
         lastMotion = null
         motionStreak = 0
         palmVotes.clear()
-        handVotes.clear()
+        handedness.clear()
         tracker.clear()
         if (_state.value !is State.ModelError) _state.value = State.NoHand
     }
@@ -189,7 +189,10 @@ class GestureCamera @Inject constructor(
         onLandmarks?.invoke(hands[0].map { Triple(it.x(), it.y(), it.z()) })
 
         val first = flatten(0)
-        var fp = GestureFingerprint.fromLandmarks(first, isRight(0)) ?: run { reset(); return }
+        // The detector sees the mirrored frame, so its "Right" is the user's left hand.
+        val hand = handedness.update(isRight(0)?.let { !it }, GestureFingerprint.shapeIsRight(first))
+        val detectorRight = hand?.let { it == GestureFingerprint.Hand.LEFT } ?: isRight(0)
+        var fp = GestureFingerprint.fromLandmarks(first, detectorRight) ?: run { reset(); return }
         var pointerSource = first
 
         // Two hands held together make one gesture; each phone must pick the same "main" hand.
@@ -205,17 +208,7 @@ class GestureCamera @Inject constructor(
             }
         }
 
-        // Which hand: only trusted once the last frames agree.
-        // The detector sees the mirrored frame, so its "Right" is the user's left hand.
-        isRight(0)?.let { handVotes.addLast(!it) }
-        while (handVotes.size > HAND_VOTES) handVotes.removeFirst()
-        if (handVotes.size >= HAND_VOTES) {
-            val share = handVotes.count { it }.toDouble() / handVotes.size
-            when {
-                share >= HAND_AGREE -> fp = fp.copy(hand = GestureFingerprint.Hand.RIGHT)
-                share <= 1 - HAND_AGREE -> fp = fp.copy(hand = GestureFingerprint.Hand.LEFT)
-            }
-        }
+        fp = fp.copy(hand = hand)
 
         // The left/right call can flicker, so the palm is the majority of the last frames.
         if (fp.palm == GestureFingerprint.Palm.FACING || fp.palm == GestureFingerprint.Palm.AWAY) {
@@ -252,7 +245,5 @@ class GestureCamera @Inject constructor(
         private const val MOTION_POSE_FRAMES = 10
         private const val MOTION_FRAMES = 4
         private const val PALM_VOTES = 9
-        private const val HAND_VOTES = 9
-        private const val HAND_AGREE = 0.8
     }
 }

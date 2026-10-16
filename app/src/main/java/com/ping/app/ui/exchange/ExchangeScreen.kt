@@ -62,6 +62,7 @@ import com.ping.app.service.NearbyExchangeService
 import com.ping.app.ui.ConnectionState
 import com.ping.app.ui.components.GestureGuideButton
 import com.ping.app.ui.components.GesturePreview
+import com.ping.app.ui.components.SavedGestureChips
 import com.ping.app.ui.ConnectionStatusIndicator
 import com.ping.app.utils.RequiredPermissions
 import com.ping.app.utils.vibrateDouble
@@ -226,6 +227,13 @@ fun ExchangeScreen(
                 onClick = { twoStep = !twoStep },
                 label = { Text(stringResource(R.string.exchange_two_gestures)) },
             )
+            SavedGestureChips(onPick = { code ->
+                if (!searchStarted) {
+                    searchStarted = true
+                    viewModel.stopCamera()
+                    NearbyExchangeService.start(context, code)
+                }
+            })
         }
 
         if (session == null) GestureGuideButton()

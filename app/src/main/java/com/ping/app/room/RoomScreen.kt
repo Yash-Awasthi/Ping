@@ -60,6 +60,7 @@ import com.ping.app.ui.components.GestureGuideButton
 import com.ping.app.ui.components.GesturePreview
 import com.ping.app.ui.components.HeroBanner
 import com.ping.app.ui.components.ModeTile
+import com.ping.app.ui.components.SavedGestureChips
 import com.ping.app.ui.theme.PingCyan
 import com.ping.app.ui.theme.PingMagenta
 import com.ping.app.ui.components.PingCard
@@ -151,6 +152,10 @@ private fun GestureLock(viewModel: RoomViewModel, onLocked: (String) -> Unit, on
 
     Text(stringResource(R.string.room_lock_prompt), style = MaterialTheme.typography.titleMedium)
     GestureGuideButton()
+    SavedGestureChips(onPick = {
+        viewModel.stopCamera()
+        onLocked(it)
+    })
     Text(
         text = when (val c = camera) {
             is GestureCamera.State.NoHand -> stringResource(R.string.gesture_no_hand)

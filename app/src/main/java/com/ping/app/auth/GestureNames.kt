@@ -31,6 +31,10 @@ object GestureNames {
         Motion.WAVE -> "👋 wave"
         Motion.CIRCLE_CW -> "${fingerEmoji(fp.fingerMask)} circle clockwise ↻"
         Motion.CIRCLE_CCW -> "${fingerEmoji(fp.fingerMask)} circle counter-clockwise ↺"
+        Motion.SWIPE_LEFT -> "${fingerEmoji(fp.fingerMask)} swipe left ←"
+        Motion.SWIPE_RIGHT -> "${fingerEmoji(fp.fingerMask)} swipe right →"
+        Motion.SWIPE_UP -> "${fingerEmoji(fp.fingerMask)} swipe up ↑"
+        Motion.SWIPE_DOWN -> "${fingerEmoji(fp.fingerMask)} swipe down ↓"
     }
 
     private fun fingerEmoji(mask: Int) = when (mask) {
@@ -107,6 +111,7 @@ object GestureNames {
         Entry("3️⃣ 4️⃣", "Three or four fingers"),
         Entry("👋", "Wave: open hand side to side"),
         Entry("↻ ↺", "Draw a circle in the air, either way round"),
+        Entry("← → ↑ ↓", "Swipe: one sweep left, right, up or down, then stop"),
         Entry("👏 🙏 🤝 🫶", "Both hands together, with any of the poses above"),
     )
 }
