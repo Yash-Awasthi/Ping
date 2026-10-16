@@ -100,6 +100,35 @@ class BleWireTest {
     }
 
     @Test
+    fun `chunk framing and crypto stream megabytes byte for byte`() {
+        val (a, b) = pair()
+        val data = kotlin.random.Random(5).nextBytes(32 shl 20)
+        // In-memory wire: JDK pipes park up to a second per wake-up and would measure themselves.
+        val wire = ByteArrayOutputStream(data.size + (1 shl 20))
+        val started = System.nanoTime()
+        val out = DataOutputStream(wire)
+        val chunk = ByteArray(32 * 1024)
+        var pos = 0
+        while (pos < data.size) {
+            val n = minOf(chunk.size, data.size - pos)
+            System.arraycopy(data, pos, chunk, 0, n)
+            BleWire.writeBlob(out, a.cipher.seal(BleWire.chunk(1, chunk, n)))
+            pos += n
+        }
+        BleWire.writeBlob(out, a.cipher.seal(BleWire.end(1)))
+        val input = DataInputStream(ByteArrayInputStream(wire.toByteArray()))
+        val got = ByteArrayOutputStream(data.size)
+        while (true) {
+            val msg = b.cipher.open(BleWire.readBlob(input))
+            if (msg[0] == BleWire.T_END) break
+            got.write(msg, 5, msg.size - 5)
+        }
+        val secs = (System.nanoTime() - started) / 1e9
+        println("BleWire frames+GCM: %.1f MB/s".format(data.size / 1e6 / secs))
+        assertArrayEquals(data, got.toByteArray())
+    }
+
+    @Test
     fun `replayed, reordered and tampered frames are rejected`() {
         val (a, b) = pair()
         val first = a.cipher.seal(byteArrayOf(1))

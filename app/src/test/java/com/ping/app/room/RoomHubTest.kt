@@ -56,8 +56,8 @@ class RoomHubTest {
         return RoomHub(context, radio, ProfileRepository(dao)).also { hubs += it }
     }
 
-    private fun await(what: String, cond: () -> Boolean) {
-        val end = System.currentTimeMillis() + 5_000
+    private fun await(what: String, ms: Long = 5_000, cond: () -> Boolean) {
+        val end = System.currentTimeMillis() + ms
         while (!cond()) {
             if (System.currentTimeMillis() > end) throw AssertionError("timed out waiting for $what")
             Thread.sleep(10)
@@ -415,6 +415,30 @@ class RoomHubTest {
         assertEquals(RoomPhase.SEARCHING, extra.state.value.phase)
         assertTrue(host.state.value.pending.isEmpty())
         assertTrue(air.largestFrame <= RoomProtocol.MAX_FRAME)
+    }
+
+    @Test
+    fun `megabytes move host to guest and guest to guest byte for byte`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        val bob = newHub("b", "Bob")
+        val data = Random(11).nextBytes(16 shl 20)
+        host.host("F9A9"); Thread.sleep(50)
+        host.addShared(FileMeta("", "host.bin", data.size.toLong())) { ByteArrayInputStream(data) }
+        ada.join("F9A9"); admitted(host, ada)
+        ada.addShared(FileMeta("", "ada.bin", data.size.toLong())) { ByteArrayInputStream(data) }
+        bob.join("F9A9"); admitted(host, bob)
+        await("listed") { bob.state.value.manifest.files.size == 2 }
+
+        for (name in listOf("host.bin", "ada.bin")) {
+            val gid = bob.state.value.manifest.files.single { it.name == name }.id
+            val started = System.nanoTime()
+            bob.download(gid)
+            await(name, 60_000) { bob.state.value.transfers[gid]?.status == Transfer.Status.DONE }
+            val secs = (System.nanoTime() - started) / 1e9
+            println("Room %s: %.1f MB/s".format(name, data.size / 1e6 / secs))
+            assertArrayEquals(data, File(bob.state.value.transfers.getValue(gid).path!!).readBytes())
+        }
     }
 
     private fun downloads(id: String): List<File> =
