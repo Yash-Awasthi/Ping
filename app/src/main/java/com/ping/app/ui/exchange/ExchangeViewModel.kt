@@ -39,7 +39,4 @@ class ExchangeViewModel @Inject constructor(
             }
         }
     }
-
-    /** Expose the GestureCamera for landmark forwarding to drawing overlay */
-    fun getGestureCamera(): GestureCamera = gestureCamera
 }

@@ -5,8 +5,15 @@ import com.ping.app.utils.Pake
 import java.security.MessageDigest
 import java.security.spec.ECPoint
 
-/** Advertisement format and matching rules for a gesture swap: `<token>|<nonce>`. */
+/** Advertisement format and matching rules for a gesture swap: `2:<token>|<nonce>`. */
 object Pairing {
+
+    private const val VERSION = "2:"
+    /** Builds before the version prefix advertised a bare `<token>|<nonce>`. */
+    private val LEGACY = Regex("[0-9a-f]\\|.*")
+
+    /** Longest remote name we will feed into [Pake.context]; ours is about 14 bytes. */
+    const val MAX_NAME_BYTES = 64
 
     /**
      * A 4-bit bucket of the gesture code, one hex digit. The code is the PAKE password, so the
@@ -16,11 +23,15 @@ object Pairing {
     fun token(code: String): String =
         "%x".format(MessageDigest.getInstance("SHA-256").digest(code.toByteArray(Charsets.UTF_8))[0].toInt() and 0x0F)
 
-    fun advertisement(code: String, nonce: String): String = "${token(code)}|$nonce"
+    fun advertisement(code: String, nonce: String): String = "$VERSION${token(code)}|$nonce"
 
     /** True when [remoteName] may hold the same gesture as [code]; only the PAKE confirms it. */
     fun matches(code: String, remoteName: String): Boolean =
-        remoteName.substringBefore('|', missingDelimiterValue = "") == token(code)
+        remoteName.toByteArray(Charsets.UTF_8).size <= MAX_NAME_BYTES &&
+            remoteName.startsWith(VERSION) &&
+            remoteName.removePrefix(VERSION).substringBefore('|', missingDelimiterValue = "") == token(code)
+
+    private fun isLegacy(remoteName: String): Boolean = LEGACY.matches(remoteName)
 
     /**
      * The side that requests a matched connection first. The smaller advertisement wins; the
@@ -34,7 +45,10 @@ object Pairing {
 
     /** Ping phones in range that certainly locked a different gesture. */
     fun othersNearby(code: String, seen: Map<String, String>): Int =
-        seen.values.count { !matches(code, it) }
+        seen.values.count { !matches(code, it) && !isLegacy(it) }
+
+    /** Ping phones in range on a build too old to swap with this one. */
+    fun legacyNearby(seen: Map<String, String>): Int = seen.values.count(::isLegacy)
 
     /**
      * One connection's gesture check. The peer's card may arrive before its tag, but it is held

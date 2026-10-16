@@ -120,7 +120,8 @@ object Pake {
 
     private fun lengthPrefixed(vararg parts: ByteArray): ByteArray =
         parts.fold(ByteArray(0)) { acc, part ->
-            acc + byteArrayOf((part.size ushr 8).toByte(), part.size.toByte()) + part
+            require(part.size <= 0xFFFF) { "part too long for a 2-byte length prefix" }
+            acc +byteArrayOf((part.size ushr 8).toByte(), part.size.toByte()) + part
         }
 
     private fun compareUnsigned(a: ByteArray, b: ByteArray): Int {

@@ -1,5 +1,7 @@
 package com.ping.app.model
 
+import androidx.annotation.StringRes
+
 /**
  * A single live swap session.
  *
@@ -10,9 +12,13 @@ data class ExchangeSession(
     val gestureCode: String,
     val state: State = State.SEARCHING,
     val receivedContact: Contact? = null,
-    val errorMessage: String? = null,
+    @StringRes val errorRes: Int? = null,
+    /** Why the session ended as NO_MATCH. */
+    val reason: Reason? = null,
     /** Ping phones in range advertising a different gesture, so a mismatch is not silent. */
     val othersNearby: Int = 0,
+    /** Ping phones in range on a build too old to swap with this one. */
+    val legacyNearby: Int = 0,
 ) {
     enum class State {
         /** Advertising our gesture code and scanning for a peer with the same one. */
@@ -29,5 +35,12 @@ data class ExchangeSession(
         CANCELLED,
         /** Unrecoverable error. */
         ERROR,
+    }
+
+    enum class Reason {
+        /** The pairing window closed before any peer proved the gesture. */
+        TIMEOUT,
+        /** Every peer tried within the attempt limit held a different gesture. */
+        GESTURE_MISMATCH,
     }
 }

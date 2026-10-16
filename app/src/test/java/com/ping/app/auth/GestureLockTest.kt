@@ -3,7 +3,9 @@ package com.ping.app.auth
 import com.ping.app.auth.GestureFingerprint.Hand
 import com.ping.app.auth.GestureFingerprint.Motion
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class GestureLockTest {
@@ -79,5 +81,14 @@ class GestureLockTest {
         lock.clear()
         assertEquals(0f, lock.stability)
         assertNull(lock.update(peace, null, still = true))
+    }
+
+    @Test
+    fun `stability ticks once per third and leaves the lock to its own pulse`() {
+        val steps = (0..GestureLock.COMMIT_FRAMES).map { it.toFloat() / GestureLock.COMMIT_FRAMES }
+        val ticks = steps.zipWithNext().count { (a, b) -> GestureLock.stabilityStep(a, b) }
+        assertEquals(2, ticks)
+        assertFalse(GestureLock.stabilityStep(0.9f, 0.1f))
+        assertTrue(GestureLock.stabilityStep(0f, 0.7f))
     }
 }
