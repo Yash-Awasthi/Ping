@@ -112,6 +112,8 @@ class GestureCamera @Inject constructor(
         ProcessCameraProvider.getInstance(context)
         try {
             val options = HandLandmarker.HandLandmarkerOptions.builder()
+                // ponytail: CPU delegate; GPU may cut inference time but fp16 shifts landmarks across phones,
+                // so try Delegate.GPU with a CPU fallback only after measuring code agreement on devices.
                 .setBaseOptions(BaseOptions.builder().setModelAssetPath(MODEL_ASSET).build())
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setNumHands(2)
@@ -180,6 +182,8 @@ class GestureCamera @Inject constructor(
         matrix.postTranslate(-bounds.left, -bounds.top)
         val out = reuse(uprightFrame, bounds.width().roundToInt(), bounds.height().roundToInt())
         uprightFrame = out
+        // ponytail: one CPU rotate+mirror copy per frame; hand MediaPipe the plane with a rotation option
+        // and mirror the landmarks instead if profiling shows it, after checking both phones still agree.
         Canvas(out).drawBitmap(raw, matrix, framePaint)
         return out
     }
