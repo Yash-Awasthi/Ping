@@ -15,6 +15,7 @@ import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.CoroutineContext
 
 sealed class RollCallState {
     object Idle : RollCallState()
@@ -31,24 +32,45 @@ sealed class RollCallState {
     ) : RollCallState()
 }
 
+/** The few strings a roll call keeps per install. */
+interface RollCallPrefs {
+    fun get(key: String): String?
+    fun put(key: String, value: String)
+}
+
+private class SharedRollCallPrefs(context: Context) : RollCallPrefs {
+    private val prefs = context.getSharedPreferences("rollcall", Context.MODE_PRIVATE)
+    override fun get(key: String) = prefs.getString(key, null)
+    override fun put(key: String, value: String) = prefs.edit().putString(key, value).apply()
+}
+
 /**
  * Runs one side of a roll call over the shared [NearbyTransport]. Callbacks arrive on the main
  * thread; database writes go to [scope].
  */
 @Singleton
-class RollCall @Inject constructor(
+class RollCall internal constructor(
     private val transport: NearbyTransport,
     private val dao: RollCallDao,
-    @ApplicationContext private val context: Context,
+    private val prefs: RollCallPrefs,
+    dispatcher: CoroutineContext,
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val prefs = context.getSharedPreferences("rollcall", Context.MODE_PRIVATE)
+    @Inject constructor(
+        transport: NearbyTransport,
+        dao: RollCallDao,
+        @ApplicationContext context: Context,
+    ) : this(transport, dao, SharedRollCallPrefs(context), Dispatchers.Main.immediate)
+
+    private val scope = CoroutineScope(SupervisorJob() + dispatcher)
 
     private val _state = MutableStateFlow<RollCallState>(RollCallState.Idle)
     val state: StateFlow<RollCallState> = _state
 
     private var timeout: Job? = null
+    private var starting: Job? = null
     private var ackLoop: Job? = null
+    /** True only while this class owns the transport, so [stop] never cuts a swap's radios. */
+    private var radiosOn = false
     /** Admin side, main thread only: devices marked this session and those not yet acknowledged. */
     private val markedDevices = mutableListOf<String>()
     private val freshAcks = ArrayDeque<String>()
@@ -56,21 +78,23 @@ class RollCall @Inject constructor(
 
     /** Stable per install, so the admin can notice a student checking in from a new phone. */
     val deviceTag: String
-        get() = prefs.getString(KEY_DEVICE, null)
-            ?: RollCallProtocol.newToken().also { prefs.edit().putString(KEY_DEVICE, it).apply() }
+        get() = prefs.get(KEY_DEVICE) ?: RollCallProtocol.newToken().also { prefs.put(KEY_DEVICE, it) }
 
     var savedRoll: String
-        get() = prefs.getString(KEY_ROLL, "").orEmpty()
-        set(v) = prefs.edit().putString(KEY_ROLL, v).apply()
+        get() = prefs.get(KEY_ROLL).orEmpty()
+        set(v) = prefs.put(KEY_ROLL, v)
 
     var savedName: String
-        get() = prefs.getString(KEY_NAME, "").orEmpty()
-        set(v) = prefs.edit().putString(KEY_NAME, v).apply()
+        get() = prefs.get(KEY_NAME).orEmpty()
+        set(v) = prefs.put(KEY_NAME, v)
 
     /** The class this phone last checked in to; finding it again checks in without a tap. */
     private var savedClass: String
-        get() = prefs.getString(KEY_CLASS, "").orEmpty()
-        set(v) = prefs.edit().putString(KEY_CLASS, v).apply()
+        get() = prefs.get(KEY_CLASS).orEmpty()
+        set(v) = prefs.put(KEY_CLASS, v)
+
+    /** Once a class list is in, the roster is closed: unknown rolls are flagged, not enrolled. */
+    private val rosterImported: Boolean get() = prefs.get(KEY_ROSTER) == "1"
 
     // Admin
 
@@ -80,8 +104,10 @@ class RollCall @Inject constructor(
         val token = RollCallProtocol.newToken()
         val clean = RollCallProtocol.cleanName(label).ifBlank { "Class" }
         _state.value = RollCallState.Taking(sessionId, clean)
-        scope.launch {
+        starting = scope.launch {
             dao.insertSession(RollSession(sessionId, clean, System.currentTimeMillis()))
+            if (!isTaking(sessionId)) return@launch
+            radiosOn = true
             transport.onEndpointFound = { _, name ->
                 RollCallProtocol.parseStudent(name)?.takeIf { it.session == token }?.let { onStudent(sessionId, it) }
             }
@@ -91,6 +117,8 @@ class RollCall @Inject constructor(
             ackLoop = scope.launch { ackLoop(token, clean) }
         }
     }
+
+    private fun isTaking(sessionId: String) = (_state.value as? RollCallState.Taking)?.sessionId == sessionId
 
     /** Re-advertises with fresh acks; Nearby offers no way to edit a live advertisement. */
     private suspend fun ackLoop(token: String, label: String) {
@@ -117,6 +145,7 @@ class RollCall @Inject constructor(
         scope.launch {
             val known = dao.student(ad.roll)
             val flag = when {
+                known == null && rosterImported -> RollCallProtocol.FLAG_NEW_ROLL
                 known == null -> { dao.upsertStudent(Student(ad.roll, ad.name.ifBlank { ad.roll }, ad.device)); "" }
                 // Imported from a class list: the first phone to answer for this roll is bound to it.
                 known.device.isEmpty() -> { dao.upsertStudent(known.copy(device = ad.device)); "" }
@@ -124,7 +153,8 @@ class RollCall @Inject constructor(
                 else -> ""
             }
             dao.mark(Attendance(sessionId, ad.roll, System.currentTimeMillis(), flag))
-            if (ad.device !in markedDevices) {
+            // The session may have ended during the writes; its acks must not leak into the next one.
+            if (isTaking(sessionId) && ad.device !in markedDevices) {
                 markedDevices += ad.device
                 freshAcks.addLast(ad.device)
             }
@@ -145,6 +175,7 @@ class RollCall @Inject constructor(
         stop()
         _state.value = RollCallState.CheckingIn()
         val myAck = RollCallProtocol.ackOf(deviceTag)
+        radiosOn = true
         transport.onEndpointFound = onFound@{ _, name ->
             val ad = RollCallProtocol.parseAdmin(name) ?: return@onFound
             val s = _state.value as? RollCallState.CheckingIn ?: return@onFound
@@ -176,11 +207,7 @@ class RollCall @Inject constructor(
 
     private fun confirmed(s: RollCallState.CheckingIn) {
         timeout?.cancel()
-        runCatching {
-            transport.onEndpointFound = null
-            transport.stopAdvertising()
-            transport.stopDiscovery()
-        }
+        radiosOff()
         _state.value = s.copy(confirmed = true)
     }
 
@@ -190,23 +217,30 @@ class RollCall @Inject constructor(
     }
 
     fun stop() {
+        starting?.cancel()
         timeout?.cancel()
         ackLoop?.cancel()
         markedDevices.clear()
         freshAcks.clear()
         ackCounts.clear()
-        if (_state.value == RollCallState.Idle) return
+        radiosOff()
+        _state.value = RollCallState.Idle
+    }
+
+    private fun radiosOff() {
+        if (!radiosOn) return
+        radiosOn = false
         runCatching {
             transport.onEndpointFound = null
             transport.stopAdvertising()
             transport.stopDiscovery()
         }
-        _state.value = RollCallState.Idle
     }
 
     suspend fun importRoster(text: String): Int {
         val rows = RollCallProtocol.parseRoster(text)
         dao.importRoster(rows)
+        if (rows.isNotEmpty()) prefs.put(KEY_ROSTER, "1")
         return rows.size
     }
 
@@ -220,14 +254,16 @@ class RollCall @Inject constructor(
         dao.deleteSessionRow(id)
     }
 
-    /** Present and absent students for [sessionId] as CSV, everyone ever seen counting as enrolled. */
+    /** Present and absent students for [sessionId] as CSV, plus anyone marked who is not on the list. */
     suspend fun csv(sessionId: String, students: List<Student>): String {
         val marks = dao.attendance(sessionId).associateBy { it.roll }
+        val listed = students.mapTo(HashSet()) { it.roll }
+        val unlisted = marks.keys.filter { it !in listed }.sorted().map { Student(it, it, "") }
         val f = RollCallProtocol::csvField
         val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
         return buildString {
             append("roll,name,status,time,note\n")
-            students.forEach { st ->
+            (students + unlisted).forEach { st ->
                 val m = marks[st.roll]
                 append(listOf(st.roll, st.name, if (m != null) "present" else "absent",
                     m?.let { time.format(java.util.Date(it.seenAt)) }.orEmpty(), m?.flag.orEmpty()).joinToString(",") { f(it) })
@@ -236,11 +272,12 @@ class RollCall @Inject constructor(
         }
     }
 
-    private companion object {
+    internal companion object {
         const val KEY_DEVICE = "device"
         const val KEY_ROLL = "roll"
         const val KEY_NAME = "name"
         const val KEY_CLASS = "class"
+        const val KEY_ROSTER = "roster"
         const val ACK_EVERY_MS = 2_000L
         const val ACK_ROUNDS = 5
         const val SCAN_MS = 5 * 60_000L
