@@ -9,6 +9,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -37,8 +39,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +50,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,7 +64,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
 import com.ping.app.auth.GestureCamera
 import com.ping.app.auth.GestureFingerprint
+import com.ping.app.auth.GestureLock
 import com.ping.app.model.ExchangeSession
+import com.ping.app.model.Profile
 import com.ping.app.service.NearbyExchangeService
 import com.ping.app.ui.ConnectionState
 import com.ping.app.ui.components.GestureGuideButton
@@ -66,7 +75,9 @@ import com.ping.app.ui.components.SavedGestureChips
 import com.ping.app.ui.ConnectionStatusIndicator
 import com.ping.app.utils.RequiredPermissions
 import com.ping.app.utils.vibrateDouble
+import com.ping.app.utils.vibrateError
 import com.ping.app.utils.vibrateShort
+import com.ping.app.utils.vibrateTick
 import kotlinx.coroutines.delay
 
 /**
@@ -75,7 +86,7 @@ import kotlinx.coroutines.delay
  * The camera is released the moment a code locks, so the pose cannot drift into a
  * different code while the service searches and the lock cannot silently change.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ExchangeScreen(
     onDone: () -> Unit,
@@ -88,9 +99,12 @@ fun ExchangeScreen(
     var permissionsGranted by remember {
         mutableStateOf(RequiredPermissions.missing(context).isEmpty())
     }
-    var searchStarted by remember { mutableStateOf(false) }
-    var twoStep by remember { mutableStateOf(false) }
-    var firstCode by remember { mutableStateOf<String?>(null) }
+    // Saveable so a rotation mid-search neither restarts the camera nor forgets the first gesture.
+    var searchStarted by rememberSaveable { mutableStateOf(false) }
+    var twoStep by rememberSaveable { mutableStateOf(false) }
+    var firstCode by rememberSaveable { mutableStateOf<String?>(null) }
+    var fields by remember { mutableStateOf(loadFields(context)) }
+    var lastStability by remember { mutableFloatStateOf(0f) }
     var restartKey by remember { mutableStateOf(0) }
     var remaining by remember { mutableStateOf(NearbyExchangeService.WINDOW_SECONDS) }
     var memo by remember { mutableStateOf("") }
@@ -105,13 +119,16 @@ fun ExchangeScreen(
     val previewDescription = stringResource(R.string.gesture_camera_preview_desc)
 
     // Session state is process-wide, so an earlier visit's result would render as this one's.
+    // A search already running belongs to this screen, as after a rotation, so it is kept.
     DisposableEffect(Unit) {
-        NearbyExchangeService.clearSession()
+        if (!searchStarted) NearbyExchangeService.clearSession()
         onDispose {
             viewModel.stopCamera()
             // A scan that never locked has nothing to finish, so it must not outlive the screen.
-            if (!searchStarted) NearbyExchangeService.stop(context)
-            NearbyExchangeService.clearSession()
+            if (!searchStarted) {
+                NearbyExchangeService.stop(context)
+                NearbyExchangeService.clearSession()
+            }
         }
     }
 
@@ -128,6 +145,9 @@ fun ExchangeScreen(
     }
 
     LaunchedEffect(cameraState) {
+        val steady = (cameraState as? GestureCamera.State.Detecting)?.stability ?: 0f
+        if (GestureLock.stabilityStep(lastStability, steady)) runCatching { context.vibrateTick() }
+        lastStability = steady
         val locked = cameraState as? GestureCamera.State.Locked ?: return@LaunchedEffect
         if (searchStarted) return@LaunchedEffect
         val code = locked.fingerprint.code
@@ -145,6 +165,7 @@ fun ExchangeScreen(
         NearbyExchangeService.start(
             context,
             GestureFingerprint.sequenceCode(listOfNotNull(first, code)),
+            fields,
         )
     }
 
@@ -152,6 +173,9 @@ fun ExchangeScreen(
         val s = session?.state
         if (s == ExchangeSession.State.COMPLETED) {
             runCatching { context.vibrateDouble() }
+        }
+        if (s == ExchangeSession.State.NO_MATCH || s == ExchangeSession.State.ERROR) {
+            runCatching { context.vibrateError() }
         }
         if (session?.state != ExchangeSession.State.SEARCHING) return@LaunchedEffect
         remaining = NearbyExchangeService.WINDOW_SECONDS
@@ -188,10 +212,17 @@ fun ExchangeScreen(
             session?.receivedContact?.displayName?.takeIf { it.isNotBlank() }
                 ?: stringResource(R.string.someone),
         )
-        ExchangeSession.State.NO_MATCH -> stringResource(R.string.exchange_no_match)
+        ExchangeSession.State.NO_MATCH -> stringResource(
+            if (session?.reason == ExchangeSession.Reason.GESTURE_MISMATCH) R.string.exchange_no_match_gesture
+            else R.string.exchange_no_match,
+        )
         ExchangeSession.State.CANCELLED -> stringResource(R.string.exchange_cancelled)
-        ExchangeSession.State.ERROR -> session?.errorMessage ?: stringResource(R.string.exchange_error_generic)
+        ExchangeSession.State.ERROR -> stringResource(session?.errorRes ?: R.string.exchange_error_generic)
     }
+    // The percentage ticks every frame, so a screen reader hears only the pose it names.
+    val spokenStatus = (cameraState as? GestureCamera.State.Detecting)
+        ?.takeIf { session == null && !(twoStep && firstCode != null) }
+        ?.fingerprint?.label ?: statusText
 
     val connectionState = when (session?.state) {
         ExchangeSession.State.SEARCHING -> ConnectionState.SCANNING
@@ -231,9 +262,23 @@ fun ExchangeScreen(
                 if (!searchStarted) {
                     searchStarted = true
                     viewModel.stopCamera()
-                    NearbyExchangeService.start(context, code)
+                    NearbyExchangeService.start(context, code, fields)
                 }
             })
+            Text(stringResource(R.string.exchange_share_fields), style = MaterialTheme.typography.labelLarge)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = true, enabled = false, onClick = {}, label = { Text(stringResource(R.string.contact_label_name)) })
+                SHARE_TOGGLES.forEach { (key, label) ->
+                    FilterChip(
+                        selected = key in fields,
+                        onClick = {
+                            fields = if (key in fields) fields - key else fields + key
+                            saveFields(context, fields)
+                        },
+                        label = { Text(stringResource(label)) },
+                    )
+                }
+            }
         }
 
         if (session == null) GestureGuideButton()
@@ -242,12 +287,26 @@ fun ExchangeScreen(
             text = statusText,
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
+            modifier = Modifier.semantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = spokenStatus
+            },
         )
 
         val others = session?.othersNearby ?: 0
         if (others > 0 && (session?.state == ExchangeSession.State.SEARCHING || session?.state == ExchangeSession.State.NO_MATCH)) {
             Text(
                 text = pluralStringResource(R.plurals.exchange_others_nearby, others, others),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
+        }
+
+        val legacy = session?.legacyNearby ?: 0
+        if (legacy > 0 && (session?.state == ExchangeSession.State.SEARCHING || session?.state == ExchangeSession.State.NO_MATCH)) {
+            Text(
+                text = stringResource(R.string.exchange_peer_outdated),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
@@ -369,11 +428,17 @@ private fun StageRow(state: ExchangeSession.State?) {
     val labels = listOf(
         R.string.stage_gesture, R.string.stage_find, R.string.stage_check, R.string.stage_swap,
     )
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+    val description = stringResource(R.string.exchange_step_desc, current + 1, labels.size, stringResource(labels[current]))
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) { contentDescription = description },
+    ) {
         labels.forEachIndexed { i, label ->
             val done = i < current
             val now = i == current
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clearAndSetSemantics {}) {
                 Box(
                     modifier = Modifier
                         .size(28.dp)
@@ -410,6 +475,25 @@ private fun StageRow(state: ExchangeSession.State?) {
             }
         }
     }
+}
+
+/** Optional card fields, wire key to label; the name always goes. */
+private val SHARE_TOGGLES = listOf(
+    "phone" to R.string.contact_label_phone,
+    "email" to R.string.contact_label_email,
+    "social" to R.string.contact_label_social,
+    "note" to R.string.contact_label_note,
+)
+
+private const val PREFS = "swap"
+private const val KEY_FIELDS = "fields"
+
+private fun loadFields(context: Context): Set<String> =
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet(KEY_FIELDS, null)?.plus("name")
+        ?: Profile.FIELDS
+
+private fun saveFields(context: Context, fields: Set<String>) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet(KEY_FIELDS, fields).apply()
 }
 
 private fun openAppSettings(context: Context): Intent =

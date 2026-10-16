@@ -5,11 +5,10 @@ package com.ping.app.service
  * from the wire-protocol logic.
  *
  * Motivations:
- *  1. [NearbyExchangeService] depends directly on [com.google.android.gms.nearby.connection.ConnectionsClient].
- *     That class is a Play Services singleton — impossible to instantiate in JVM unit tests.
- *  2. Extracting send/receive to this interface lets a [FakeNearbyTransport] wire two
- *     in-process "endpoints" together, enabling full wire-protocol JVM tests without
- *     real BLE/Wi-Fi or an Android device.
+ *  1. [com.google.android.gms.nearby.connection.ConnectionsClient] is a Play Services
+ *     singleton — impossible to instantiate in JVM unit tests.
+ *  2. Behind this interface the tests' `FakeAir` wires in-process endpoints together, so
+ *     [ExchangeEngine] and the room run whole sessions in JVM tests without a radio.
  *
  * Scope: BYTES payloads plus optional byte streams for file transfer ([sendStream]).
  *
@@ -58,8 +57,8 @@ interface NearbyTransport {
      * Register a callback invoked when an incoming connection is initiated
      * but before it has been accepted or rejected.
      *
-     * [NearbyExchangeService] uses this to run the async blocklist check
-     * before deciding whether to call [acceptConnection] or [rejectConnection].
+     * [ExchangeEngine] uses this to check the remote advertisement before deciding
+     * whether to call [acceptConnection] or [rejectConnection].
      *
      * For Nearby Connections: fires from [ConnectionLifecycleCallback.onConnectionInitiated].
      * For BLE L2CAP: fires after the link handshake; rejecting closes the channel.

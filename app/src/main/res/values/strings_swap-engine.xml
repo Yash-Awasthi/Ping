@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exchange_peer_empty_card">The other person has not set up their card.</string>
+    <string name="exchange_no_match_gesture">Someone nearby tried, but their gesture did not match. Agree on one gesture and try again.</string>
+    <string name="exchange_peer_outdated">A phone nearby runs an older Ping. Ask them to update it to swap.</string>
+    <string name="exchange_step_desc">Step %1$d of %2$d: %3$s</string>
+    <string name="exchange_share_fields">Share on this swap</string>
+</resources>
