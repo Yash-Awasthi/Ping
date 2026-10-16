@@ -70,8 +70,8 @@ class NearbyExchangeService : Service() {
     /** The current attempt; these fields all belong to [connectedEndpoint]. */
     @Volatile private var pake: Pake.Session? = null
     @Volatile private var keys: Pake.Keys? = null
-    /** A share that arrived before our own side of the attempt was set up. */
-    @Volatile private var earlyShare: ByteArray? = null
+    /** Shares that arrived before our own side of that attempt was set up. */
+    private val earlyShares = ConcurrentHashMap<String, ByteArray>()
     /** Set once the peer's confirmation tag proved the same gesture. */
     @Volatile private var verified = false
     @Volatile private var cardSent = false
@@ -159,7 +159,7 @@ class NearbyExchangeService : Service() {
                 val session = Pake.Session(code, Pake.context(localName, remoteName, linkTokens[endpointId]))
                 pake = session
                 transport.sendBytes(endpointId, frame(TYPE_SHARE, session.share))
-                earlyShare?.let { earlyShare = null; onShare(endpointId, it) }
+                earlyShares.remove(endpointId)?.let { onShare(endpointId, it) }
                 Timber.i("Connected to %s — sent key share", endpointId)
             } else if (endpointId != connectedEndpoint) {
                 transport.disconnect(endpointId)
@@ -201,10 +201,14 @@ class NearbyExchangeService : Service() {
     }
 
     private fun handlePayload(endpointId: String, data: ByteArray) {
-        if (data.isEmpty() || endpointId != connectedEndpoint) return
+        if (data.isEmpty()) return
         val body = data.copyOfRange(1, data.size)
+        if (endpointId != connectedEndpoint) {
+            if (data[0] == TYPE_SHARE && connectedEndpoint == null && endpointId !in tried) earlyShares[endpointId] = body
+            return
+        }
         when (data[0]) {
-            TYPE_SHARE -> if (pake == null) earlyShare = body else onShare(endpointId, body)
+            TYPE_SHARE -> onShare(endpointId, body)
             TYPE_CONFIRM -> {
                 val k = keys ?: return
                 if (verified) return
@@ -244,7 +248,7 @@ class NearbyExchangeService : Service() {
         connectedEndpoint = null
         pake = null
         keys = null
-        earlyShare = null
+        earlyShares.clear()
         verified = false
         cardSent = false
         pendingCard = null
