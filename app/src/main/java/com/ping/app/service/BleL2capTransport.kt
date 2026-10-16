@@ -26,6 +26,7 @@ import java.io.InputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * [NearbyTransport] for phones without Play Services: BLE advertising carries the endpoint
@@ -186,6 +187,8 @@ class BleL2capTransport(context: Context) : NearbyTransport {
         @Volatile var socket: BluetoothSocket? = null
         @Volatile var link: BleLink? = null
         @Volatile var cancelled = false
+        /** Our request that this pending incoming claim blocked, re-sent if it ends unconnected. */
+        val retry = AtomicReference<(() -> Unit)?>()
 
         fun cancel() {
             cancelled = true
@@ -198,16 +201,28 @@ class BleL2capTransport(context: Context) : NearbyTransport {
 
     /**
      * Claims [id] for [address], or null when it already has a link or [MAX_LINKS] are up. An incoming
-     * link crossing our own request wins only when [Pairing.shouldInitiate] picks the peer, as both sides agree.
+     * link crossing our own unconnected request wins only when [Pairing.shouldInitiate] picks the peer.
+     * A refused request ([localName] set) is retried or reported, never silently lost.
      */
     private fun claim(id: String, address: String, localName: String?, remoteName: String?): Claim? = synchronized(claims) {
         val prev = claims.entries.firstOrNull { it.value.address == address }
         if (prev != null) {
             val ours = prev.value.localName
-            if (localName != null || ours == null || remoteName == null || Pairing.shouldInitiate(ours, remoteName)) return null
+            if (localName != null) {
+                if (ours == null && prev.value.link?.connected != true) {
+                    prev.value.retry.set { requestConnection(localName, id) }
+                    // closed() takes the retry without this lock, so pick it up if the claim already went.
+                    if (claims[prev.key] !== prev.value) prev.value.retry.getAndSet(null)?.let { main.post(it) }
+                }
+                return null
+            }
+            if (ours == null || remoteName == null || prev.value.link?.connected == true ||
+                Pairing.shouldInitiate(ours, remoteName)
+            ) return null
             claims.remove(prev.key, prev.value)
             prev.value.cancel()
         } else if (claims.size >= MAX_LINKS) {
+            if (localName != null) main.post { onDisconnected?.invoke(id) }
             return null
         }
         Claim(address, localName).also { claims[id] = it }
@@ -243,8 +258,9 @@ class BleL2capTransport(context: Context) : NearbyTransport {
             onStreamReceived?.let { cb -> { s: InputStream -> main.post { cb(link.id, s) } } }
 
         override fun closed(link: BleLink, notify: Boolean) {
-            claims[link.id]?.takeIf { it.link === link }?.let { claims.remove(link.id, it) }
+            val claim = claims[link.id]?.takeIf { it.link === link && claims.remove(link.id, it) }
             if (notify) main.post { onDisconnected?.invoke(link.id) }
+            if (!link.connected) claim?.retry?.getAndSet(null)?.let { main.post(it) }
         }
     }
 
