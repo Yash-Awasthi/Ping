@@ -115,6 +115,24 @@ class GestureFingerprintTest {
         assertEquals("F31~WAVEHL", left.withMotion(GestureFingerprint.Motion.WAVE).code)
     }
 
+    private fun curled(h: Hand, z: Float) = h.xyz().also { xyz ->
+        for (j in intArrayOf(6, 7, 8, 10, 11, 12, 14, 15, 16, 18, 19, 20)) xyz[j * 3 + 2] = z
+    }
+
+    private fun mirrored(xyz: FloatArray) = xyz.copyOf().also { for (i in 0 until 21) it[i * 3] = 1f - it[i * 3] }
+
+    @Test
+    fun `hand side from shape follows the way the fingers bend`() {
+        // Thumb on the image left with fingers bending toward the camera: a right palm in the mirrored preview.
+        val rightPalm = curled(Hand(), -0.04f)
+        assertEquals(true, GestureFingerprint.shapeIsRight(rightPalm))
+        assertEquals(true, GestureFingerprint.shapeIsRight(curled(Hand().rotated(90.0), -0.04f)))
+        assertEquals(false, GestureFingerprint.shapeIsRight(mirrored(rightPalm)))
+        // Back of the right hand: thumb on the image right, fingers bending away.
+        assertEquals(true, GestureFingerprint.shapeIsRight(mirrored(curled(Hand(), 0.04f))))
+        assertNull(GestureFingerprint.shapeIsRight(curled(open(), 0f)))
+    }
+
     @Test
     fun `peace, rock on, love you and call me`() {
         assertTrue(fp(Hand().fingers(1, 2)).label.startsWith("✌️"))

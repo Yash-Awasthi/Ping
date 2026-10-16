@@ -3,6 +3,7 @@ package com.ping.app.auth
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
+import kotlin.math.sqrt
 
 /**
  * Turns a MediaPipe 21-point hand into a short code that two phones can compare to decide
@@ -113,6 +114,8 @@ data class GestureFingerprint(
         private const val EDGE_SIN = 0.3
         /** Tips must swap order by at least this share of the knuckle spacing to count as crossed. */
         private const val CROSS_MARGIN = 0.3
+        /** Mean finger lean out of the palm plane, over palm width, below which the shape gives no hand side. */
+        private const val SHAPE_MIN = 0.15
         /** Two hands whose palm centres are within this many hand sizes count as together. */
         private const val TOGETHER_RATIO = 1.6
 
@@ -199,13 +202,32 @@ data class GestureFingerprint(
             val v2x = (xyz[PINKY_MCP * 3] - xyz[0]).toDouble(); val v2y = (xyz[PINKY_MCP * 3 + 1] - xyz[1]).toDouble()
             val sin = abs(v1x * v2y - v1y * v2x) / (hypot(v1x, v1y) * hypot(v2x, v2y)).coerceAtLeast(1e-9)
             val chain = d(THUMB_MCP, 3) + d(3, THUMB_TIP)
-            return "gaps %.2f %.2f %.2f · pinch %.2f · sin %.2f · thumb straight %.2f away %.2f · side %s".format(
+            return "gaps %.2f %.2f %.2f · pinch %.2f · sin %.2f · thumb straight %.2f away %.2f · side %s · shape %.2f".format(
                 d(INDEX_TIP, MIDDLE_TIP) / w, d(MIDDLE_TIP, RING_TIP) / w, d(RING_TIP, PINKY_TIP) / w,
                 d(THUMB_TIP, INDEX_TIP) / w, sin,
                 if (chain > 0) d(THUMB_MCP, THUMB_TIP) / chain else 0.0, d(THUMB_TIP, INDEX_MCP) / w,
-                if (v1x * v2y - v1y * v2x > 0) "left" else "right",
+                if (v1x * v2y - v1y * v2x > 0) "left" else "right", handShape(xyz),
             )
         }
+
+        /**
+         * Which side of the wrist-index-pinky plane the finger joints lean to, over palm width. Fingers
+         * bend toward the palm, so the sign is the hand's chirality: negative is a right hand here.
+         */
+        fun handShape(xyz: FloatArray): Double {
+            if (xyz.size < 63) return 0.0
+            fun v(i: Int) = DoubleArray(3) { xyz[i * 3 + it].toDouble() - xyz[WRIST * 3 + it] }
+            val a = v(INDEX_MCP); val b = v(PINKY_MCP)
+            val n = doubleArrayOf(a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+            val nLen = sqrt(n.sumOf { it * it })
+            val width = sqrt((0 until 3).sumOf { (a[it] - b[it]) * (a[it] - b[it]) })
+            if (nLen <= 0.0 || width <= 0.0) return 0.0
+            val joints = intArrayOf(6, 7, 8, 10, 11, 12, 14, 15, 16, 18, 19, 20)
+            return joints.map { j -> v(j).let { p -> (p[0] * n[0] + p[1] * n[1] + p[2] * n[2]) / nLen } }.average() / width
+        }
+
+        /** The user's hand from [handShape] in the mirrored frame: true for right, null when too flat to tell. */
+        fun shapeIsRight(xyz: FloatArray): Boolean? = handShape(xyz).takeIf { abs(it) >= SHAPE_MIN }?.let { it < 0 }
 
         /**
          * A thumb counts as out when it is straight (its joints line up) and its tip is well away
