@@ -1,5 +1,8 @@
 package com.ping.app.auth
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
+import com.ping.app.R
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
@@ -42,18 +45,21 @@ data class GestureFingerprint(
     /** Finger mask of the second hand when both hands are held together. */
     val partner: Int? = null,
 ) {
-    enum class Hand(val tag: String, val text: String) { LEFT("L", "left hand"), RIGHT("R", "right hand") }
+    /** [tag] goes into the code and must never change; [text] is only the shown name. */
+    enum class Hand(val tag: String, @StringRes val text: Int) {
+        LEFT("L", R.string.gesture_hand_left), RIGHT("R", R.string.gesture_hand_right),
+    }
 
     enum class Palm(val tag: String) { UNKNOWN(""), FACING("f"), AWAY("b"), EDGE("e") }
 
-    enum class Motion(val tag: String, val text: String) {
-        CIRCLE_CW("CW", "circle clockwise"),
-        CIRCLE_CCW("CCW", "circle counter-clockwise"),
-        WAVE("WAVE", "wave"),
-        SWIPE_LEFT("SL", "swipe left"),
-        SWIPE_RIGHT("SR", "swipe right"),
-        SWIPE_UP("SU", "swipe up"),
-        SWIPE_DOWN("SD", "swipe down"),
+    enum class Motion(val tag: String, @StringRes val text: Int) {
+        CIRCLE_CW("CW", R.string.gesture_circle_cw),
+        CIRCLE_CCW("CCW", R.string.gesture_circle_ccw),
+        WAVE("WAVE", R.string.gesture_wave),
+        SWIPE_LEFT("SL", R.string.gesture_swipe_left),
+        SWIPE_RIGHT("SR", R.string.gesture_swipe_right),
+        SWIPE_UP("SU", R.string.gesture_swipe_up),
+        SWIPE_DOWN("SD", R.string.gesture_swipe_down),
     }
 
     /** Compact wire code, e.g. "F31A0", "F2A1P" or "F31~WAVE". This is what gets advertised + compared. */
@@ -78,8 +84,12 @@ data class GestureFingerprint(
 
     val closedFingers: Int get() = 5 - openFingers
 
-    /** Friendly one-liner for the UI, e.g. "✌️ pointing up". */
-    val label: String get() = GestureNames.label(this)
+    /** Friendly one-liner for the UI in the user's language, e.g. "✌️ peace up". */
+    fun label(res: Resources): String = GestureNames.label(this, res)
+
+    // ponytail: app-wide resources for callers without a Resources at hand; move them to label(res).
+    @Deprecated("Use label(res)", ReplaceWith("label(res)"))
+    val label: String get() = GestureNames.appResources?.let(::label).orEmpty()
 
     /** The same hand with only what stays stable while it moves, plus the [motion]. */
     fun withMotion(motion: Motion) =

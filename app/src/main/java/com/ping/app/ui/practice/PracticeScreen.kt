@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -109,6 +110,7 @@ fun PracticeScreen(
     viewModel: PracticeViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val owner = context as? LifecycleOwner
     val state = viewModel.state.collectAsStateWithLifecycle()
     val saved by viewModel.saved.collectAsStateWithLifecycle()
@@ -130,7 +132,7 @@ fun PracticeScreen(
     }
     val locked by remember { derivedStateOf { (state.value as? GestureCamera.State.Locked)?.fingerprint } }
     LaunchedEffect(fingerprint?.code) {
-        fingerprint?.let { Timber.d("Practice %s | %s", it.label, viewModel.metrics.value) }
+        fingerprint?.let { Timber.d("Practice %s | %s", it.label(resources), viewModel.metrics.value) }
     }
 
     val steps = remember { mutableStateListOf<String>() }
@@ -148,7 +150,7 @@ fun PracticeScreen(
         Text(stringResource(R.string.practice_title), style = MaterialTheme.typography.headlineSmall)
         PingCard {
             Text(
-                text = fingerprint?.label ?: stringResource(R.string.gesture_no_hand),
+                text = fingerprint?.label(resources) ?: stringResource(R.string.gesture_no_hand),
                 style = MaterialTheme.typography.titleLarge,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
@@ -170,7 +172,7 @@ fun PracticeScreen(
                 // A second step equal to the first could never be made live: the swap screen waits for a change.
                 OutlinedButton(
                     enabled = locked.let { it != null && steps.size < CustomGesture.MAX_STEPS && steps.lastOrNull() != it.code },
-                    onClick = { locked?.let { steps += it.code; labels += it.label } },
+                    onClick = { locked?.let { steps += it.code; labels += it.label(resources) } },
                 ) { Text(stringResource(R.string.custom_gesture_add_step)) }
                 if (steps.isNotEmpty()) {
                     TextButton(onClick = { steps.clear(); labels.clear() }) { Text(stringResource(R.string.custom_gesture_clear)) }

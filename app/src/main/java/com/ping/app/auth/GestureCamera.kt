@@ -57,6 +57,9 @@ class GestureCamera @Inject constructor(
         data class ModelError(val message: String) : State()
     }
 
+    // Every fingerprint comes from here, so names are resolvable before any is shown.
+    init { GestureNames.appResources = context.resources }
+
     private val _state = MutableStateFlow<State>(State.NoHand)
     val state: StateFlow<State> = _state
 
