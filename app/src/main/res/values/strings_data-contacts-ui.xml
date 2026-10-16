@@ -7,4 +7,7 @@
     <string name="restore_passphrase_wrong">Wrong passphrase, or the file is damaged.</string>
     <string name="backup_passphrase_hint">Passphrase</string>
     <string name="action_continue">Continue</string>
+    <string name="profile_share_card">Share my card (.vcf)</string>
+    <string name="profile_share_empty">Save your card first.</string>
+    <string name="shortcut_my_card">Send my card</string>
 </resources>

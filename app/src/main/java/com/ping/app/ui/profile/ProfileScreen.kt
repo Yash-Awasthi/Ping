@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.runtime.rememberCoroutineScope
+import com.ping.app.ui.contacts.shareVCards
+import kotlinx.coroutines.launch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -48,10 +52,25 @@ import com.ping.app.ui.theme.BrandBrush
 
 @Composable
 fun ProfileScreen(
+    shareOnOpen: Boolean = false,
+    onShareHandled: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val profile by viewModel.profile.collectAsStateWithLifecycle(initialValue = null)
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // Shares the saved card, not unsaved edits, so the file matches what a swap sends.
+    suspend fun shareMyCard() {
+        val card = viewModel.myCard()
+        if (card == null) Toast.makeText(context, R.string.profile_share_empty, Toast.LENGTH_SHORT).show()
+        else shareVCards(context, listOf(card), "my-card.vcf")
+    }
+    LaunchedEffect(shareOnOpen) {
+        if (shareOnOpen) {
+            onShareHandled()
+            shareMyCard()
+        }
+    }
 
     var name by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
@@ -157,6 +176,20 @@ fun ProfileScreen(
             shape = MaterialTheme.shapes.extraLarge,
         ) {
             Text(stringResource(R.string.profile_save))
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = { scope.launch { shareMyCard() } },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = MaterialTheme.shapes.extraLarge,
+        ) {
+            Icon(Icons.Default.Share, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(stringResource(R.string.profile_share_card))
         }
     }
 }

@@ -74,6 +74,15 @@ class ContactTest {
     }
 
     @Test
+    fun `my card shared as a vcf reads back as the card peers receive`() {
+        val me = Profile(displayName = "Ada, Countess", phone = "+1 555", email = "ada@x.io", social = "@ada", note = "maths;\nengines")
+        val card = Contact.fromMap(me.toShareableMap())
+        val back = Contact.fromVCards(Contact.toVCards(listOf(card))).single()
+        assertEquals(card.copy(id = back.id, receivedAt = back.receivedAt), back)
+        assertEquals("Ada, Countess", back.displayName)
+    }
+
+    @Test
     fun `peer fields are clamped to 200 chars`() {
         val long = "x".repeat(5000)
         val c = Contact.fromMap(mapOf("name" to long, "phone" to long, "email" to long, "social" to long, "note" to long))
