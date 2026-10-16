@@ -77,7 +77,11 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -86,6 +90,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
+import com.ping.app.service.NearbyExchangeService
 import com.ping.app.ui.ConnectionState
 import com.ping.app.ui.ConnectionStatusIndicator
 import com.ping.app.ui.components.Avatar
@@ -95,6 +100,7 @@ import com.ping.app.ui.theme.ErrorRed
 import com.ping.app.ui.theme.PingCyan
 import com.ping.app.ui.theme.SuccessGreen
 import com.ping.app.utils.RequiredPermissions
+import com.ping.app.utils.vibrateDouble
 
 /** Attendance by proximity: one phone takes the roll, every student's phone answers it. */
 @Composable
@@ -105,6 +111,8 @@ fun RollCallScreen(onBack: () -> Unit, viewModel: RollCallViewModel = hiltViewMo
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
 
     LaunchedEffect(Unit) {
+        // Both share one transport; a swap still running would fight the roll call for the radio.
+        NearbyExchangeService.stop(context)
         val missing = RequiredPermissions.missing(context)
         if (missing.isNotEmpty()) permissionLauncher.launch(missing.toTypedArray())
     }
@@ -287,9 +295,12 @@ private fun ColumnScope.SessionPane(
     val live = (state as? RollCallState.Taking)?.sessionId == sessionId
     val title = (state as? RollCallState.Taking)?.label ?: sessions.firstOrNull { it.id == sessionId }?.label.orEmpty()
     val marks = attendance.associateBy { it.roll }
-    val present = students.count { it.roll in marks }
-    val flagged = attendance.count { it.flag == Attendance.FLAG_OTHER_PHONE }
-    val total = students.size
+    val listed = students.mapTo(HashSet()) { it.roll }
+    val unlisted = attendance.filter { it.roll !in listed }.map { Student(it.roll, it.roll, "") }
+    val roster = students + unlisted
+    val present = roster.count { it.roll in marks }
+    val flagged = attendance.count { it.flagged }
+    val total = roster.size
 
     // Header: progress ring, title, live dot and the three counts.
     PingCard {
@@ -359,20 +370,22 @@ private fun ColumnScope.SessionPane(
     }
 
     // Missing students first while the roll fills in, so the gaps stay on top.
-    val shown = students
+    val shown = roster
         .filter { st ->
             val m = marks[st.roll]
             when (filter) {
                 Filter.ALL -> true
                 Filter.MISSING -> m == null
                 Filter.PRESENT -> m != null
-                Filter.FLAGGED -> m?.flag == Attendance.FLAG_OTHER_PHONE
+                Filter.FLAGGED -> m?.flagged == true
             }
         }
         .filter { query.isBlank() || grid || it.roll.contains(query, true) || it.name.contains(query, true) }
         .sortedWith(compareBy<Student> { live && it.roll in marks }.thenBy { it.roll })
 
-    if (students.isEmpty()) {
+    // An unlisted roll has no student row yet, so there is nothing to edit.
+    val edit = { st: Student -> if (st.roll in listed) onEdit(st) }
+    if (roster.isEmpty()) {
         Text(
             stringResource(R.string.roll_empty_roster),
             style = MaterialTheme.typography.bodyMedium,
@@ -395,7 +408,7 @@ private fun ColumnScope.SessionPane(
                     student = st,
                     mark = m,
                     onToggle = { viewModel.setPresent(st.roll, m == null) },
-                    onLongPress = { onEdit(st) },
+                    onLongPress = { edit(st) },
                 )
             }
         }
@@ -405,7 +418,7 @@ private fun ColumnScope.SessionPane(
                 val m = marks[st.roll]
                 StudentRow(
                     st, rates[st.roll] ?: 0, sessionCount, mark = m,
-                    onClick = { onEdit(st) },
+                    onClick = { edit(st) },
                     onToggle = { viewModel.setPresent(st.roll, it) },
                 )
             }
@@ -417,7 +430,7 @@ private fun ColumnScope.SessionPane(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SeatTile(student: Student, mark: Attendance?, onToggle: () -> Unit, onLongPress: () -> Unit) {
-    val flagged = mark?.flag == Attendance.FLAG_OTHER_PHONE
+    val flagged = mark?.flagged == true
     val fill by animateColorAsState(
         when {
             mark == null -> MaterialTheme.colorScheme.surfaceVariant
@@ -431,6 +444,8 @@ private fun SeatTile(student: Student, mark: Attendance?, onToggle: () -> Unit, 
         if (mark != null) R.string.roll_seat_present else R.string.roll_seat_missing,
         student.name, student.roll,
     )
+    val toggleLabel = stringResource(if (mark == null) R.string.roll_action_mark_present else R.string.roll_action_mark_missing)
+    val editLabel = stringResource(R.string.roll_action_edit)
     Box(
         modifier = Modifier
             .aspectRatio(1f)
@@ -441,7 +456,12 @@ private fun SeatTile(student: Student, mark: Attendance?, onToggle: () -> Unit, 
                 BorderStroke(if (flagged) 2.dp else 1.dp, if (flagged) ErrorRed else MaterialTheme.colorScheme.outlineVariant),
                 MaterialTheme.shapes.medium,
             )
-            .combinedClickable(onClick = onToggle, onLongClick = onLongPress)
+            .combinedClickable(
+                onClickLabel = toggleLabel,
+                onLongClickLabel = editLabel,
+                onClick = onToggle,
+                onLongClick = onLongPress,
+            )
             .semantics { contentDescription = description }
             .padding(4.dp),
         contentAlignment = Alignment.Center,
@@ -493,7 +513,7 @@ private fun StudentRow(
                     Text(
                         mark!!.flag,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (mark.flag == Attendance.FLAG_OTHER_PHONE) ErrorRed else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (mark.flagged) ErrorRed else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -509,7 +529,12 @@ private fun ProgressRing(present: Int, total: Int, modifier: Modifier = Modifier
     val sweep by animateFloatAsState(fraction, animationSpec = tween(600), label = "ring")
     val track = MaterialTheme.colorScheme.outlineVariant
     val arc = rateColor(fraction)
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+    Box(
+        modifier = modifier.semantics(mergeDescendants = true) {
+            progressBarRangeInfo = ProgressBarRangeInfo(present.toFloat(), 0f..maxOf(total, 1).toFloat())
+        },
+        contentAlignment = Alignment.Center,
+    ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val stroke = 12.dp.toPx()
             val inset = stroke / 2
@@ -519,7 +544,7 @@ private fun ProgressRing(present: Int, total: Int, modifier: Modifier = Modifier
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("$present", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold))
-            Text("of $total", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.roll_of_total, total), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -536,6 +561,8 @@ private fun LiveBadge() {
         Text(stringResource(R.string.roll_live), style = MaterialTheme.typography.labelMedium, color = ErrorRed)
     }
 }
+
+private val Attendance.flagged get() = flag == Attendance.FLAG_OTHER_PHONE || flag == RollCallProtocol.FLAG_NEW_ROLL
 
 /** Red under half, amber under three quarters, green above. */
 private fun rateColor(fraction: Float): Color = when {
@@ -595,6 +622,9 @@ private fun StudentPane(viewModel: RollCallViewModel) {
     var lastJoined by rememberSaveable { mutableStateOf<String?>(null) }
     val checking = state as? RollCallState.CheckingIn
     LaunchedEffect(checking?.joined) { checking?.joined?.let { lastJoined = it.label } }
+    val context = LocalContext.current
+    LaunchedEffect(checking?.confirmed) { if (checking?.confirmed == true) runCatching { context.vibrateDouble() } }
+    val polite = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
 
     val indicator = when {
         checking?.confirmed == true -> ConnectionState.PAIRED
@@ -607,7 +637,7 @@ private fun StudentPane(viewModel: RollCallViewModel) {
     }
 
     if (checking?.confirmed == true) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = polite.fillMaxWidth()) {
             Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen)
             Spacer(Modifier.width(8.dp))
             Text(
@@ -648,13 +678,13 @@ private fun StudentPane(viewModel: RollCallViewModel) {
                 stringResource(R.string.roll_checked_in, checking.joined.label),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = polite.fillMaxWidth(),
             )
             Text(stringResource(R.string.roll_stay_hint), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
         checking != null -> {
             if (checking.found.isEmpty()) {
-                Text(stringResource(R.string.roll_searching), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                Text(stringResource(R.string.roll_searching), textAlign = TextAlign.Center, modifier = polite.fillMaxWidth())
             }
             checking.found.forEach { ad ->
                 Button(onClick = { viewModel.join(ad) }, enabled = ready, modifier = Modifier.fillMaxWidth()) {

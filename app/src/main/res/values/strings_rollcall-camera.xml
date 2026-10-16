@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="roll_of_total">of %1$d</string>
+    <string name="roll_action_mark_present">Mark present</string>
+    <string name="roll_action_mark_missing">Mark missing</string>
+    <string name="roll_action_edit">Edit student</string>
+</resources>
