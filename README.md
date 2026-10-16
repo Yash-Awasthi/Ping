@@ -25,8 +25,9 @@ No server. No cloud. No account. Your data never leaves your phone.
 | 🤝 **Gesture Matchmaking** | About 40 named hand poses plus circle and wave motions, two-hand gestures, left or right hand, or chain two gestures — no enrollment needed |
 | 🖐️ **Practice Mode** | Live label, finger count and raw measurements for your hand, with a guide to every gesture; never connects |
 | 📤 **Export All** | Share every listed contact as one `.vcf` file |
-| 📥 **Import** | Load contacts from a `.vcf` file (vCard 2.1, 3.0 or 4.0); an exported file restores a backup |
-| ✏️ **Edit & Memo** | Edit any contact and keep a private "where we met" memo that is never swapped or exported |
+| 📥 **Import** | Load contacts from a `.vcf` file (vCard 2.1, 3.0 or 4.0) |
+| 💾 **Back up & Restore** | Save every contact to a JSON file you choose, private memos, stars and swap times included; restoring merges into the list without duplicating anyone |
+| ✏️ **Edit & Memo** | Edit any contact and keep a private "where we met" memo that is never swapped or shared; only your own backup keeps it |
 | 🧑‍🏫 **Roll Call** | Offline attendance for a whole class: the teacher's phone scans while students tap Check in; no connections, so 100+ students fit one scan. Class-list CSV import, a live seat grid that lights up as students arrive, per-student attendance rates, manual ticks, session history and CSV export |
 | ⚡ **Quick Launch** | Long-press the icon or add the Quick Settings tile to open a swap in one tap |
 | ⚠️ **Mismatch Notice** | Shows when nearby phones are holding a different gesture instead of timing out silently |

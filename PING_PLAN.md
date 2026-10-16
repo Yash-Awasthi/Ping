@@ -25,9 +25,6 @@ Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-
 - Keep a shared folder's subfolder layout; files currently arrive flat.
 - More than seven guests.
 
-## 4. Contacts
-- Keep the private memo in a backup; the vCard export leaves it out because it is also used for sharing.
-
 ## 5. Platform
 - A de-Googled transport (Wi-Fi Direct without Play Services) behind the `NearbyTransport` interface.
 - An iOS companion.
