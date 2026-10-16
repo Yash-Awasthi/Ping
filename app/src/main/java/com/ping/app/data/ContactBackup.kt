@@ -74,8 +74,8 @@ private fun unseal(file: ByteArray, passphrase: CharArray?): ByteArray {
 }
 
 /**
- * The contacts to write so [restored] lands in [existing] without duplicates. A match (same id or
- * [Contact.isSamePerson]) keeps its id and the newer card; a star from either side sticks, and a
+ * The contacts to write so [restored] lands in [existing] without duplicates. A match (same id, else
+ * [Contact.isSameNamedPerson]) keeps its id and the newer card; a star from either side sticks, and a
  * memo already on the phone wins over the backup's.
  */
 fun mergeBackup(existing: List<Contact>, restored: List<Contact>): List<Contact> {
@@ -83,7 +83,7 @@ fun mergeBackup(existing: List<Contact>, restored: List<Contact>): List<Contact>
     val all = existing.toMutableList()
     val changed = LinkedHashMap<String, Contact>()
     for (r in restored) {
-        val i = all.indexOfFirst { it.id == r.id || it.isSamePerson(r) }
+        val i = all.indexOfFirst { it.id == r.id }.takeIf { it >= 0 } ?: all.indexOfFirst { it.isSameNamedPerson(r) }
         val merged = if (i < 0) r.also { all += it } else {
             val e = all[i]
             val card = if (r.receivedAt > e.receivedAt) r else e

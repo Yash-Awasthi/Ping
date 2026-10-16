@@ -82,7 +82,7 @@ class ContactBackupTest {
 
     @Test
     fun `matching person keeps the phone's id and memo, takes the newer card and either star`() {
-        val onPhone = Contact(id = "p", displayName = "Ada L", phone = "15550100", receivedAt = 5, memo = "")
+        val onPhone = Contact(id = "p", displayName = "ada", phone = "15550100", receivedAt = 5, memo = "")
         val got = mergeBackup(listOf(onPhone), listOf(ada)).single()
         assertEquals(ada.copy(id = "p"), got)
 
@@ -97,5 +97,13 @@ class ContactBackupTest {
         val bobAgain = Contact(id = "b2", displayName = "Bob", email = "bob@x.io", receivedAt = 0)
         val got = mergeBackup(listOf(ada), listOf(bob, bobAgain))
         assertEquals(listOf("b"), got.map { it.id })
+    }
+
+    @Test
+    fun `two people sharing a phone stay apart whatever their order`() {
+        val eve = Contact(id = "e", displayName = "Eve", phone = "+1 555-0100", receivedAt = 30)
+        assertEquals(listOf(ada, eve), mergeBackup(emptyList(), listOf(ada, eve)))
+        assertEquals(listOf(eve), mergeBackup(listOf(ada), listOf(ada, eve)))
+        assertEquals(listOf(eve, ada), mergeBackup(emptyList(), listOf(eve, ada)))
     }
 }

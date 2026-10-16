@@ -38,6 +38,10 @@ data class Contact(
         return phoneMatch || emailMatch
     }
 
+    /** [isSamePerson] with the same name too, so two people sharing a phone stay apart. */
+    fun isSameNamedPerson(other: Contact): Boolean =
+        isSamePerson(other) && displayName.trim().equals(other.displayName.trim(), ignoreCase = true)
+
     /** vCard 3.0 text for sharing; values are escaped per RFC 2426 so a card cannot inject fields. */
     fun toVCard(): String {
         fun esc(v: String) = v.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")

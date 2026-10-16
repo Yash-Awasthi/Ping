@@ -62,4 +62,12 @@ class ContactRepositoryTest {
         assertEquals(bob, repo.saveReceived(bob))
         assertEquals(2, dao.count())
     }
+
+    @Test
+    fun `vcf import merges on phone or email even when the name differs`() = runBlocking {
+        dao.insert(ada)
+        repo.import(listOf(Contact(displayName = "Ada Lovelace", phone = "555")))
+        assertEquals(1, dao.count())
+        assertEquals("Ada Lovelace", dao.getById("a")?.displayName)
+    }
 }
