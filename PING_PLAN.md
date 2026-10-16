@@ -26,7 +26,6 @@ Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-
 - More than seven guests.
 
 ## 5. Platform
-- A de-Googled transport (Wi-Fi Direct without Play Services) behind the `NearbyTransport` interface.
 - An iOS companion.
 - Translations.
 - Re-enable the Gradle configuration cache by making `downloadHandModel` cache-safe.

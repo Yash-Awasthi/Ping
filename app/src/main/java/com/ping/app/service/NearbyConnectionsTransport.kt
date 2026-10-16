@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Production [NearbyTransport] implementation backed by Google Nearby Connections.
  *
  * Wraps [ConnectionsClient] and its callback hierarchy, exposing the same
- * interface as [WifiDirectTransport] and [FakeNearbyTransport] so that
+ * interface as [BleL2capTransport] and [FakeNearbyTransport] so that
  * [NearbyExchangeService] is transport-agnostic.
  *
  * Provided via Hilt in the `gms` product flavor — see `di/TransportModule.kt`

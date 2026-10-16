@@ -62,8 +62,7 @@ interface NearbyTransport {
      * before deciding whether to call [acceptConnection] or [rejectConnection].
      *
      * For Nearby Connections: fires from [ConnectionLifecycleCallback.onConnectionInitiated].
-     * For Wi-Fi Direct: fires from [WifiDirectTransport.onPeerSocketReady] (OS already
-     * established the connection; rejecting calls removeGroup()).
+     * For BLE L2CAP: fires after the link handshake; rejecting closes the channel.
      */
     var onConnectionInitiated: ((endpointId: String, remoteName: String) -> Unit)?
 
@@ -108,7 +107,7 @@ interface NearbyTransport {
      * Send a raw byte stream (file transfer).
      *
      * The concrete transport wraps it in whatever mechanism it supports
-     * (Nearby Connections STREAM payload for gms; WifiDirect is bytes-only).
+     * (Nearby Connections STREAM payload for gms; chunked frames on BLE L2CAP).
      *
      * Returns true if the stream transfer was initiated; false if the transport
      * does not support streaming (FOSS / test doubles). Callers skip the send
