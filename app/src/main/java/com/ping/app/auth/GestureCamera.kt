@@ -31,7 +31,7 @@ import javax.inject.Singleton
  *
  * Runs MediaPipe [HandLandmarker] in LIVE_STREAM mode and, for each frame with
  * a hand, computes a [GestureFingerprint]. When the same fingerprint code holds
- * steady for [COMMIT_FRAMES] frames it emits [State.Locked] — that locked code
+ * steady for [GestureLock.COMMIT_FRAMES] frames it emits [State.Locked] — that locked code
  * is the pairing secret handed to the exchange service.
  *
  * There is no per-person enrollment: the fingerprint is a pure function of the
@@ -67,12 +67,7 @@ class GestureCamera @Inject constructor(
     private var cameraProvider: ProcessCameraProvider? = null
     private var executor: ExecutorService? = null
 
-    private var lastCode: String? = null
-    private var streak = 0
-    private var lastMask = -1
-    private var maskStreak = 0
-    private var lastMotion: GestureFingerprint.Motion? = null
-    private var motionStreak = 0
+    private val lock = GestureLock()
     private val tracker = MotionTracker()
     private val palmVotes = ArrayDeque<GestureFingerprint.Palm>()
     private val handedness = Handedness()
@@ -98,12 +93,7 @@ class GestureCamera @Inject constructor(
 
     /** Forget the current streak so the next lock is a fresh capture. */
     fun reset() {
-        lastCode = null
-        streak = 0
-        lastMask = -1
-        maskStreak = 0
-        lastMotion = null
-        motionStreak = 0
+        lock.clear()
         palmVotes.clear()
         handedness.clear()
         tracker.clear()
@@ -222,28 +212,15 @@ class GestureCamera @Inject constructor(
         tracker.add(px, py)
         val motion = tracker.classify()
 
-        if (fp.code == lastCode) streak++ else { lastCode = fp.code; streak = 1 }
-        if (fp.fingerMask == lastMask) maskStreak++ else { lastMask = fp.fingerMask; maskStreak = 1 }
-        if (motion != null && motion == lastMotion) motionStreak++ else { lastMotion = motion; motionStreak = if (motion != null) 1 else 0 }
-
-        // A moving hand locks on its motion; a still hand locks on its pose. Direction and flags
-        // wobble while a hand moves, so a motion code keeps only the finger mask.
-        val motionLocked = motion != null && maskStreak >= MOTION_POSE_FRAMES && motionStreak >= MOTION_FRAMES
-        val stillLocked = motion == null && streak >= COMMIT_FRAMES && tracker.isStill(COMMIT_FRAMES)
-        _state.value = when {
-            motionLocked -> State.Locked(fp.withMotion(motion!!)).also { Timber.d("Locked gesture %s | %s", it.fingerprint.code, it.fingerprint.label) }
-            stillLocked -> State.Locked(fp).also { Timber.d("Locked gesture %s | %s", fp.code, fp.label) }
-            else -> State.Detecting(fp, (streak.toFloat() / COMMIT_FRAMES).coerceAtMost(1f))
-        }
+        val locked = lock.update(fp, motion, tracker.isStill(GestureLock.COMMIT_FRAMES))
+        _state.value = if (locked != null) {
+            Timber.d("Locked gesture %s | %s", locked.code, locked.label)
+            State.Locked(locked)
+        } else State.Detecting(fp, lock.stability)
     }
 
     companion object {
         private const val MODEL_ASSET = "hand_landmarker.task"
-        /** Frames the same code must persist before we lock it. ~0.3s at 20fps. */
-        private const val COMMIT_FRAMES = 6
-        /** A motion locks after the fingers held one shape this long and the motion read the same this many frames. */
-        private const val MOTION_POSE_FRAMES = 10
-        private const val MOTION_FRAMES = 4
         private const val PALM_VOTES = 9
     }
 }
