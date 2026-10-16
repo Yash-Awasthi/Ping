@@ -17,7 +17,7 @@ import kotlin.math.hypot
  *  - **Pinch** — thumb and index tips touching (👌 🤏 🤌); the thumb and index bits are dropped.
  *  - **Crossed** — index and middle crossed (🤞).
  *  - **Palm** — facing the camera, turned away, or edge-on; only on open hands.
- *  - **Motion** — a circle or a wave, see [MotionTracker]. A motion code keeps only the finger
+ *  - **Motion** — a circle, a wave or a swipe, see [MotionTracker]. A motion code keeps only the finger
  *    mask, because direction and flags wobble while the hand moves.
  *  - **Partner** — with two hands together (👏 🙏 🤝 🫶) the other hand's mask is added.
  *
@@ -49,6 +49,10 @@ data class GestureFingerprint(
         CIRCLE_CW("CW", "circle clockwise"),
         CIRCLE_CCW("CCW", "circle counter-clockwise"),
         WAVE("WAVE", "wave"),
+        SWIPE_LEFT("SL", "swipe left"),
+        SWIPE_RIGHT("SR", "swipe right"),
+        SWIPE_UP("SU", "swipe up"),
+        SWIPE_DOWN("SD", "swipe down"),
     }
 
     /** Compact wire code, e.g. "F31A0", "F2A1P" or "F31~WAVE". This is what gets advertised + compared. */

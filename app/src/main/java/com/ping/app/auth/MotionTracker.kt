@@ -9,7 +9,7 @@ import kotlin.math.sqrt
 
 /**
  * Watches one point (the pointing fingertip or the palm centre, in 0..1 image coordinates)
- * and says whether the last second of movement was a circle, a wave, or neither.
+ * and says whether the last second of movement was a circle, a wave, a swipe, or none of them.
  */
 class MotionTracker(private val window: Int = WINDOW) {
 
@@ -33,7 +33,7 @@ class MotionTracker(private val window: Int = WINDOW) {
     /** The motion seen in the current window, or null. */
     fun classify(): Motion? {
         if (xs.size < MIN_SAMPLES) return null
-        return circle() ?: wave()
+        return circle() ?: wave() ?: swipe()
     }
 
     private fun circle(): Motion? {
@@ -67,10 +67,34 @@ class MotionTracker(private val window: Int = WINDOW) {
         val xRange = x.max() - x.min()
         val yRange = y.max() - y.min()
         if (xRange < MIN_WAVE_EXTENT || yRange > xRange * 0.6) return null
+        return if (reversals(x) >= MIN_REVERSALS) Motion.WAVE else null
+    }
+
+    /** One sweep along a single axis: wide on that axis, narrow across it, and never turning back. */
+    private fun swipe(): Motion? {
+        val x = xs.toList(); val y = ys.toList()
+        val horizontal = x.max() - x.min() >= y.max() - y.min()
+        val main = if (horizontal) x else y
+        val across = if (horizontal) y else x
+        val range = main.max() - main.min()
+        val net = main.last() - main.first()
+        if (range < MIN_SWIPE_EXTENT || across.max() - across.min() > range * SWIPE_MAX_ACROSS) return null
+        if (abs(net) < range * SWIPE_MIN_NET || reversals(main) > 0) return null
+        // Image y grows downward, and the frame is mirrored like the preview, so x grows to the user's right.
+        return when {
+            horizontal && net > 0 -> Motion.SWIPE_RIGHT
+            horizontal -> Motion.SWIPE_LEFT
+            net > 0 -> Motion.SWIPE_DOWN
+            else -> Motion.SWIPE_UP
+        }
+    }
+
+    /** Direction changes along one axis, ignoring steps smaller than [WAVE_STEP] so jitter does not count. */
+    private fun reversals(values: List<Double>): Int {
         var reversals = 0
         var direction = 0
-        var anchor = x[0]
-        for (v in x) {
+        var anchor = values[0]
+        for (v in values) {
             val delta = v - anchor
             if (abs(delta) < WAVE_STEP) continue
             val d = if (delta > 0) 1 else -1
@@ -78,7 +102,7 @@ class MotionTracker(private val window: Int = WINDOW) {
             direction = d
             anchor = v
         }
-        return if (reversals >= MIN_REVERSALS) Motion.WAVE else null
+        return reversals
     }
 
     companion object {
@@ -91,5 +115,8 @@ class MotionTracker(private val window: Int = WINDOW) {
         private const val MIN_WAVE_EXTENT = 0.12
         private const val WAVE_STEP = 0.04
         private const val MIN_REVERSALS = 3
+        private const val MIN_SWIPE_EXTENT = 0.2
+        private const val SWIPE_MAX_ACROSS = 0.4
+        private const val SWIPE_MIN_NET = 0.8
     }
 }
