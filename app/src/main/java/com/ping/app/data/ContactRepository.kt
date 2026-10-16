@@ -26,9 +26,14 @@ class ContactRepository @Inject constructor(
 
     suspend fun save(contact: Contact) = contactDao.insert(contact)
 
-    /** Saves a received card; a repeat swap refreshes the existing entry and keeps its id and star. */
+    /**
+     * Saves a received card. A repeat swap from a matching person with the same name refreshes that
+     * entry, keeping its id, star and memo; a different name sharing a phone or email gets its own row.
+     */
     suspend fun saveReceived(contact: Contact): Contact {
-        val existing = contacts.first().firstOrNull { it.isSamePerson(contact) }
+        val existing = contacts.first().firstOrNull {
+            it.isSamePerson(contact) && it.displayName.trim().equals(contact.displayName.trim(), ignoreCase = true)
+        }
         val toSave = if (existing == null) contact
         else contact.copy(id = existing.id, isFavorite = existing.isFavorite, memo = existing.memo)
         contactDao.insert(toSave)

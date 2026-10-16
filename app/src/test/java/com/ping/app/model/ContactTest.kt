@@ -72,4 +72,11 @@ class ContactTest {
     fun `memo is never exported`() {
         assertFalse(Contact(displayName = "Ada", memo = "met at the fair").toVCard().contains("fair"))
     }
+
+    @Test
+    fun `peer fields are clamped to 200 chars`() {
+        val long = "x".repeat(5000)
+        val c = Contact.fromMap(mapOf("name" to long, "phone" to long, "email" to long, "social" to long, "note" to long))
+        listOf(c.displayName, c.phone, c.email, c.social, c.note).forEach { assertEquals(200, it.length) }
+    }
 }

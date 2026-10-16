@@ -139,13 +139,18 @@ data class Contact(
         /** One .vcf body holding every card in [contacts]. */
         fun toVCards(contacts: List<Contact>): String = contacts.joinToString("") { it.toVCard() }
 
-        /** Field keys used on the wire (see [Profile.toShareableMap]). */
-        fun fromMap(map: Map<String, String>): Contact = Contact(
-            displayName = map["name"].orEmpty(),
-            phone = map["phone"].orEmpty(),
-            email = map["email"].orEmpty(),
-            social = map["social"].orEmpty(),
-            note = map["note"].orEmpty(),
-        )
+        private const val MAX_FIELD = 200
+
+        /** Field keys used on the wire (see [Profile.toShareableMap]); each value is clamped to [MAX_FIELD]. */
+        fun fromMap(map: Map<String, String>): Contact {
+            fun field(key: String) = map[key].orEmpty().take(MAX_FIELD)
+            return Contact(
+                displayName = field("name"),
+                phone = field("phone"),
+                email = field("email"),
+                social = field("social"),
+                note = field("note"),
+            )
+        }
     }
 }
