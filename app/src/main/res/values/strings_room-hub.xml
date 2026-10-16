@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="room_guessing_warning">Someone keeps trying wrong gestures. The room stopped taking new guests; start a new room with a different gesture to let more people in.</string>
+    <string name="room_gesture_mismatch">A room is nearby, but its gesture did not match. Check the gesture and try again.</string>
+    <string name="room_notes">Notes</string>
+    <string name="room_note_paste">Paste clipboard</string>
+    <string name="room_note_unusable">The clipboard is empty or too long for a note.</string>
+</resources>

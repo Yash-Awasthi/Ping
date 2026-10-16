@@ -34,13 +34,10 @@ class RoomHubService : Service() {
         return START_NOT_STICKY
     }
 
+    // Only a swipe-away leaves here: onDestroy also runs after the screen left and maybe reopened a room.
     override fun onTaskRemoved(rootIntent: Intent?) {
-        stopSelf()
-    }
-
-    override fun onDestroy() {
         hub.leave()
-        super.onDestroy()
+        stopSelf()
     }
 
     companion object {
