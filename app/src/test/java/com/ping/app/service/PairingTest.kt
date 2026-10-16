@@ -66,6 +66,24 @@ class PairingTest {
         assertEquals(2, Pairing.othersNearby(mine, seen))
     }
 
+    @Test
+    fun `adverts carry the protocol version and older phones only count as outdated`() {
+        val mine = "F3A0"
+        assertTrue(Pairing.advertisement(mine, "n").startsWith("2:"))
+        val legacy = "${Pairing.token(mine)}|oldnonce"
+        assertFalse(Pairing.matches(mine, legacy))
+        val seen = mapOf("e1" to legacy, "e2" to Pairing.advertisement(mine, "n2"))
+        assertEquals(1, Pairing.legacyNearby(seen))
+        assertEquals(0, Pairing.othersNearby(mine, seen))
+    }
+
+    @Test
+    fun `an oversized remote name never matches`() {
+        val long = Pairing.advertisement("F3A0", "x".repeat(Pairing.MAX_NAME_BYTES))
+        assertFalse(Pairing.matches("F3A0", long))
+        assertTrue(Pairing.matches("F3A0", Pairing.advertisement("F3A0", "x".repeat(Pairing.MAX_NAME_BYTES - 4))))
+    }
+
     private val ctx = Pake.context("a|n1", "a|n2", byteArrayOf(7))
 
     /** Both sides send share, then tag and sealed card together; returns B after it got A's card first. */
