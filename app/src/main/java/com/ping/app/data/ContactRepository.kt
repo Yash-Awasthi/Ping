@@ -58,4 +58,6 @@ class ContactRepository @Inject constructor(
     suspend fun deleteAll() = contactDao.deleteAll()
 
     suspend fun count(): Int = contactDao.count()
+
+    val contactCount: Flow<Int> = contactDao.observeCount()
 }

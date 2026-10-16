@@ -30,4 +30,7 @@ interface ContactDao {
 
     @Query("SELECT COUNT(*) FROM contacts")
     suspend fun count(): Int
+
+    @Query("SELECT COUNT(*) FROM contacts")
+    fun observeCount(): Flow<Int>
 }

@@ -55,4 +55,12 @@ class ContactDaoTest {
         assertEquals("B", dao.getById("x")?.displayName)
         assertEquals(1, dao.count())
     }
+
+    @Test
+    fun observedCountFollowsInserts() = runBlocking {
+        val dao = db.contactDao()
+        assertEquals(0, dao.observeCount().first())
+        dao.insertAll(listOf(Contact(id = "a"), Contact(id = "b")))
+        assertEquals(2, dao.observeCount().first())
+    }
 }
