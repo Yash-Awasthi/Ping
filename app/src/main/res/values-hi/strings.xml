@@ -121,9 +121,7 @@
     <string name="someone">कोई</string>
     <string name="action_cancel">रद्द करें</string>
     <string name="action_done">हो गया</string>
-    <string name="exchange_show_gesture">अपना इशारा कैमरे के सामने करें</string>
     <string name="exchange_gesture_locked">इशारा लॉक हुआ: %1$s</string>
-    <string name="exchange_waiting_peer">वही इशारा करने वाले किसी व्यक्ति का इंतज़ार है…</string>
     <string name="status_connecting">मैच मिल गया! कनेक्ट हो रहा है…</string>
     <string name="status_exchanging">कार्ड की अदला-बदली हो रही है…</string>
     <string name="exchange_completed">%1$s के साथ अदला-बदली हो गई!</string>
@@ -151,14 +149,11 @@
     <string name="gesture_guide_title">Ping जिन इशारों को पहचानता है</string>
     <string name="gesture_guide_intro">दोनों फ़ोन पर एक जैसा इशारा होना चाहिए। नाम बस एक अंदाज़ा हैं; असल में आकार, दिशा और हलचल मायने रखती है। मुद्रा को कुछ पल स्थिर रखें, या हलचल जारी रखें।</string>
     <string name="exchange_retry">फिर कोशिश करें</string>
-    <string name="exchange_permission_denied">कार्ड की अदला-बदली के लिए Ping को कैमरा और आस-पास के डिवाइस की अनुमतियाँ चाहिए। जारी रखने के लिए सेटिंग्स में ये अनुमतियाँ दें।</string>
 
     <!-- Gesture camera states -->
     <string name="gesture_no_hand">कोई हाथ नहीं दिखा — कैमरा अपने हाथ की ओर करें</string>
     <string name="gesture_detecting">%1$s — %2$d%% स्थिर</string>
-    <string name="gesture_stable">%1$s — स्थिर रखें…</string>
     <string name="gesture_model_error">कैमरा मॉडल लोड नहीं हो सका — ऐप रीस्टार्ट करें।</string>
-    <string name="gesture_stability_desc">इशारे की स्थिरता</string>
     <string name="gesture_camera_preview_desc">इशारा पहचानने के लिए कैमरा प्रीव्यू</string>
 
     <!-- Profile -->
@@ -222,11 +217,6 @@
         <item quantity="one">%1$d संपर्क वापस लाया गया</item>
         <item quantity="other">%1$d संपर्क वापस लाए गए</item>
     </plurals>
-    <string name="contact_toggle_favourite_initial">पसंदीदा में जोड़ें या हटाएँ</string>
-
-    <!-- Exchange success sheet -->
-    <string name="exchange_success_title">नया संपर्क</string>
-    <string name="exchange_success_subtitle">पूरा कार्ड देखने के लिए टैप करें।</string>
 
     <!-- Permissions -->
     <string name="perm_rationale_title">Ping को कुछ अनुमतियाँ चाहिए</string>
@@ -235,8 +225,6 @@
     <string name="perm_rationale_not_now">अभी नहीं</string>
 
     <!-- Foreground service notification -->
-    <string name="notif_channel_name">Ping अदला-बदली</string>
-    <string name="notif_channel_desc">संपर्कों की अदला-बदली जारी है</string>
     <string name="notif_title">Ping</string>
     <string name="notif_starting">मैच खोजा जा रहा है…</string>
 </resources>

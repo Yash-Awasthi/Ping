@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exchange_peer_empty_card">दूसरे व्यक्ति ने अपना कार्ड नहीं बनाया है।</string>
+    <string name="exchange_no_match_gesture">आस-पास किसी ने कोशिश की, लेकिन उनका इशारा मेल नहीं खाया। एक इशारा तय करें और फिर कोशिश करें।</string>
+    <string name="exchange_peer_outdated">आस-पास के एक फ़ोन में Ping का पुराना वर्शन है। अदला-बदली के लिए उनसे इसे अपडेट करने को कहें।</string>
+    <string name="exchange_step_desc">चरण %1$d / %2$d: %3$s</string>
+    <string name="exchange_share_fields">इस अदला-बदली में शेयर करें</string>
+</resources>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_passphrase_title">Protéger la sauvegarde</string>
+    <string name="backup_passphrase_message">Phrase secrète facultative. Laissez vide pour enregistrer un fichier non chiffré que tout le monde peut lire.</string>
+    <string name="restore_passphrase_title">Sauvegarde verrouillée</string>
+    <string name="restore_passphrase_message">Saisissez la phrase secrète utilisée pour enregistrer cette sauvegarde.</string>
+    <string name="restore_passphrase_wrong">Phrase secrète incorrecte, ou le fichier est endommagé.</string>
+    <string name="backup_passphrase_hint">Phrase secrète</string>
+    <string name="action_continue">Continuer</string>
+    <string name="profile_share_card">Partager ma carte (.vcf)</string>
+    <string name="profile_share_empty">Enregistrez d\'abord votre carte.</string>
+    <string name="shortcut_my_card">Envoyer ma carte</string>
+    <string name="favourite_add">Ajouter aux favoris</string>
+    <string name="favourite_remove">Retirer des favoris</string>
+    <string name="favourite_on">Favori</string>
+    <string name="favourite_off">Pas un favori</string>
+    <string name="action_back">Retour</string>
+    <string name="indicator_scanning">Recherche…</string>
+    <string name="indicator_connecting">Connexion…</string>
+    <string name="indicator_paired">Associé</string>
+    <string name="indicator_error">Erreur</string>
+    <string name="indicator_idle">Inactif</string>
+    <string name="onboarding_title">Comment fonctionne un échange</string>
+    <string name="onboarding_step_profile">Configurez votre carte dans Profil.</string>
+    <string name="onboarding_step_gesture">Votre ami et vous faites le même geste de la main.</string>
+    <string name="onboarding_step_hold">Maintenez-le immobile jusqu\'à ce que les téléphones se trouvent.</string>
+    <string name="onboarding_practice">S\'entraîner</string>
+    <string name="onboarding_dismiss">Compris</string>
+</resources>

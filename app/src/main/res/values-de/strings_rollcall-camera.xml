@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="roll_of_total">von %1$d</string>
+    <string name="roll_action_mark_present">Als anwesend markieren</string>
+    <string name="roll_action_mark_missing">Als fehlend markieren</string>
+    <string name="roll_action_edit">Schüler bearbeiten</string>
+
+    <!-- Gesture names: shown only, never part of the pairing code. -->
+    <string name="gesture_hand_left">linke Hand</string>
+    <string name="gesture_hand_right">rechte Hand</string>
+    <string name="gesture_sided">%1$s (%2$s)</string>
+    <string name="gesture_both_hands">beide Hände · %1$s</string>
+    <string name="gesture_dir_up">nach oben</string>
+    <string name="gesture_dir_right">nach rechts</string>
+    <string name="gesture_dir_down">nach unten</string>
+    <string name="gesture_dir_left">nach links</string>
+    <string name="gesture_circle_cw">Kreis im Uhrzeigersinn</string>
+    <string name="gesture_circle_ccw">Kreis gegen den Uhrzeigersinn</string>
+    <string name="gesture_wave">Winken</string>
+    <string name="gesture_swipe_left">nach links wischen</string>
+    <string name="gesture_swipe_right">nach rechts wischen</string>
+    <string name="gesture_swipe_up">nach oben wischen</string>
+    <string name="gesture_swipe_down">nach unten wischen</string>
+    <string name="gesture_ok">OK</string>
+    <string name="gesture_pinch">Kneifen</string>
+    <string name="gesture_pinched_fingers">zusammengelegte Finger</string>
+    <string name="gesture_fist">Faust</string>
+    <string name="gesture_fist_toward">Faust %1$s</string>
+    <string name="gesture_thumbs_up">Daumen hoch</string>
+    <string name="gesture_thumbs_down">Daumen runter</string>
+    <string name="gesture_thumb_toward">Daumen %1$s</string>
+    <string name="gesture_pointing">Zeigefinger %1$s</string>
+    <string name="gesture_crossed">Finger gekreuzt</string>
+    <string name="gesture_peace">Peace %1$s</string>
+    <string name="gesture_rock_on">Rock-Zeichen</string>
+    <string name="gesture_love_you">Ich liebe dich</string>
+    <string name="gesture_call_me">Ruf mich an</string>
+    <string name="gesture_finger_gun">Fingerpistole</string>
+    <string name="gesture_three_fingers">drei Finger %1$s</string>
+    <string name="gesture_four_fingers">vier Finger %1$s</string>
+    <string name="gesture_fingers_out">%1$d Finger ausgestreckt, %2$s</string>
+    <string name="gesture_vulcan">vulkanischer Gruß</string>
+    <string name="gesture_spread">Finger gespreizt</string>
+    <string name="gesture_some_apart">offene Hand, einige Finger gespreizt</string>
+    <string name="gesture_back_of_hand">Handrücken</string>
+    <string name="gesture_hand_out_right">Hand nach rechts ausgestreckt</string>
+    <string name="gesture_hand_out_left">Hand nach links ausgestreckt</string>
+    <string name="gesture_push_right">nach rechts schieben</string>
+    <string name="gesture_push_left">nach links schieben</string>
+    <string name="gesture_palm_down">Handfläche nach unten</string>
+    <string name="gesture_open_palm">offene Handfläche</string>
+</resources>

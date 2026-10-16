@@ -121,9 +121,7 @@
     <string name="someone">someone</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_done">Done</string>
-    <string name="exchange_show_gesture">Hold your gesture up to the camera</string>
     <string name="exchange_gesture_locked">Gesture locked: %1$s</string>
-    <string name="exchange_waiting_peer">Waiting for someone doing the same gesture…</string>
     <string name="status_connecting">Found a match! Connecting…</string>
     <string name="status_exchanging">Swapping cards…</string>
     <string name="exchange_completed">Swapped with %1$s!</string>
@@ -151,14 +149,11 @@
     <string name="gesture_guide_title">Gestures Ping knows</string>
     <string name="gesture_guide_intro">Both phones must make the same gesture. Names are a best guess; what counts is the shape, direction and motion. Keep a pose still for a moment, or keep a motion going.</string>
     <string name="exchange_retry">Try again</string>
-    <string name="exchange_permission_denied">Ping needs camera and nearby-device permissions to swap cards. Grant them in Settings to continue.</string>
 
     <!-- Gesture camera states -->
     <string name="gesture_no_hand">No hand detected — point the camera at your hand</string>
     <string name="gesture_detecting">%1$s — %2$d%% steady</string>
-    <string name="gesture_stable">%1$s — hold steady…</string>
     <string name="gesture_model_error">Camera model failed to load — restart the app.</string>
-    <string name="gesture_stability_desc">Gesture steadiness</string>
     <string name="gesture_camera_preview_desc">Camera preview for gesture detection</string>
 
     <!-- Profile -->
@@ -222,11 +217,6 @@
         <item quantity="one">Restored %1$d contact</item>
         <item quantity="other">Restored %1$d contacts</item>
     </plurals>
-    <string name="contact_toggle_favourite_initial">Toggle favourite</string>
-
-    <!-- Exchange success sheet -->
-    <string name="exchange_success_title">New contact</string>
-    <string name="exchange_success_subtitle">Tap to view the full card.</string>
 
     <!-- Permissions -->
     <string name="perm_rationale_title">Ping needs a few permissions</string>
@@ -235,8 +225,6 @@
     <string name="perm_rationale_not_now">Not now</string>
 
     <!-- Foreground service notification -->
-    <string name="notif_channel_name">Ping Exchange</string>
-    <string name="notif_channel_desc">Active contact swap in progress</string>
     <string name="notif_title">Ping</string>
     <string name="notif_starting">Looking for a match…</string>
 </resources>

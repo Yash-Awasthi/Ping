@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="roll_of_total">sur %1$d</string>
+    <string name="roll_action_mark_present">Marquer présent</string>
+    <string name="roll_action_mark_missing">Marquer absent</string>
+    <string name="roll_action_edit">Modifier l\'élève</string>
+
+    <!-- Gesture names: shown only, never part of the pairing code. -->
+    <string name="gesture_hand_left">main gauche</string>
+    <string name="gesture_hand_right">main droite</string>
+    <string name="gesture_sided">%1$s (%2$s)</string>
+    <string name="gesture_both_hands">deux mains · %1$s</string>
+    <string name="gesture_dir_up">vers le haut</string>
+    <string name="gesture_dir_right">vers la droite</string>
+    <string name="gesture_dir_down">vers le bas</string>
+    <string name="gesture_dir_left">vers la gauche</string>
+    <string name="gesture_circle_cw">cercle dans le sens horaire</string>
+    <string name="gesture_circle_ccw">cercle dans le sens antihoraire</string>
+    <string name="gesture_wave">coucou de la main</string>
+    <string name="gesture_swipe_left">balayer vers la gauche</string>
+    <string name="gesture_swipe_right">balayer vers la droite</string>
+    <string name="gesture_swipe_up">balayer vers le haut</string>
+    <string name="gesture_swipe_down">balayer vers le bas</string>
+    <string name="gesture_ok">OK</string>
+    <string name="gesture_pinch">pincement</string>
+    <string name="gesture_pinched_fingers">doigts pincés</string>
+    <string name="gesture_fist">poing</string>
+    <string name="gesture_fist_toward">poing %1$s</string>
+    <string name="gesture_thumbs_up">pouce levé</string>
+    <string name="gesture_thumbs_down">pouce baissé</string>
+    <string name="gesture_thumb_toward">pouce %1$s</string>
+    <string name="gesture_pointing">index pointé %1$s</string>
+    <string name="gesture_crossed">doigts croisés</string>
+    <string name="gesture_peace">signe de paix %1$s</string>
+    <string name="gesture_rock_on">cornes du rock</string>
+    <string name="gesture_love_you">je t\'aime</string>
+    <string name="gesture_call_me">appelle-moi</string>
+    <string name="gesture_finger_gun">pistolet avec les doigts</string>
+    <string name="gesture_three_fingers">trois doigts %1$s</string>
+    <string name="gesture_four_fingers">quatre doigts %1$s</string>
+    <string name="gesture_fingers_out">%1$d doigts tendus, %2$s</string>
+    <string name="gesture_vulcan">salut vulcain</string>
+    <string name="gesture_spread">doigts écartés</string>
+    <string name="gesture_some_apart">main ouverte, quelques doigts écartés</string>
+    <string name="gesture_back_of_hand">dos de la main</string>
+    <string name="gesture_hand_out_right">main tendue vers la droite</string>
+    <string name="gesture_hand_out_left">main tendue vers la gauche</string>
+    <string name="gesture_push_right">pousser vers la droite</string>
+    <string name="gesture_push_left">pousser vers la gauche</string>
+    <string name="gesture_palm_down">paume vers le bas</string>
+    <string name="gesture_open_palm">paume ouverte</string>
+</resources>

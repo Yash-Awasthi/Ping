@@ -121,9 +121,7 @@
     <string name="someone">jemand</string>
     <string name="action_cancel">Abbrechen</string>
     <string name="action_done">Fertig</string>
-    <string name="exchange_show_gesture">Halte deine Geste vor die Kamera</string>
     <string name="exchange_gesture_locked">Geste erfasst: %1$s</string>
-    <string name="exchange_waiting_peer">Warte auf jemanden mit derselben Geste…</string>
     <string name="status_connecting">Treffer gefunden! Verbinde…</string>
     <string name="status_exchanging">Karten werden getauscht…</string>
     <string name="exchange_completed">Mit %1$s getauscht!</string>
@@ -151,14 +149,11 @@
     <string name="gesture_guide_title">Gesten, die Ping kennt</string>
     <string name="gesture_guide_intro">Beide Handys müssen dieselbe Geste machen. Die Namen sind nur eine Annäherung; entscheidend sind Form, Richtung und Bewegung. Halte eine Pose kurz still oder führe eine Bewegung weiter aus.</string>
     <string name="exchange_retry">Erneut versuchen</string>
-    <string name="exchange_permission_denied">Ping benötigt die Berechtigungen für Kamera und Geräte in der Nähe, um Karten zu tauschen. Erteile sie in den Einstellungen, um fortzufahren.</string>
 
     <!-- Gesture camera states -->
     <string name="gesture_no_hand">Keine Hand erkannt – richte die Kamera auf deine Hand</string>
     <string name="gesture_detecting">%1$s – %2$d %% stabil</string>
-    <string name="gesture_stable">%1$s – ruhig halten…</string>
     <string name="gesture_model_error">Das Kameramodell konnte nicht geladen werden – starte die App neu.</string>
-    <string name="gesture_stability_desc">Stabilität der Geste</string>
     <string name="gesture_camera_preview_desc">Kameravorschau zur Gestenerkennung</string>
 
     <!-- Profile -->
@@ -222,11 +217,6 @@
         <item quantity="one">%1$d Kontakt wiederhergestellt</item>
         <item quantity="other">%1$d Kontakte wiederhergestellt</item>
     </plurals>
-    <string name="contact_toggle_favourite_initial">Favorit umschalten</string>
-
-    <!-- Exchange success sheet -->
-    <string name="exchange_success_title">Neuer Kontakt</string>
-    <string name="exchange_success_subtitle">Tippe, um die ganze Karte zu sehen.</string>
 
     <!-- Permissions -->
     <string name="perm_rationale_title">Ping braucht ein paar Berechtigungen</string>
@@ -235,8 +225,6 @@
     <string name="perm_rationale_not_now">Nicht jetzt</string>
 
     <!-- Foreground service notification -->
-    <string name="notif_channel_name">Ping-Austausch</string>
-    <string name="notif_channel_desc">Kontakttausch läuft</string>
     <string name="notif_title">Ping</string>
     <string name="notif_starting">Suche nach einem Treffer…</string>
 </resources>

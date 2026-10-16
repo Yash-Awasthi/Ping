@@ -124,9 +124,7 @@
     <string name="someone">alguém</string>
     <string name="action_cancel">Cancelar</string>
     <string name="action_done">Concluído</string>
-    <string name="exchange_show_gesture">Mostre seu gesto para a câmera</string>
     <string name="exchange_gesture_locked">Gesto travado: %1$s</string>
-    <string name="exchange_waiting_peer">Aguardando alguém fazendo o mesmo gesto…</string>
     <string name="status_connecting">Par encontrado! Conectando…</string>
     <string name="status_exchanging">Trocando cartões…</string>
     <string name="exchange_completed">Troca feita com %1$s!</string>
@@ -155,14 +153,11 @@
     <string name="gesture_guide_title">Gestos que o Ping conhece</string>
     <string name="gesture_guide_intro">Os dois celulares precisam fazer o mesmo gesto. Os nomes são aproximados; o que conta é o formato, a direção e o movimento. Mantenha uma pose parada por um instante ou continue o movimento.</string>
     <string name="exchange_retry">Tentar de novo</string>
-    <string name="exchange_permission_denied">O Ping precisa das permissões de câmera e de dispositivos próximos para trocar cartões. Conceda-as nas Configurações para continuar.</string>
 
     <!-- Gesture camera states -->
     <string name="gesture_no_hand">Nenhuma mão detectada — aponte a câmera para sua mão</string>
     <string name="gesture_detecting">%1$s — %2$d%% estável</string>
-    <string name="gesture_stable">%1$s — mantenha parado…</string>
     <string name="gesture_model_error">Não foi possível carregar o modelo da câmera — reinicie o app.</string>
-    <string name="gesture_stability_desc">Estabilidade do gesto</string>
     <string name="gesture_camera_preview_desc">Prévia da câmera para detecção de gestos</string>
 
     <!-- Profile -->
@@ -228,11 +223,6 @@
         <item quantity="many">%1$d contatos restaurados</item>
         <item quantity="other">%1$d contatos restaurados</item>
     </plurals>
-    <string name="contact_toggle_favourite_initial">Marcar ou desmarcar como favorito</string>
-
-    <!-- Exchange success sheet -->
-    <string name="exchange_success_title">Novo contato</string>
-    <string name="exchange_success_subtitle">Toque para ver o cartão completo.</string>
 
     <!-- Permissions -->
     <string name="perm_rationale_title">O Ping precisa de algumas permissões</string>
@@ -241,8 +231,6 @@
     <string name="perm_rationale_not_now">Agora não</string>
 
     <!-- Foreground service notification -->
-    <string name="notif_channel_name">Troca do Ping</string>
-    <string name="notif_channel_desc">Troca de contatos em andamento</string>
     <string name="notif_title">Ping</string>
     <string name="notif_starting">Procurando um par…</string>
 </resources>

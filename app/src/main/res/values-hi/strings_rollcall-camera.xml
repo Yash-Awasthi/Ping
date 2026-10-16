@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="roll_of_total">%1$d में से</string>
+    <string name="roll_action_mark_present">हाज़िर मार्क करें</string>
+    <string name="roll_action_mark_missing">गैरहाज़िर मार्क करें</string>
+    <string name="roll_action_edit">छात्र की जानकारी बदलें</string>
+
+    <!-- Gesture names: shown only, never part of the pairing code. -->
+    <string name="gesture_hand_left">बायाँ हाथ</string>
+    <string name="gesture_hand_right">दायाँ हाथ</string>
+    <string name="gesture_sided">%1$s (%2$s)</string>
+    <string name="gesture_both_hands">दोनों हाथ · %1$s</string>
+    <string name="gesture_dir_up">ऊपर</string>
+    <string name="gesture_dir_right">दाएँ</string>
+    <string name="gesture_dir_down">नीचे</string>
+    <string name="gesture_dir_left">बाएँ</string>
+    <string name="gesture_circle_cw">घड़ी की दिशा में गोला</string>
+    <string name="gesture_circle_ccw">घड़ी की उलटी दिशा में गोला</string>
+    <string name="gesture_wave">हाथ हिलाना</string>
+    <string name="gesture_swipe_left">बाएँ स्वाइप</string>
+    <string name="gesture_swipe_right">दाएँ स्वाइप</string>
+    <string name="gesture_swipe_up">ऊपर स्वाइप</string>
+    <string name="gesture_swipe_down">नीचे स्वाइप</string>
+    <string name="gesture_ok">OK</string>
+    <string name="gesture_pinch">चुटकी</string>
+    <string name="gesture_pinched_fingers">जुड़ी हुई उँगलियाँ</string>
+    <string name="gesture_fist">मुट्ठी</string>
+    <string name="gesture_fist_toward">मुट्ठी %1$s</string>
+    <string name="gesture_thumbs_up">अंगूठा ऊपर</string>
+    <string name="gesture_thumbs_down">अंगूठा नीचे</string>
+    <string name="gesture_thumb_toward">अंगूठा %1$s</string>
+    <string name="gesture_pointing">उँगली %1$s</string>
+    <string name="gesture_crossed">क्रॉस की हुई उँगलियाँ</string>
+    <string name="gesture_peace">पीस साइन %1$s</string>
+    <string name="gesture_rock_on">रॉक ऑन</string>
+    <string name="gesture_love_you">लव यू</string>
+    <string name="gesture_call_me">कॉल मी</string>
+    <string name="gesture_finger_gun">उँगली की बंदूक</string>
+    <string name="gesture_three_fingers">तीन उँगलियाँ %1$s</string>
+    <string name="gesture_four_fingers">चार उँगलियाँ %1$s</string>
+    <string name="gesture_fingers_out">%1$d उँगलियाँ खुली, %2$s</string>
+    <string name="gesture_vulcan">वल्कन सलाम</string>
+    <string name="gesture_spread">फैली हुई उँगलियाँ</string>
+    <string name="gesture_some_apart">खुला हाथ, कुछ उँगलियाँ अलग</string>
+    <string name="gesture_back_of_hand">हाथ का पिछला हिस्सा</string>
+    <string name="gesture_hand_out_right">हाथ दाईं ओर फैला</string>
+    <string name="gesture_hand_out_left">हाथ बाईं ओर फैला</string>
+    <string name="gesture_push_right">दाईं ओर धकेलें</string>
+    <string name="gesture_push_left">बाईं ओर धकेलें</string>
+    <string name="gesture_palm_down">हथेली नीचे</string>
+    <string name="gesture_open_palm">खुली हथेली</string>
+</resources>

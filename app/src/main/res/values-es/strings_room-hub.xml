@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="room_guessing_warning">Alguien sigue probando gestos incorrectos. La sala dejó de aceptar invitados nuevos; crea una sala nueva con un gesto distinto para dejar entrar a más personas.</string>
+    <string name="room_gesture_mismatch">Hay una sala cerca, pero su gesto no coincidió. Revisa el gesto y vuelve a intentarlo.</string>
+    <string name="room_notes">Notas</string>
+    <string name="room_note_paste">Pegar portapapeles</string>
+    <string name="room_note_unusable">El portapapeles está vacío o es demasiado largo para una nota.</string>
+</resources>
