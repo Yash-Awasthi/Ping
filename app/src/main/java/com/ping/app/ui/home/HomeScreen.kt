@@ -32,6 +32,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.edit
+import android.content.Context
+import com.ping.app.ui.components.PingCard
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -103,6 +111,8 @@ fun HomeScreen(
                 .padding(top = 8.dp),
         )
 
+        OnboardingCard(onPracticeClick)
+
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center,
@@ -147,6 +157,44 @@ fun HomeScreen(
                 onClick = onPracticeClick,
                 modifier = Modifier.weight(1f),
             )
+        }
+    }
+}
+
+private const val ONBOARDING_PREFS = "onboarding"
+private const val KEY_SEEN = "home_card_seen"
+
+/** First-run how-to, shown until dismissed once. */
+@Composable
+private fun OnboardingCard(onPracticeClick: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences(ONBOARDING_PREFS, Context.MODE_PRIVATE) }
+    var seen by remember { mutableStateOf(prefs.getBoolean(KEY_SEEN, false)) }
+    if (seen) return
+    fun dismiss() {
+        prefs.edit { putBoolean(KEY_SEEN, true) }
+        seen = true
+    }
+    PingCard(modifier = Modifier.padding(top = 16.dp)) {
+        Text(
+            text = stringResource(R.string.onboarding_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        listOf(R.string.onboarding_step_profile, R.string.onboarding_step_gesture, R.string.onboarding_step_hold)
+            .forEachIndexed { i, step ->
+                Text(
+                    text = "${i + 1}. " + stringResource(step),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = { dismiss(); onPracticeClick() }) {
+                Text(stringResource(R.string.onboarding_practice), color = PingCyan)
+            }
+            TextButton(onClick = ::dismiss) { Text(stringResource(R.string.onboarding_dismiss)) }
         }
     }
 }

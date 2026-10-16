@@ -38,6 +38,10 @@ data class Contact(
         return phoneMatch || emailMatch
     }
 
+    /** [isSamePerson] with the same name too, so two people sharing a phone stay apart. */
+    fun isSameNamedPerson(other: Contact): Boolean =
+        isSamePerson(other) && displayName.trim().equals(other.displayName.trim(), ignoreCase = true)
+
     /** vCard 3.0 text for sharing; values are escaped per RFC 2426 so a card cannot inject fields. */
     fun toVCard(): String {
         fun esc(v: String) = v.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
@@ -139,13 +143,18 @@ data class Contact(
         /** One .vcf body holding every card in [contacts]. */
         fun toVCards(contacts: List<Contact>): String = contacts.joinToString("") { it.toVCard() }
 
-        /** Field keys used on the wire (see [Profile.toShareableMap]). */
-        fun fromMap(map: Map<String, String>): Contact = Contact(
-            displayName = map["name"].orEmpty(),
-            phone = map["phone"].orEmpty(),
-            email = map["email"].orEmpty(),
-            social = map["social"].orEmpty(),
-            note = map["note"].orEmpty(),
-        )
+        private const val MAX_FIELD = 200
+
+        /** Field keys used on the wire (see [Profile.toShareableMap]); each value is clamped to [MAX_FIELD]. */
+        fun fromMap(map: Map<String, String>): Contact {
+            fun field(key: String) = map[key].orEmpty().take(MAX_FIELD)
+            return Contact(
+                displayName = field("name"),
+                phone = field("phone"),
+                email = field("email"),
+                social = field("social"),
+                note = field("note"),
+            )
+        }
     }
 }

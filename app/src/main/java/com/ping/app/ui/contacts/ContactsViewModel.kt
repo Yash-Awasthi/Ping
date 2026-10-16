@@ -2,8 +2,10 @@ package com.ping.app.ui.contacts
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ping.app.data.BackupLockedException
 import com.ping.app.data.ContactRepository
 import com.ping.app.data.decodeBackup
 import com.ping.app.data.encodeBackup
@@ -61,24 +63,51 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
-    fun backUp(uri: Uri) {
+    private val _locked = MutableSharedFlow<Pair<Uri, Boolean>>(extraBufferCapacity = 1)
+    /** A restore that needs a passphrase: the file, and whether the last one tried was wrong. */
+    val locked: SharedFlow<Pair<Uri, Boolean>> = _locked
+
+    // Held here, not in saved UI state, so the passphrase never lands in a saved-state bundle.
+    private var backupPassphrase: CharArray? = null
+
+    /** Passphrase for the next [backUp]; null or blank writes a plain file. */
+    fun setBackupPassphrase(passphrase: CharArray?) {
+        backupPassphrase?.fill(' ')
+        backupPassphrase = passphrase
+    }
+
+    fun backUp(uri: Uri) = write(uri, backupPassphrase.also { backupPassphrase = null })
+
+    /** Like [backUp] but never plain: a passphrase lost to process death fails instead of leaking. */
+    fun backUpSealed(uri: Uri) {
+        val passphrase = backupPassphrase.also { backupPassphrase = null }
+        if (passphrase == null || passphrase.all(Char::isWhitespace)) {
+            runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+            _backedUp.tryEmit(false)
+        } else write(uri, passphrase)
+    }
+
+    private fun write(uri: Uri, passphrase: CharArray?) {
         viewModelScope.launch(Dispatchers.IO) {
             val ok = runCatching {
-                val text = encodeBackup(contactRepository.contacts.first())
-                context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) }
+                val file = encodeBackup(contactRepository.contacts.first(), passphrase)
+                context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(file) }
             }.isSuccess
+            passphrase?.fill(' ')
             _backedUp.tryEmit(ok)
         }
     }
 
-    fun restore(uri: Uri) {
+    fun restore(uri: Uri, passphrase: CharArray? = null) {
         viewModelScope.launch(Dispatchers.IO) {
-            val count = runCatching {
+            runCatching {
                 val bytes = context.contentResolver.openInputStream(uri)!!.use { it.readNBytesCompat(MAX_BACKUP_BYTES + 1) }
                 require(bytes.size <= MAX_BACKUP_BYTES) { "file too large" }
-                contactRepository.restore(decodeBackup(bytes.toString(Charsets.UTF_8)))
-            }.getOrDefault(-1)
-            _restored.tryEmit(count)
+                contactRepository.restore(decodeBackup(bytes, passphrase))
+            }.onSuccess { _restored.tryEmit(it) }.onFailure {
+                if (it is BackupLockedException) _locked.tryEmit(uri to it.wrongPassphrase) else _restored.tryEmit(-1)
+            }
+            passphrase?.fill(' ')
         }
     }
 

@@ -6,11 +6,11 @@ import androidx.core.content.FileProvider
 import com.ping.app.model.Contact
 import java.io.File
 
-/** Writes [contacts] to one .vcf in the cache and opens the share sheet for it. */
-fun shareVCards(context: Context, contacts: List<Contact>) {
+/** Writes [contacts] to one .vcf named [fileName] in the cache and opens the share sheet for it. */
+fun shareVCards(context: Context, contacts: List<Contact>, fileName: String = "Ping-contacts.vcf") {
     runCatching {
         val dir = File(context.cacheDir, "export").apply { mkdirs() }
-        val file = File(dir, "Ping-contacts.vcf")
+        val file = File(dir, fileName)
         file.writeText(Contact.toVCards(contacts))
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
         val send = Intent(Intent.ACTION_SEND)
