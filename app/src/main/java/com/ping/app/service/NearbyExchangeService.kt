@@ -36,6 +36,7 @@ class NearbyExchangeService : Service() {
     // Main is single-threaded, which the engine's state confinement relies on.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var engine: ExchangeEngine? = null
+    private var engineCode: String? = null
     private var fields: Set<String> = Profile.FIELDS
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -47,6 +48,13 @@ class NearbyExchangeService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIF_ID, buildNotification(getString(R.string.notif_starting)))
+        val code = intent?.getStringExtra(EXTRA_GESTURE_CODE)
+        // An engine is bound to one gesture; a new one gets a fresh engine, not the old search.
+        if (code != null && engineCode != null && code != engineCode) {
+            engine?.abandon()
+            engine = null
+            engineCode = null
+        }
         val e = engine ?: ExchangeEngine(
             transport = transport,
             scope = scope,
@@ -59,9 +67,10 @@ class NearbyExchangeService : Service() {
             session = _session,
         ).also { engine = it }
         e.scan()
-        intent?.getStringExtra(EXTRA_GESTURE_CODE)?.let { code ->
+        if (code != null) {
             intent.getStringArrayExtra(EXTRA_FIELDS)?.let { fields = it.toSet() }
             e.begin(code)
+            engineCode = code
         }
         return START_NOT_STICKY
     }

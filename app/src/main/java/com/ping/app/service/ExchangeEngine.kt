@@ -73,6 +73,8 @@ class ExchangeEngine(
     private lateinit var card: Deferred<ByteArray>
 
     private var connectedEndpoint: String? = null
+    /** The matched endpoint we requested, or are waiting on, before any link is up. */
+    private var requested: String? = null
     private var windowJob: Job? = null
     /** Last state published, so a screen that cleared [session] can be shown it again. */
     private var current: ExchangeSession? = null
@@ -89,6 +91,8 @@ class ExchangeEngine(
     private var saved = false
     private var lingerJob: Job? = null
     private var stopped = false
+    /** Replaced by a newer engine: never publish again into the shared [session]. */
+    private var detached = false
 
     private val payloadCallback: (String, ByteArray) -> Unit = { id, data -> scope.launch { handlePayload(id, data) } }
 
@@ -106,7 +110,7 @@ class ExchangeEngine(
         scope.launch {
             if (stopped) return@launch
             if (gestureCode != null) {
-                session.value = current
+                if (code == gestureCode) session.value = current
                 return@launch
             }
             gestureCode = code
@@ -130,6 +134,14 @@ class ExchangeEngine(
                     shutdown()
                 }
             }
+        }
+    }
+
+    /** Ends this engine for a newer one: radios and links go, the service stays up. */
+    fun abandon() {
+        scope.launch {
+            detached = true
+            shutdown(notify = false)
         }
     }
 
@@ -195,6 +207,7 @@ class ExchangeEngine(
         val code = gestureCode
         if (code != null && !stopped && connectedEndpoint == null && Pairing.matches(code, remoteName)) {
             connectedEndpoint = endpointId
+            requested = null
             cardSent = false; peerDone = false; doneSent = false; linkGone = false
             markConnecting()
             transport.stopAdvertising()
@@ -211,11 +224,11 @@ class ExchangeEngine(
 
     private fun onDisconnected(endpointId: String) {
         Timber.d("Disconnected %s", endpointId)
+        val ours = endpointId == requested || endpointId in initiated
         initiated -= endpointId
         if (stopped) return
         if (endpointId != connectedEndpoint) {
-            // A request that never became a link: search on rather than sit in CONNECTING.
-            if (connectedEndpoint == null && current?.state == State.CONNECTING) update { it.copy(state = State.SEARCHING) }
+            if (connectedEndpoint == null && ours) requestFailed(endpointId)
             return
         }
         when {
@@ -228,8 +241,22 @@ class ExchangeEngine(
         }
     }
 
+    /** Our request never became a link (IO error, collision): search on and match again shortly. */
+    private fun requestFailed(endpointId: String) {
+        if (requested == endpointId) requested = null
+        if (current?.state == State.CONNECTING) update { it.copy(state = State.SEARCHING) }
+        // ponytail: retries the same peer until the window ends; cap per peer if radios thrash
+        scope.launch {
+            delay(REQUEST_GRACE_MS)
+            val code = gestureCode ?: return@launch
+            if (stopped || connectedEndpoint != null || requested != null) return@launch
+            Pairing.firstMatch(code, seen, tried)?.let { onMatch(it.key, it.value) }
+        }
+    }
+
     private fun onMatch(endpointId: String, remoteName: String) {
         if (connectedEndpoint != null || stopped) return
+        requested = endpointId
         // The smaller name requests at once; the larger only after a grace with no request from
         // them, so a peer slow to discover us cannot stall the pair and collisions stay rare.
         if (Pairing.shouldInitiate(localName, remoteName)) {
@@ -394,6 +421,7 @@ class ExchangeEngine(
     }
 
     private fun publish(s: ExchangeSession) {
+        if (detached) return
         current = s
         session.value = s
     }
@@ -402,17 +430,18 @@ class ExchangeEngine(
         current?.let { publish(f(it)) }
     }
 
-    private fun shutdown() {
+    private fun shutdown(notify: Boolean = true) {
         if (stopped) return
         stopped = true
         windowJob?.cancel()
         lingerJob?.cancel()
-        runCatching {
+        // A room or rollcall that took the transport since must keep its radios and links.
+        if (transport.onPayloadReceived === payloadCallback) runCatching {
             transport.stopAdvertising()
             transport.stopDiscovery()
             transport.stopAllEndpoints()
         }
-        onStop()
+        if (notify) onStop()
     }
 
     private fun frame(type: Byte, body: ByteArray): ByteArray = ByteArray(body.size + 1).also {

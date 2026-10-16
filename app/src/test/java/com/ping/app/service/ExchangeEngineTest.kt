@@ -9,8 +9,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -177,5 +179,38 @@ class ExchangeEngineTest {
         a.engine.begin(code)
         await("republished") { a.engine.session.value != null }
         assertNotNull(a.state)
+    }
+
+    @Test
+    fun `a failed connection request is retried`() {
+        val a = peer("a")
+        val b = peer("b")
+        air.failRequests("a", 1)
+        air.failRequests("b", 1)
+        a.go(); b.go()
+        await("both completed") { a.state == State.COMPLETED && b.state == State.COMPLETED }
+    }
+
+    @Test
+    fun `a timeout leaves a transport another feature took over alone`() {
+        val a = peer("a", windowMs = 500).go()
+        await("searching") { a.state == State.SEARCHING }
+        val node = air.node("a")
+        a.scope.launch {
+            node.onPayloadReceived = { _, _ -> }
+            node.startAdvertising("room", "room")
+        }
+        await("a timed out") { a.stopped.get() }
+        assertEquals("room", node.advertised)
+    }
+
+    @Test
+    fun `an abandoned engine stops its radios but not the service`() {
+        val a = peer("a").go()
+        await("searching") { a.state == State.SEARCHING }
+        a.engine.abandon()
+        await("advertising stopped") { air.node("a").advertised == null }
+        Thread.sleep(200)
+        assertFalse(a.stopped.get())
     }
 }

@@ -15,6 +15,11 @@ internal class FakeAir {
 
     fun endpoint(id: String): Node = Node(id).also { nodes[id] = it }
 
+    fun node(id: String): Node = nodes.getValue(id)
+
+    /** [id]'s next [n] connection requests fail locally, as a radio IO error would. */
+    fun failRequests(id: String, n: Int) { nodes.getValue(id).failingRequests = n }
+
     /** [id] stops sending frames of [type], as a peer that never answers would. */
     fun drop(id: String, type: Byte) { nodes.getValue(id).dropped += type }
 
@@ -32,6 +37,7 @@ internal class FakeAir {
         override var onAuthToken: ((String, ByteArray) -> Unit)? = null
         val dropped: MutableSet<Byte> = Collections.synchronizedSet(mutableSetOf())
         @Volatile var connectDelayMs = 0L
+        @Volatile var failingRequests = 0
 
         @Volatile var advertised: String? = null
         @Volatile var discovering = false
@@ -49,6 +55,7 @@ internal class FakeAir {
         }
 
         override fun requestConnection(localName: String, endpointId: String) {
+            if (failingRequests > 0) { failingRequests--; onDisconnected?.invoke(endpointId); return }
             val peer = nodes[endpointId] ?: return
             names[endpointId] = peer.advertised.orEmpty()
             peer.names[id] = localName
