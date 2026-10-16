@@ -103,7 +103,9 @@ class RoomHub @Inject constructor(
     private val transport: NearbyTransport,
     private val profileRepo: ProfileRepository,
 ) {
-    private class GuestInfo(var name: String, var approved: Boolean = false, var files: List<FileMeta> = emptyList())
+    private class GuestInfo(var name: String, var approved: Boolean = false, var files: List<FileMeta> = emptyList()) {
+        val pages = RoomProtocol.PageSet<FileMeta>()
+    }
 
     /** One gesture check per connection; [verified] once the peer's tag checked out. */
     private class Link(val session: Pake.Session) {
@@ -136,6 +138,9 @@ class RoomHub @Inject constructor(
     private val tried: MutableSet<String> = ConcurrentHashMap.newKeySet()
     private val downloadLock = Any()
     private var nextLocalId = 1
+    /** Revision of the listing this phone last sent, so receivers can tell its pages apart. */
+    private var listingRev = 0
+    private var manifestPages = RoomProtocol.PageSet<RoomFile>()
 
     @Volatile private var code = ""
     @Volatile private var myName = ""
@@ -242,6 +247,7 @@ class RoomHub @Inject constructor(
         cacheDir().deleteRecursively()
         hostEndpoint = null
         nextLocalId = 1
+        manifestPages = RoomProtocol.PageSet()
     }
 
     // Sharing
@@ -391,17 +397,16 @@ class RoomHub @Inject constructor(
             approved.map { GuestShare(it.key, it.value.name, it.value.files) },
         )
         _state.update { it.copy(manifest = manifest) }
-        val frame = RoomProtocol.frameText(RoomProtocol.T_MANIFEST_DOWN, RoomProtocol.encodeManifest(manifest))
-        approved.keys.forEach { transport.sendBytes(it, frame) }
+        val frames = RoomProtocol.manifestPages(manifest, ++listingRev)
+            .map { RoomProtocol.frameText(RoomProtocol.T_MANIFEST_DOWN, it) }
+        approved.keys.forEach { id -> frames.forEach { transport.sendBytes(id, it) } }
     }
 
     private fun sendManifestUp() {
         val host = hostEndpoint ?: return
         if (_state.value.phase != RoomPhase.IN_ROOM) return
-        transport.sendBytes(
-            host,
-            RoomProtocol.frameText(RoomProtocol.T_MANIFEST_UP, RoomProtocol.encodeMetas(_state.value.shared)),
-        )
+        RoomProtocol.metaPages(_state.value.shared, ++listingRev)
+            .forEach { transport.sendBytes(host, RoomProtocol.frameText(RoomProtocol.T_MANIFEST_UP, it)) }
     }
 
     // Downloads
@@ -504,7 +509,7 @@ class RoomHub @Inject constructor(
         transport.onConnectionInitiated = { endpointId, remoteName ->
             scope.launch {
                 val ok = Pairing.matches(code, remoteName) && when (_state.value.role) {
-                    RoomRole.HOST -> guests.size < MAX_GUESTS
+                    RoomRole.HOST -> guests.size < RoomProtocol.MAX_GUESTS
                     RoomRole.GUEST -> endpointId == hostEndpoint && endpointId !in tried
                     null -> false
                 }
@@ -641,7 +646,8 @@ class RoomHub @Inject constructor(
                 refreshPending()
             }
             RoomProtocol.T_MANIFEST_UP -> if (g.approved) {
-                g.files = RoomProtocol.decodeMetas(text)
+                val listing = RoomProtocol.decodeMetaPage(text)?.let(g.pages::add) ?: return
+                g.files = listing.files.take(RoomProtocol.MAX_FILES_PER_MEMBER)
                 broadcastManifest()
             }
             RoomProtocol.T_REQUEST -> if (g.approved) {
@@ -659,7 +665,9 @@ class RoomHub @Inject constructor(
             }
             RoomProtocol.T_DENIED -> _state.update { it.copy(phase = RoomPhase.DENIED) }
             RoomProtocol.T_MANIFEST_DOWN -> if (_state.value.phase == RoomPhase.IN_ROOM) {
-                RoomProtocol.decodeManifest(text)?.let { m -> _state.update { it.copy(manifest = m) } }
+                val listing = RoomProtocol.decodeManifestPage(text)?.let(manifestPages::add) ?: return
+                val m = Manifest(listing.files.take(RoomProtocol.MAX_ROOM_FILES), listing.members)
+                _state.update { it.copy(manifest = m) }
             }
             RoomProtocol.T_PUSH -> if (_state.value.phase == RoomPhase.IN_ROOM) {
                 val s = _state.value
@@ -829,7 +837,6 @@ class RoomHub @Inject constructor(
 
     private companion object {
         const val SERVICE_ID = "com.ping.app.room"
-        const val MAX_GUESTS = 7
         /** Rooms a guest may fail the gesture check with per search; each is an online guess. */
         const val MAX_JOIN_ATTEMPTS = 3
         const val MAX_NAME = 30

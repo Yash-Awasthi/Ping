@@ -389,6 +389,34 @@ class RoomHubTest {
         assertTrue(File(tmp, "escape").let { !it.exists() } && File(tmp, "g/escape").let { !it.exists() })
     }
 
+    @Test
+    fun `a full room of guests all see each other's files and one more is turned away`() {
+        val host = newHub("h", "Hana")
+        host.host("F8A1"); Thread.sleep(50)
+        host.share("host.txt", "h")
+        val guests = (1..RoomProtocol.MAX_GUESTS).map { n ->
+            newHub("g$n", "Guest$n").also { g ->
+                g.join("F8A1"); admitted(host, g)
+                g.share("from$n.txt", "$n")
+            }
+        }
+        val last = guests.last()
+        await("everyone listed") { last.state.value.manifest.files.size == RoomProtocol.MAX_GUESTS + 1 }
+        assertEquals(RoomProtocol.MAX_GUESTS + 1, last.state.value.manifest.members.size)
+
+        val gid = last.state.value.manifest.files.single { it.name == "from1.txt" }.id
+        last.download(gid)
+        await("relay") { last.state.value.transfers[gid]?.status == Transfer.Status.DONE }
+        assertEquals("1", File(last.state.value.transfers.getValue(gid).path!!).readText())
+
+        val extra = newHub("x", "Extra")
+        extra.join("F8A1")
+        Thread.sleep(300)
+        assertEquals(RoomPhase.SEARCHING, extra.state.value.phase)
+        assertTrue(host.state.value.pending.isEmpty())
+        assertTrue(air.largestFrame <= RoomProtocol.MAX_FRAME)
+    }
+
     private fun downloads(id: String): List<File> =
         File(tmp, "$id/ext/Ping").listFiles().orEmpty().toList()
 
@@ -446,6 +474,7 @@ private class CutAfter(private val data: ByteArray, private val cut: Int) : Inpu
 private class FakeAir {
     private val nodes = mutableMapOf<String, Node>()
     private val frames: MutableList<Triple<String, String, ByteArray>> = Collections.synchronizedList(mutableListOf())
+    @Volatile var largestFrame = 0
 
     /** Bodies of the [type] frames [from] sent [to], in order. */
     fun texts(from: String, to: String, type: Byte): List<String> = synchronized(frames) {
@@ -511,6 +540,7 @@ private class FakeAir {
 
         override fun sendBytes(endpointId: String, data: ByteArray) {
             frames += Triple(id, endpointId, data)
+            largestFrame = maxOf(largestFrame, data.size)
             nodes[endpointId]?.onPayloadReceived?.invoke(id, data)
         }
 

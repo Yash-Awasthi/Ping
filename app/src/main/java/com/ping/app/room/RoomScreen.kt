@@ -217,6 +217,7 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White,
                 maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         if (inRoom) {
@@ -234,17 +235,6 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
             Text(stringResource(R.string.room_allow_all, state.pending.size))
         }
     }
-    state.pending.forEach { guest ->
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                stringResource(R.string.room_wants_in, guest.name),
-                modifier = Modifier.weight(1f),
-            )
-            Button(onClick = { viewModel.decide(guest.endpointId, true) }) { Text(stringResource(R.string.room_allow)) }
-            TextButton(onClick = { viewModel.decide(guest.endpointId, false) }) { Text(stringResource(R.string.room_deny)) }
-        }
-    }
-
     val others = state.manifest.files.filter { it.ownerKey != state.myKey }
     val fetchable = others.count { state.transfers[it.id]?.status.let { s -> s == null || s == Transfer.Status.FAILED } }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -256,6 +246,16 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
 
     if (inRoom) {
         LazyColumn(modifier = Modifier.weight(1f)) {
+            items(state.pending, key = { "p" + it.endpointId }) { guest ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        stringResource(R.string.room_wants_in, guest.name),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Button(onClick = { viewModel.decide(guest.endpointId, true) }) { Text(stringResource(R.string.room_allow)) }
+                    TextButton(onClick = { viewModel.decide(guest.endpointId, false) }) { Text(stringResource(R.string.room_deny)) }
+                }
+            }
             if (state.shared.isNotEmpty()) {
                 item { SectionLabel(stringResource(R.string.room_you_share)) }
                 items(state.shared, key = { "s" + it.id }) { f ->

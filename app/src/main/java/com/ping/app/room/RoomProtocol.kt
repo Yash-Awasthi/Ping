@@ -14,8 +14,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /**
  * Wire format and pure rules of the file room.
@@ -41,7 +47,15 @@ object RoomProtocol {
     const val T_FAILED: Byte = 10
 
     const val HOST_KEY = "host"
+    /** Nearby's P2P_STAR has no fixed cap; this keeps a full room's listing and relay load sane. */
+    const val MAX_GUESTS = 16
     const val MAX_FILES_PER_MEMBER = 100
+    const val MAX_ROOM_FILES = MAX_FILES_PER_MEMBER * (MAX_GUESTS + 1)
+    /** Nearby's limit for one BYTES payload. */
+    const val MAX_FRAME = 32 * 1024
+    /** Room for a page's members and envelope on top of its files, under [MAX_FRAME]. */
+    private const val PAGE_BUDGET = 24 * 1024
+    private const val MAX_PAGES = 128
     const val MAX_NAME = 80
     const val MAX_DEPTH = 8
     const val MAX_PATH = 160
@@ -105,27 +119,83 @@ object RoomProtocol {
         return Manifest(files, listOf(hostName) + guests.map { it.name })
     }
 
-    fun encodeMetas(files: List<FileMeta>): String = json.encodeToString(files)
+    /**
+     * One frame's share of a file listing: Nearby refuses BYTES payloads over [MAX_FRAME], which a
+     * full room's listing passes. [rev] ties the [parts] of one listing together; [members] rides on part 0.
+     */
+    class Page<T>(val rev: Int, val part: Int, val parts: Int, val files: List<T>, val members: List<String>)
 
-    fun encodeManifest(m: Manifest): String = json.encodeToString(m)
+    /** Gathers the pages of one listing; a page of another revision starts over. */
+    class PageSet<T> {
+        private var rev = 0
+        private val got = HashMap<Int, Page<T>>()
 
-    /** Parses a peer's file list; malformed input yields an empty list rather than an error. */
-    fun decodeMetas(text: String): List<FileMeta> = runCatching {
-        json.parseToJsonElement(text).items<FileMeta>().asSequence()
+        /** The whole listing once [page] completes it, else null. */
+        fun add(page: Page<T>): Page<T>? {
+            if (page.rev != rev || got.values.any { it.parts != page.parts }) {
+                rev = page.rev
+                got.clear()
+            }
+            got[page.part] = page
+            if (got.size < page.parts) return null
+            val all = (0 until page.parts).map(got::getValue)
+            return Page(rev, 0, 1, all.flatMap { it.files }, all[0].members)
+        }
+    }
+
+    fun manifestPages(m: Manifest, rev: Int): List<String> =
+        pages(m.files.map { json.encodeToJsonElement(it) }, m.members, rev)
+
+    fun metaPages(files: List<FileMeta>, rev: Int): List<String> =
+        pages(files.map { json.encodeToJsonElement(it) }, emptyList(), rev)
+
+    private fun pages(items: List<JsonElement>, members: List<String>, rev: Int): List<String> {
+        val chunks = mutableListOf(mutableListOf<JsonElement>())
+        var used = 0
+        for (item in items) {
+            val size = item.toString().toByteArray(Charsets.UTF_8).size + 1
+            if (used + size > PAGE_BUDGET && chunks.last().isNotEmpty()) {
+                chunks += mutableListOf<JsonElement>()
+                used = 0
+            }
+            chunks.last() += item
+            used += size
+        }
+        return chunks.mapIndexed { i, chunk ->
+            buildJsonObject {
+                put("rev", rev)
+                put("part", i)
+                put("parts", chunks.size)
+                put("files", JsonArray(chunk))
+                if (i == 0) put("members", JsonArray(members.map(::JsonPrimitive)))
+            }.toString()
+        }
+    }
+
+    /** Parses one page of a guest's file list; malformed input yields null or drops single entries. */
+    fun decodeMetaPage(text: String): Page<FileMeta>? = decodePage(text) { files ->
+        files.items<FileMeta>().asSequence()
             .filter { it.id.isNotBlank() && it.id.length <= MAX_ID && it.id.none { c -> c == ':' || c.isWhitespace() } && it.size >= 0 }
             .take(MAX_FILES_PER_MEMBER)
             .map { FileMeta(it.id, safeName(it.name), it.size, safePath(it.path)) }
             .toList()
-    }.getOrDefault(emptyList())
+    }
 
-    fun decodeManifest(text: String): Manifest? = runCatching {
-        val m = json.parseToJsonElement(text).jsonObject
-        Manifest(
-            files = m["files"].items<RoomFile>().filter {
-                it.size >= 0 && it.id.contains(':') && it.ownerKey.isNotBlank() && it.ownerName.isNotBlank()
-            }.map { it.copy(name = safeName(it.name), ownerName = safeName(it.ownerName), path = safePath(it.path)) },
-            members = m["members"].items<String>().map { safeName(it) },
-        )
+    fun decodeManifestPage(text: String): Page<RoomFile>? = decodePage(text) { files ->
+        files.items<RoomFile>().asSequence()
+            .filter { it.size >= 0 && it.id.contains(':') && it.ownerKey.isNotBlank() && it.ownerName.isNotBlank() }
+            .take(MAX_ROOM_FILES)
+            .map { it.copy(name = safeName(it.name), ownerName = safeName(it.ownerName), path = safePath(it.path)) }
+            .toList()
+    }
+
+    private fun <T> decodePage(text: String, files: (JsonElement?) -> List<T>): Page<T>? = runCatching {
+        val o = json.parseToJsonElement(text).jsonObject
+        val parts = o["parts"]?.jsonPrimitive?.int ?: 1
+        val part = o["part"]?.jsonPrimitive?.int ?: 0
+        if (parts !in 1..MAX_PAGES || part !in 0 until parts) return null
+        val members = o["members"].items<String>().take(MAX_GUESTS + 1).map { safeName(it) }
+        Page(o["rev"]?.jsonPrimitive?.int ?: 0, part, parts, files(o["files"]), members)
     }.getOrNull()
 
     /** A request for [id] from byte [offset]; a whole-file request is the bare id, as older peers send it. */
