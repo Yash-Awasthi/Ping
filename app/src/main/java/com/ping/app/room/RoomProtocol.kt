@@ -62,6 +62,8 @@ object RoomProtocol {
     private const val MAX_HEADER = 200
     private const val MAX_ID = 40
     private const val DIGEST_SIZE = 32
+    /** Copy buffer for file bytes; big enough that per-read overhead vanishes next to the radio. */
+    const val BUFFER = 256 * 1024
 
     /**
      * A file a member offers: [id] is unique within that member only. [path] is the folder it
@@ -235,7 +237,7 @@ object RoomProtocol {
         val digesting = DigestInputStream(body, MessageDigest.getInstance("SHA-256"))
         val prefix = object : InputStream() {
             override fun read(): Int {
-                val buf = ByteArray(32 * 1024)
+                val buf = ByteArray(BUFFER)
                 var left = skip
                 while (left > 0) {
                     val n = digesting.read(buf, 0, minOf(buf.size.toLong(), left).toInt())

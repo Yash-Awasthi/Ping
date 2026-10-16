@@ -742,7 +742,7 @@ class RoomHub @Inject constructor(
                 }
             }
             if (hostWaiting) setTransfer(gid, Transfer(Transfer.Status.RECEIVING, count, size, startedAt = started, from = offset))
-            var lastReport = count
+            var lastReport = System.nanoTime()
             FileOutputStream(part, true).use { out ->
                 while (count < size) {
                     val n = input.read(buf, 0, minOf(buf.size.toLong(), size - count).toInt())
@@ -750,8 +750,8 @@ class RoomHub @Inject constructor(
                     count += n
                     digest.update(buf, 0, n)
                     out.write(buf, 0, n)
-                    if (hostWaiting && count - lastReport >= REPORT_EVERY) {
-                        lastReport = count
+                    if (hostWaiting && System.nanoTime() - lastReport >= REPORT_NANOS) {
+                        lastReport = System.nanoTime()
                         setTransfer(gid, Transfer(Transfer.Status.RECEIVING, count, size, startedAt = started, from = offset))
                     }
                 }
@@ -842,8 +842,9 @@ class RoomHub @Inject constructor(
         const val MAX_NAME = 30
         const val SEARCH_MS = 30_000L
         const val DISCONNECT_GRACE_MS = 500L
-        const val BUFFER = 32 * 1024
-        const val REPORT_EVERY = 128 * 1024L
+        const val BUFFER = RoomProtocol.BUFFER
+        /** Progress by time, not bytes: a fast link would otherwise rebuild the state many times a second. */
+        const val REPORT_NANOS = 200_000_000L
         val ACTIVE = setOf(Transfer.Status.QUEUED, Transfer.Status.RECEIVING)
     }
 }
