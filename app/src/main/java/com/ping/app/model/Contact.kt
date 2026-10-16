@@ -4,12 +4,14 @@ import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.Ignore
 import androidx.room3.PrimaryKey
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
 /**
  * A contact received via a Ping swap. Mirrors the shareable card fields in
  * [Profile]: name, phone, email, social handle, and a short free-text note.
  */
+@Serializable
 @Entity(tableName = "contacts")
 data class Contact(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
@@ -20,7 +22,7 @@ data class Contact(
     val note: String = "",
     val receivedAt: Long = System.currentTimeMillis(),
     val isFavorite: Boolean = false,
-    /** The owner's private memo, such as where they met; never sent or exported. */
+    /** The owner's private memo, such as where they met; never sent or exported, only backed up. */
     @ColumnInfo(defaultValue = "") val memo: String = "",
 ) {
     /** True when the sender had not filled in any field; such a card is not worth saving. */
