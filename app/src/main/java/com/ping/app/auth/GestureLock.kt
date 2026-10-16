@@ -49,5 +49,12 @@ class GestureLock {
         /** A motion locks after the fingers held one shape this long and the motion read the same this many frames. */
         private const val MOTION_POSE_FRAMES = 10
         private const val MOTION_FRAMES = 4
+
+        /** True when stability rose into its next third; reaching full is left to the lock's own pulse. */
+        fun stabilityStep(old: Float, new: Float): Boolean {
+            // The epsilon keeps 2/6 and 4/6 from rounding just under a third.
+            fun third(x: Float) = (x * 3 + 1e-4f).toInt()
+            return third(new) in 1..2 && third(new) > third(old)
+        }
     }
 }
