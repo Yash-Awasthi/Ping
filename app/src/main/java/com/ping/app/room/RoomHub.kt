@@ -108,7 +108,7 @@ class RoomHub @Inject constructor(
     }
 
     /** One gesture check per connection; [verified] once the peer's tag checked out. */
-    private class Link(val session: Pake.Session) {
+    private class Link(val session: Pake.Session, val context: ByteArray) {
         var keys: Pake.Keys? = null
         var verified = false
     }
@@ -523,7 +523,7 @@ class RoomHub @Inject constructor(
                     RoomRole.GUEST -> if (endpointId != hostEndpoint) return@launch
                     null -> return@launch
                 }
-                val link = Link(Pake.Session(code, Pake.context(localAdvert, remoteName, linkTokens[endpointId])))
+                val link = Link(Pake.Session(Pake.generator(code)), Pake.context(localAdvert, remoteName, linkTokens[endpointId]))
                 links[endpointId] = link
                 transport.sendBytes(endpointId, RoomProtocol.frame(RoomProtocol.T_SHARE, link.session.share))
                 earlyShares.remove(endpointId)?.let { onShare(endpointId, link, it) }
@@ -544,7 +544,7 @@ class RoomHub @Inject constructor(
 
     private fun onShare(endpointId: String, link: Link, share: ByteArray) {
         if (link.keys != null) return
-        val keys = link.session.finish(share) ?: return gestureFailed(endpointId)
+        val keys = link.session.finish(share, link.context) ?: return gestureFailed(endpointId)
         link.keys = keys
         transport.sendBytes(endpointId, RoomProtocol.frame(RoomProtocol.T_CONFIRM, keys.myTag))
     }

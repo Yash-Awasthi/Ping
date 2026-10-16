@@ -5,6 +5,7 @@ import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.ConnectionInfo
 import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback
+import com.google.android.gms.nearby.connection.ConnectionOptions
 import com.google.android.gms.nearby.connection.ConnectionResolution
 import com.google.android.gms.nearby.connection.ConnectionsClient
 import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo
@@ -62,6 +63,12 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
      * (i.e. we are the advertising/server side). Used to set isIncoming in [onConnected].
      */
     private val incomingInitiated: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /**
+     * A swap moves a few hundred bytes, so its link never pays a disruptive Wi-Fi upgrade that pauses
+     * payloads; rooms keep it for file bandwidth. Set by the latest advertise or discover call.
+     */
+    @Volatile private var swapLink = true
 
     // Nearby Connections callbacks
 
@@ -131,13 +138,15 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     // NearbyTransport — implementation
 
     override fun startAdvertising(localName: String, serviceId: String, star: Boolean) {
-        val options = AdvertisingOptions.Builder().setStrategy(strategy(star)).build()
+        swapLink = !star
+        val options = AdvertisingOptions.Builder().setStrategy(strategy(star)).setDisruptiveUpgrade(star).build()
         client.startAdvertising(localName, serviceId, connectionLifecycleCallback, options)
             .addOnSuccessListener { Timber.d("NearbyConnectionsTransport: advertising started as $localName") }
             .addOnFailureListener { e -> Timber.e(e, "NearbyConnectionsTransport: startAdvertising failed") }
     }
 
     override fun startDiscovery(serviceId: String, star: Boolean) {
+        swapLink = !star
         val options = DiscoveryOptions.Builder().setStrategy(strategy(star)).build()
         client.startDiscovery(serviceId, endpointDiscoveryCallback, options)
             .addOnSuccessListener { Timber.d("NearbyConnectionsTransport: discovery started") }
@@ -145,7 +154,8 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     }
 
     override fun requestConnection(localName: String, endpointId: String) {
-        client.requestConnection(localName, endpointId, connectionLifecycleCallback)
+        val options = ConnectionOptions.Builder().setDisruptiveUpgrade(!swapLink).build()
+        client.requestConnection(localName, endpointId, connectionLifecycleCallback, options)
             .addOnSuccessListener { Timber.d("NearbyConnectionsTransport: connection request sent to $endpointId") }
             .addOnFailureListener { e ->
                 Timber.e(e, "NearbyConnectionsTransport: requestConnection failed to $endpointId")
@@ -213,6 +223,8 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     }
 
     companion object {
+        // P2P_CLUSTER kept for swaps: discovery speed matches POINT_TO_POINT, the payload needs no
+        // bandwidth, and changing it would hide this build from phones on the previous one.
         private fun strategy(star: Boolean) = if (star) Strategy.P2P_STAR else Strategy.P2P_CLUSTER
     }
 }

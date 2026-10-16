@@ -18,10 +18,10 @@ import javax.crypto.spec.SecretKeySpec
 /**
  * Gesture-keyed key exchange (CPace-style balanced PAKE on P-256).
  *
- * Both phones hash the gesture code and the connection context to a curve point G, pick a
- * fresh scalar, and swap x(scalar·G). Only a phone holding the same gesture derives the same
- * key, and a peer that guessed wrong learns nothing it can test offline: each connection is
- * one online guess. Key confirmation tags prove the match before any card or file is sent.
+ * Both phones hash the gesture code to a curve point G, pick a fresh scalar, and swap
+ * x(scalar·G); the connection context is bound into the key and both confirmation tags. Only a
+ * phone holding the same gesture derives the same key, and a peer that guessed wrong learns
+ * nothing it can test offline: each connection is one online guess.
  *
  * Only x-coordinates travel, so the JDK's ECDH does all point arithmetic: x(k·P) is the same
  * for P and -P, and the y recovered in [lift] never needs its sign.
@@ -46,13 +46,16 @@ object Pake {
         return lengthPrefixed(lo.toByteArray(), hi.toByteArray(), linkToken ?: ByteArray(0))
     }
 
-    /** One side of one attempt. Never reuse across connections: the scalar is the per-attempt secret. */
-    class Session(password: String, private val context: ByteArray) {
+    /**
+     * One side of one attempt, built before the link exists so only one scalar multiplication is
+     * left once the peer's share arrives. Never reuse across connections: the scalar is the secret.
+     */
+    class Session(generator: ECPoint) {
         private val scalar = KeyPairGenerator.getInstance("EC").apply { initialize(params) }.generateKeyPair().private
-        val share: ByteArray = mulX(scalar, generator(password, context))
+        val share: ByteArray = mulX(scalar, generator)
 
-        /** Keys for this link, or null when [peerShare] is not a usable point. */
-        fun finish(peerShare: ByteArray): Keys? {
+        /** Keys for the link described by [context], or null when [peerShare] is not a usable point. */
+        fun finish(peerShare: ByteArray, context: ByteArray): Keys? {
             if (peerShare.size != SHARE_SIZE || MessageDigest.isEqual(peerShare, share)) return null
             val point = lift(BigInteger(1, peerShare)) ?: return null
             val k = runCatching { mulX(scalar, point) }.getOrNull() ?: return null
@@ -70,18 +73,19 @@ object Pake {
         }
     }
 
-    /** [myTag] goes to the peer; the peer's tag must equal [peerTag] before anything is released. */
+    /** [myTag] goes to the peer; its tag must equal [peerTag] before anything it sent is opened or trusted. */
     class Keys internal constructor(val session: SecretKey, val myTag: ByteArray, private val peerTag: ByteArray) {
         fun verify(tag: ByteArray): Boolean = MessageDigest.isEqual(tag, peerTag)
     }
 
-    /** Try-and-increment hash to curve; a counter byte keeps it deterministic and about two tries long. */
-    internal fun generator(password: String, context: ByteArray): ECPoint {
+    // Try-and-increment of the gesture alone (CPace hashes sid here too) so G is ready at lock;
+    // the ISK and so both tags still bind the link context, so a relay onto another link fails.
+    fun generator(password: String): ECPoint {
         for (ctr in 0..255) {
             val h = MessageDigest.getInstance("SHA-256").apply {
                 update(DSI)
                 update(ctr.toByte())
-                update(lengthPrefixed(password.toByteArray(), context))
+                update(lengthPrefixed(password.toByteArray()))
             }.digest()
             lift(BigInteger(1, h).mod(p))?.let { return it }
         }

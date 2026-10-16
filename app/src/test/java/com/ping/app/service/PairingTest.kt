@@ -1,6 +1,10 @@
 package com.ping.app.service
 
+import com.ping.app.utils.CryptoUtils
+import com.ping.app.utils.Pake
+import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -60,5 +64,41 @@ class PairingTest {
         assertEquals("e4", Pairing.firstMatch(mine, seen, tried = setOf("e2"))?.key)
         assertEquals(null, Pairing.firstMatch(mine, seen, tried = setOf("e2", "e4")))
         assertEquals(2, Pairing.othersNearby(mine, seen))
+    }
+
+    private val ctx = Pake.context("a|n1", "a|n2", byteArrayOf(7))
+
+    /** Both sides send share, then tag and sealed card together; returns B after it got A's card first. */
+    private fun oneRoundTrip(gestureA: String, gestureB: String, ctxB: ByteArray = ctx): Pair<Pairing.Attempt, ByteArray> {
+        val a = Pairing.Attempt(Pake.generator(gestureA))
+        val b = Pairing.Attempt(Pake.generator(gestureB))
+        val ka = a.onShare(b.pake.share, ctx)!!
+        b.onShare(a.pake.share, ctxB)!!
+        b.onCard(CryptoUtils.encrypt(ka.session, "card-a".toByteArray()))
+        assertNull(b.openCard(), "a card is never opened before the tag checks out")
+        b.onConfirm(ka.myTag)
+        return b to ka.myTag
+    }
+
+    @Test
+    fun `a card that beats its tag is held and opened once the tag checks out`() {
+        val (b, _) = oneRoundTrip("F3A0", "F3A0")
+        assertTrue(b.verified)
+        assertArrayEquals("card-a".toByteArray(), b.openCard())
+        assertNull(b.openCard(), "the card is handed out once")
+    }
+
+    @Test
+    fun `a different gesture never opens the early card`() {
+        val (b, _) = oneRoundTrip("F3A0", "F3A1")
+        assertFalse(b.verified)
+        assertNull(b.openCard())
+    }
+
+    @Test
+    fun `a relay onto another link never opens the early card`() {
+        val (b, _) = oneRoundTrip("F3A0", "F3A0", ctxB = Pake.context("a|n1", "a|n2", byteArrayOf(8)))
+        assertFalse(b.verified)
+        assertNull(b.openCard())
     }
 }

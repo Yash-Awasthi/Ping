@@ -15,7 +15,9 @@ import com.ping.app.utils.Pake
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +27,7 @@ import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import javax.crypto.SecretKey
+import java.security.spec.ECPoint
 import javax.inject.Inject
 
 /**
@@ -35,7 +37,7 @@ import javax.inject.Inject
  *  - We advertise `<codeToken>|<sessionNonce>`, a hash of the gesture code, never the code.
  *  - The token is a 4-bit bucket, so it only narrows who we try; we connect to a peer in
  *    our bucket and run [Pake] keyed by the gesture code and bound to the link.
- *  - No card leaves this phone until the peer's confirmation tag proves the same gesture.
+ *  - Our sealed card rides with our tag; the peer's is saved only once its tag proves the gesture.
  *    A failed attempt drops that peer and searches on, up to [MAX_ATTEMPTS] per session.
  *
  * Discovery starts when the swap screen opens ([prewarm]) so peers are already known by the
@@ -58,6 +60,8 @@ class NearbyExchangeService : Service() {
     private var scanning = false
     /** Every Ping endpoint in range, endpointId to advertisement. Main thread only. */
     private val seen = LinkedHashMap<String, String>()
+    /** Endpoints with a connection in progress, either direction. Main thread only. */
+    private val initiated = HashSet<String>()
     /** Endpoints that failed the exchange this session; never retried. */
     private val tried = HashSet<String>()
     private var failures = 0
@@ -67,16 +71,15 @@ class NearbyExchangeService : Service() {
 
     /** Link tokens reported by the transport before each connection is accepted. */
     private val linkTokens = ConcurrentHashMap<String, ByteArray>()
-    /** The current attempt; these fields all belong to [connectedEndpoint]. */
-    @Volatile private var pake: Pake.Session? = null
-    @Volatile private var keys: Pake.Keys? = null
+    private lateinit var generator: ECPoint
+    /** Built ahead of the link so a connection only waits on one scalar multiplication. */
+    @Volatile private var attempt: Pairing.Attempt? = null
+    /** Belongs to [connectedEndpoint]. */
+    @Volatile private var linkContext = ByteArray(0)
     /** Shares that arrived before our own side of that attempt was set up. */
     private val earlyShares = ConcurrentHashMap<String, ByteArray>()
-    /** Set once the peer's confirmation tag proved the same gesture. */
-    @Volatile private var verified = false
-    @Volatile private var cardSent = false
-    /** Peer card that arrived before its confirmation tag. */
-    @Volatile private var pendingCard: ByteArray? = null
+    /** Our card JSON, read at lock so sealing it never waits on the database. */
+    private lateinit var card: Deferred<ByteArray>
 
     @Volatile private var connectedEndpoint: String? = null
     private var windowJob: Job? = null
@@ -105,8 +108,11 @@ class NearbyExchangeService : Service() {
         // The advertised name is readable by any scanner in range, so it carries the
         // token rather than the code, and never the user's display name.
         localName = Pairing.advertisement(code, sessionNonce)
-        _session.value = ExchangeSession(code, ExchangeSession.State.SEARCHING)
         transport.startAdvertising(localName, SERVICE_ID)
+        card = scope.async { Json.encodeToString(profileRepo.getOrCreate().toShareableMap()).toByteArray() }
+        generator = Pake.generator(code)
+        attempt = Pairing.Attempt(generator)
+        _session.value = ExchangeSession(code, ExchangeSession.State.SEARCHING)
         Timber.i("Ping searching for a matching gesture")
         Pairing.firstMatch(code, seen, tried)?.let { onMatch(it.key, it.value) }
         updateOthers()
@@ -142,6 +148,7 @@ class NearbyExchangeService : Service() {
             if (code != null && Pairing.matches(code, remoteName) && endpointId !in tried &&
                 connectedEndpoint in listOf(null, endpointId)
             ) {
+                initiated += endpointId
                 transport.acceptConnection(endpointId)
             } else {
                 Timber.w("Rejecting %s: token mismatch or session already taken", endpointId)
@@ -156,9 +163,9 @@ class NearbyExchangeService : Service() {
                 markConnecting()
                 transport.stopAdvertising()
                 transport.stopDiscovery()
-                val session = Pake.Session(code, Pake.context(localName, remoteName, linkTokens[endpointId]))
-                pake = session
-                transport.sendBytes(endpointId, frame(TYPE_SHARE, session.share))
+                linkContext = Pake.context(localName, remoteName, linkTokens[endpointId])
+                val a = attempt ?: Pairing.Attempt(generator).also { attempt = it }
+                transport.sendBytes(endpointId, frame(TYPE_SHARE, a.pake.share))
                 earlyShares.remove(endpointId)?.let { onShare(endpointId, it) }
                 Timber.i("Connected to %s — sent key share", endpointId)
             } else if (endpointId != connectedEndpoint) {
@@ -171,7 +178,7 @@ class NearbyExchangeService : Service() {
         transport.onDisconnected = { endpointId ->
             Timber.d("Disconnected %s", endpointId)
             if (endpointId == connectedEndpoint && _session.value?.state != ExchangeSession.State.COMPLETED) {
-                if (verified) {
+                if (attempt?.verified == true) {
                     _session.value = _session.value?.copy(state = ExchangeSession.State.ERROR)
                     shutdown()
                 } else {
@@ -183,13 +190,19 @@ class NearbyExchangeService : Service() {
 
     private fun onMatch(endpointId: String, remoteName: String) {
         if (connectedEndpoint != null) return
-        // Deterministic tie-break: only the lexicographically-smaller name
-        // initiates, so both sides don't request each other simultaneously.
+        // The smaller name requests at once; the larger only after a grace with no request from
+        // them, so a peer slow to discover us cannot stall the pair and collisions stay rare.
         if (Pairing.shouldInitiate(localName, remoteName)) {
             Timber.i("Match found (%s) — requesting connection", endpointId)
             transport.requestConnection(localName, endpointId)
         } else {
-            Timber.i("Match found (%s) — waiting for their request", endpointId)
+            Timber.i("Match found (%s) — waiting briefly for their request", endpointId)
+            scope.launch(Dispatchers.Main) {
+                delay(REQUEST_GRACE_MS)
+                if (connectedEndpoint == null && endpointId !in initiated && endpointId !in tried) {
+                    transport.requestConnection(localName, endpointId)
+                }
+            }
         }
         markConnecting()
     }
@@ -207,37 +220,45 @@ class NearbyExchangeService : Service() {
             if (data[0] == TYPE_SHARE && connectedEndpoint == null && endpointId !in tried) earlyShares[endpointId] = body
             return
         }
+        val a = attempt ?: return
         when (data[0]) {
             TYPE_SHARE -> onShare(endpointId, body)
             TYPE_CONFIRM -> {
-                val k = keys ?: return
-                if (verified) return
-                if (!k.verify(body)) {
+                if (a.keys == null || a.verified) return
+                if (!a.onConfirm(body)) {
                     Timber.w("Confirmation from %s failed", endpointId)
                     attemptFailed(endpointId)
                     return
                 }
-                verified = true
                 _session.value = _session.value?.copy(state = ExchangeSession.State.EXCHANGING)
-                sendCard(endpointId, k.session)
-                pendingCard?.let { pendingCard = null; openCard(endpointId, it) }
+                openCard(endpointId, a)
             }
-            TYPE_CARD -> if (verified) openCard(endpointId, body) else pendingCard = body
+            TYPE_CARD -> {
+                a.onCard(body)
+                openCard(endpointId, a)
+            }
         }
     }
 
     private fun onShare(endpointId: String, share: ByteArray) {
-        if (keys != null) return
-        val k = pake?.finish(share) ?: run { attemptFailed(endpointId); return }
-        keys = k
+        val a = attempt ?: return
+        if (a.keys != null) return
+        val k = a.onShare(share, linkContext) ?: run { attemptFailed(endpointId); return }
         transport.sendBytes(endpointId, frame(TYPE_CONFIRM, k.myTag))
+        // Only a phone that derived this key can open the card, and our tag already lets it test
+        // a guess, so the card rides with the tag instead of waiting a round trip for theirs.
+        scope.launch {
+            val sealed = CryptoUtils.encrypt(k.session, card.await())
+            if (attempt !== a) return@launch
+            transport.sendBytes(endpointId, frame(TYPE_CARD, sealed))
+            Timber.i("Card sent to %s", endpointId)
+        }
     }
 
-    private fun openCard(endpointId: String, sealed: ByteArray) {
-        val key = keys?.session ?: return
-        val json = runCatching { String(CryptoUtils.decrypt(key, sealed)) }
-            .getOrElse { Timber.e(it, "Card decrypt failed"); attemptFailed(endpointId); return }
-        saveContact(json)
+    private fun openCard(endpointId: String, a: Pairing.Attempt) {
+        val json = runCatching { a.openCard() }
+            .getOrElse { Timber.e(it, "Card decrypt failed"); attemptFailed(endpointId); return } ?: return
+        saveContact(String(json))
     }
 
     /** The peer does not hold our gesture, or is guessing: drop it and search on. */
@@ -246,12 +267,8 @@ class NearbyExchangeService : Service() {
         tried += endpointId
         failures++
         connectedEndpoint = null
-        pake = null
-        keys = null
+        attempt = Pairing.Attempt(generator)
         earlyShares.clear()
-        verified = false
-        cardSent = false
-        pendingCard = null
         linkTokens.remove(endpointId)
         runCatching { transport.disconnect(endpointId) }
         val code = gestureCode ?: return
@@ -265,17 +282,6 @@ class NearbyExchangeService : Service() {
         transport.startAdvertising(localName, SERVICE_ID)
         transport.startDiscovery(SERVICE_ID)
         Pairing.firstMatch(code, seen, tried)?.let { onMatch(it.key, it.value) }
-    }
-
-    private fun sendCard(endpointId: String, key: SecretKey) {
-        if (cardSent) return
-        cardSent = true
-        scope.launch {
-            val map = profileRepo.getOrCreate().toShareableMap()
-            val sealed = CryptoUtils.encrypt(key, Json.encodeToString(map).toByteArray())
-            transport.sendBytes(endpointId, frame(TYPE_CARD, sealed))
-            Timber.i("Card sent to %s", endpointId)
-        }
     }
 
     private fun saveContact(json: String) {
@@ -359,6 +365,9 @@ class NearbyExchangeService : Service() {
 
         /** Wrong-gesture peers tolerated per session; each one is an online guess at our gesture. */
         private const val MAX_ATTEMPTS = 3
+
+        // ponytail: fixed guess at BLE discovery latency; tune from on-device connect timings
+        private const val REQUEST_GRACE_MS = 1500L
 
         // Payload framing: first byte = type.
         private const val TYPE_CARD: Byte = 2

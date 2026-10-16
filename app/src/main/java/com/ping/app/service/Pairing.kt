@@ -1,6 +1,9 @@
 package com.ping.app.service
 
+import com.ping.app.utils.CryptoUtils
+import com.ping.app.utils.Pake
 import java.security.MessageDigest
+import java.security.spec.ECPoint
 
 /** Advertisement format and matching rules for a gesture swap: `<token>|<nonce>`. */
 object Pairing {
@@ -20,8 +23,8 @@ object Pairing {
         remoteName.substringBefore('|', missingDelimiterValue = "") == token(code)
 
     /**
-     * Exactly one side of a matched pair must request the connection. The smaller
-     * advertisement wins; equal advertisements (same nonce) leave both waiting.
+     * The side that requests a matched connection first. The smaller advertisement wins; the
+     * other waits a short grace for that request before sending its own.
      */
     fun shouldInitiate(localName: String, remoteName: String): Boolean = localName < remoteName
 
@@ -32,4 +35,37 @@ object Pairing {
     /** Ping phones in range that certainly locked a different gesture. */
     fun othersNearby(code: String, seen: Map<String, String>): Int =
         seen.values.count { !matches(code, it) }
+
+    /**
+     * One connection's gesture check. The peer's card may arrive before its tag, but it is held
+     * sealed and only opened once the tag proves the same gesture; a failed attempt drops it.
+     */
+    class Attempt(generator: ECPoint) {
+        val pake = Pake.Session(generator)
+        var keys: Pake.Keys? = null
+            private set
+        var verified = false
+            private set
+        private var pendingCard: ByteArray? = null
+
+        /** Keys for the link [context], or null when the peer's share is unusable. */
+        fun onShare(peerShare: ByteArray, context: ByteArray): Pake.Keys? =
+            pake.finish(peerShare, context)?.also { keys = it }
+
+        /** False when the tag does not prove the same gesture. */
+        fun onConfirm(tag: ByteArray): Boolean {
+            verified = verified || keys?.verify(tag) == true
+            return verified
+        }
+
+        fun onCard(sealed: ByteArray) { pendingCard = sealed }
+
+        /** The peer's card once its tag checked out, else null; throws when the seal does not open. */
+        fun openCard(): ByteArray? {
+            val key = keys?.session?.takeIf { verified } ?: return null
+            val sealed = pendingCard ?: return null
+            pendingCard = null
+            return CryptoUtils.decrypt(key, sealed)
+        }
+    }
 }

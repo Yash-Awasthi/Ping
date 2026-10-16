@@ -14,9 +14,9 @@ class PakeTest {
     private val ctx = Pake.context("a|n1", "a|n2", byteArrayOf(1, 2, 3))
 
     private fun run(pwA: String, pwB: String, ctxA: ByteArray = ctx, ctxB: ByteArray = ctx): Pair<Pake.Keys, Pake.Keys> {
-        val a = Pake.Session(pwA, ctxA)
-        val b = Pake.Session(pwB, ctxB)
-        return a.finish(b.share)!! to b.finish(a.share)!!
+        val a = Pake.Session(Pake.generator(pwA))
+        val b = Pake.Session(Pake.generator(pwB))
+        return a.finish(b.share, ctxA)!! to b.finish(a.share, ctxB)!!
     }
 
     @Test
@@ -40,6 +40,15 @@ class PakeTest {
     fun `a relay with a different link token on each leg fails confirmation`() {
         val (a, b) = run("F31A0", "F31A0", ctxB = Pake.context("a|n1", "a|n2", byteArrayOf(9)))
         assertFalse(a.verify(b.myTag))
+        assertFalse(b.verify(a.myTag))
+        assertFalse(a.session.encoded.contentEquals(b.session.encoded))
+    }
+
+    @Test
+    fun `a relay that swaps in other advertisements fails confirmation`() {
+        val (a, b) = run("F31A0", "F31A0", ctxB = Pake.context("a|n1", "a|n3", byteArrayOf(1, 2, 3)))
+        assertFalse(a.verify(b.myTag))
+        assertFalse(b.verify(a.myTag))
     }
 
     @Test
@@ -62,19 +71,26 @@ class PakeTest {
 
     @Test
     fun `malformed or echoed shares are refused`() {
-        val s = Pake.Session("F1A0", ctx)
-        assertNull(s.finish(ByteArray(31)))
-        assertNull(s.finish(s.share))
-        assertNull(s.finish(ByteArray(32) { 0xFF.toByte() }))
-        assertNotNull(s.finish(Pake.Session("F1A0", ctx).share))
+        val g = Pake.generator("F1A0")
+        val s = Pake.Session(g)
+        assertNull(s.finish(ByteArray(31), ctx))
+        assertNull(s.finish(s.share, ctx))
+        assertNull(s.finish(ByteArray(32) { 0xFF.toByte() }, ctx))
+        assertNotNull(s.finish(Pake.Session(g).share, ctx))
     }
 
     @Test
-    fun `the generator is a deterministic curve point`() {
-        val g = Pake.generator("F31A0", ctx)
-        assertEquals(g, Pake.generator("F31A0", ctx))
+    fun `the generator built at lock is a deterministic curve point per gesture`() {
+        val g = Pake.generator("F31A0")
+        assertEquals(g, Pake.generator("F31A0"))
         assertNotNull(Pake.lift(g.affineX))
-        assertFalse(g == Pake.generator("F31A1", ctx))
+        assertFalse(g == Pake.generator("F31A1"))
+    }
+
+    @Test
+    fun `sessions from one precomputed generator still get fresh shares`() {
+        val g = Pake.generator("F31A0")
+        assertFalse(Pake.Session(g).share.contentEquals(Pake.Session(g).share))
     }
 
     @Test
