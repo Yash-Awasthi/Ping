@@ -619,6 +619,129 @@ class RoomHubTest {
         assertEquals(RoomState(), guest.state.value)
     }
 
+    /** A gesture in the same advertised bucket as [code] that is not [code]. */
+    private fun sameBucket(code: String) =
+        (0 until 64).map { "F${it}A3" }.first { it != code && Pairing.token(it) == Pairing.token(code) }
+
+    /** A bare radio that knocks on [host] with [code] and then never speaks, as a stalled or hostile peer would. */
+    private fun silentKnock(id: String, code: String, host: String = "h", accept: Boolean = true): NearbyTransport =
+        air.endpoint(id).apply {
+            requestConnection(Pairing.advertisement(code, id), host)
+            if (accept) acceptConnection(host)
+        }
+
+    @Test
+    fun `a knock that never gets an answer moves on to the next room`() {
+        val guest = newHub("g", "Gus")
+        guest.verifyMs = 200
+        air.endpoint("q").startAdvertising(Pairing.advertisement("FBB1", "q"), "room")
+        guest.join("FBB1")
+        await("knocked q") { "q" in air.knocks("g") }
+        val host = newHub("h", "Hana")
+        hostOpen(host, "FBB1")
+        await("guest waits at the real room") { guest.state.value.phase == RoomPhase.WAITING_APPROVAL }
+    }
+
+    @Test
+    fun `a host that keeps failing gesture checks stops advertising and says so`() {
+        val host = newHub("h", "Hana")
+        hostOpen(host, "F2A2")
+        val other = sameBucket("F2A2")
+        repeat(5) { n ->
+            assertEquals(false, host.state.value.guessing)
+            newHub("x$n", "X$n").join(other)
+        }
+        await("guessing") { host.state.value.guessing }
+        assertEquals(null, (radios.getValue("h") as FakeAir.Node).advertised)
+    }
+
+    @Test
+    fun `a guest that only reached rooms with another gesture hears it was the gesture`() {
+        (1..3).forEach { hostOpen(newHub("h$it", "Host$it"), "F2A2") }
+        val guest = newHub("g", "Gus")
+        guest.join(sameBucket("F2A2"))
+        await("no room") { guest.state.value.phase == RoomPhase.NO_ROOM }
+        assertTrue(guest.state.value.gestureMismatch)
+    }
+
+    @Test
+    fun `a guest that found nothing is not told its gesture was wrong`() {
+        val guest = newHub("g", "Gus")
+        guest.searchMs = 200
+        guest.join("FBB2")
+        await("no room") { guest.state.value.phase == RoomPhase.NO_ROOM }
+        assertEquals(false, guest.state.value.gestureMismatch)
+    }
+
+    @Test
+    fun `a link that never proves the gesture is hung up`() {
+        val host = newHub("h", "Hana")
+        host.verifyMs = 200
+        hostOpen(host, "FBB3")
+        val gone = CountDownLatch(1)
+        silentKnock("r", "FBB3").onDisconnected = { gone.countDown() }
+        await("hung up") { gone.count == 0L }
+    }
+
+    @Test
+    fun `an unverified link cannot be let in`() {
+        val host = newHub("h", "Hana")
+        hostOpen(host, "FBB4")
+        silentKnock("r", "FBB4")
+        await("share sent") { air.texts("h", "r", RoomProtocol.T_SHARE).isNotEmpty() }
+        host.decide("r", true)
+        host.flush()
+        assertTrue(air.texts("h", "r", RoomProtocol.T_APPROVED).isEmpty())
+    }
+
+    @Test
+    fun `knocks still connecting count toward the room's cap`() {
+        val host = newHub("h", "Hana")
+        hostOpen(host, "FBB5")
+        repeat(RoomProtocol.MAX_GUESTS) { silentKnock("r$it", "FBB5", accept = false) }
+        val guest = newHub("g", "Gus")
+        guest.join("FBB5")
+        await("searching") { guest.state.value.phase == RoomPhase.SEARCHING }
+        settle(guest, host)
+        assertEquals(RoomPhase.SEARCHING, guest.state.value.phase)
+        assertTrue(host.state.value.pending.isEmpty())
+    }
+
+    @Test
+    fun `a guest names itself once`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        hostOpen(host, "FBB6")
+        guest.join("FBB6")
+        await("named") { host.state.value.pending.singleOrNull()?.name == "Gus" }
+        radios.getValue("g").sendBytes("h", RoomProtocol.frameText(RoomProtocol.T_HELLO, "Hana"))
+        host.flush()
+        assertEquals("Gus", host.state.value.pending.single().name)
+    }
+
+    @Test
+    fun `leaving outside a room leaves another user's callbacks alone`() {
+        val hub = newHub("h", "Hana")
+        val theirs: (String, String, Boolean) -> Unit = { _, _, _ -> }
+        radios.getValue("h").onConnected = theirs
+        hub.leave(); hub.leave()
+        hub.flush()
+        assertTrue(radios.getValue("h").onConnected === theirs)
+    }
+
+    @Test
+    fun `closing a room only clears the callbacks it still owns`() {
+        val host = newHub("h", "Hana")
+        hostOpen(host, "FBB7")
+        val radio = radios.getValue("h")
+        val theirs: (String, ByteArray) -> Unit = { _, _ -> }
+        radio.onPayloadReceived = theirs
+        host.leave()
+        await("left") { host.state.value == RoomState() }
+        assertTrue(radio.onPayloadReceived === theirs)
+        assertEquals(null, radio.onConnected)
+    }
+
     private fun downloads(id: String): List<File> =
         File(tmp, "$id/ext/Ping").listFiles().orEmpty().toList()
 
@@ -717,6 +840,8 @@ private class FakeAir {
     fun drop(id: String, type: Byte) { nodes.getValue(id).dropped += type }
 
     /** [id]'s streams fail to start, as a link that just dropped would. */
+    fun knocks(id: String): List<String> = nodes.getValue(id).knocked.toList()
+
     fun failStreams(id: String) { nodes.getValue(id).streamsFail = true }
 
     inner class Node(val id: String) : NearbyTransport {
@@ -731,6 +856,7 @@ private class FakeAir {
         var tokenOverride: ByteArray? = null
         val dropped: MutableSet<Byte> = Collections.synchronizedSet(mutableSetOf())
         @Volatile var streamsFail = false
+        val knocked: MutableList<String> = Collections.synchronizedList(mutableListOf())
 
         var advertised: String? = null
         var discovering = false
@@ -750,6 +876,7 @@ private class FakeAir {
         }
 
         override fun requestConnection(localName: String, endpointId: String) {
+            knocked += endpointId
             val peer = nodes[endpointId] ?: return
             names[endpointId] = peer.advertised.orEmpty()
             peer.names[id] = localName
