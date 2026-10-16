@@ -455,6 +455,29 @@ class RoomHubTest {
     }
 
     @Test
+    fun `a relayed file reaches the requester while it is still landing at the host`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        val bob = newHub("b", "Bob")
+        val data = Random(4).nextBytes(1 shl 20)
+        val gate = CountDownLatch(1)
+        host.host("F9A6"); Thread.sleep(50)
+        ada.join("F9A6"); admitted(host, ada)
+        ada.addShared(FileMeta("", "ada.bin", data.size.toLong())) { HalfGated(data, gate) }
+        bob.join("F9A6"); admitted(host, bob)
+        await("bob sees file") { bob.state.value.manifest.files.isNotEmpty() }
+        val gid = bob.state.value.manifest.files.single().id
+        try {
+            bob.download(gid)
+            await("first half at bob") { downloads("b").singleOrNull()?.length() == data.size / 2L }
+        } finally {
+            gate.countDown()
+        }
+        await("done") { bob.state.value.transfers[gid]?.status == Transfer.Status.DONE }
+        assertArrayEquals(data, File(bob.state.value.transfers.getValue(gid).path!!).readBytes())
+    }
+
+    @Test
     fun `megabytes move host to guest and guest to guest byte for byte`() {
         val host = newHub("h", "Hana")
         val ada = newHub("a", "Ada")
@@ -523,6 +546,21 @@ private class Gated(data: ByteArray, private val gate: CountDownLatch) : InputSt
     private val inner = ByteArrayInputStream(data)
     override fun read(): Int = gate.await().let { inner.read() }
     override fun read(b: ByteArray, off: Int, len: Int): Int = gate.await().let { inner.read(b, off, len) }
+}
+
+/** The first half of [data] at once, the rest once [gate] opens. */
+private class HalfGated(private val data: ByteArray, private val gate: CountDownLatch) : InputStream() {
+    private var pos = 0
+    override fun read(): Int = ByteArray(1).let { if (read(it, 0, 1) < 0) -1 else it[0].toInt() and 0xff }
+    override fun read(b: ByteArray, off: Int, len: Int): Int {
+        if (pos >= data.size) return -1
+        if (pos >= data.size / 2) gate.await()
+        val end = if (pos < data.size / 2) data.size / 2 else data.size
+        val n = minOf(len, end - pos)
+        System.arraycopy(data, pos, b, off, n)
+        pos += n
+        return n
+    }
 }
 
 /** Hands out the first [cut] bytes of [data], then fails like a dropped link. */
