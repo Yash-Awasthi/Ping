@@ -23,8 +23,8 @@ object Pairing {
         remoteName.substringBefore('|', missingDelimiterValue = "") == token(code)
 
     /**
-     * Exactly one side of a matched pair must request the connection. The smaller
-     * advertisement wins; equal advertisements (same nonce) leave both waiting.
+     * The side that requests a matched connection first. The smaller advertisement wins; the
+     * other waits a short grace for that request before sending its own.
      */
     fun shouldInitiate(localName: String, remoteName: String): Boolean = localName < remoteName
 

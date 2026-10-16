@@ -61,6 +61,8 @@ class NearbyExchangeService : Service() {
     private var scanning = false
     /** Every Ping endpoint in range, endpointId to advertisement. Main thread only. */
     private val seen = LinkedHashMap<String, String>()
+    /** Endpoints with a connection in progress, either direction. Main thread only. */
+    private val initiated = HashSet<String>()
     /** Endpoints that failed the exchange this session; never retried. */
     private val tried = HashSet<String>()
     private var failures = 0
@@ -147,6 +149,7 @@ class NearbyExchangeService : Service() {
             if (code != null && Pairing.matches(code, remoteName) && endpointId !in tried &&
                 connectedEndpoint in listOf(null, endpointId)
             ) {
+                initiated += endpointId
                 transport.acceptConnection(endpointId)
             } else {
                 Timber.w("Rejecting %s: token mismatch or session already taken", endpointId)
@@ -188,13 +191,19 @@ class NearbyExchangeService : Service() {
 
     private fun onMatch(endpointId: String, remoteName: String) {
         if (connectedEndpoint != null) return
-        // Deterministic tie-break: only the lexicographically-smaller name
-        // initiates, so both sides don't request each other simultaneously.
+        // The smaller name requests at once; the larger only after a grace with no request from
+        // them, so a peer slow to discover us cannot stall the pair and collisions stay rare.
         if (Pairing.shouldInitiate(localName, remoteName)) {
             Timber.i("Match found (%s) — requesting connection", endpointId)
             transport.requestConnection(localName, endpointId)
         } else {
-            Timber.i("Match found (%s) — waiting for their request", endpointId)
+            Timber.i("Match found (%s) — waiting briefly for their request", endpointId)
+            scope.launch(Dispatchers.Main) {
+                delay(REQUEST_GRACE_MS)
+                if (connectedEndpoint == null && endpointId !in initiated && endpointId !in tried) {
+                    transport.requestConnection(localName, endpointId)
+                }
+            }
         }
         markConnecting()
     }
@@ -357,6 +366,9 @@ class NearbyExchangeService : Service() {
 
         /** Wrong-gesture peers tolerated per session; each one is an online guess at our gesture. */
         private const val MAX_ATTEMPTS = 3
+
+        // ponytail: fixed guess at BLE discovery latency; tune from on-device connect timings
+        private const val REQUEST_GRACE_MS = 1500L
 
         // Payload framing: first byte = type.
         private const val TYPE_CARD: Byte = 2
