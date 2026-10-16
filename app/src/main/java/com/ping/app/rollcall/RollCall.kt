@@ -194,6 +194,7 @@ class RollCall internal constructor(
     fun join(ad: RollCallProtocol.AdminAdvert) {
         val s = _state.value as? RollCallState.CheckingIn ?: return
         val roll = RollCallProtocol.cleanRoll(savedRoll).ifEmpty { return }
+        radiosOn = true
         transport.stopAdvertising()
         transport.startAdvertising(
             RollCallProtocol.studentAdvert(ad.session, roll, deviceTag, savedName),
