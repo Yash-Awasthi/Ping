@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ping</string>
+
+    <!-- Bottom nav -->
+    <string name="nav_home">Início</string>
+    <string name="nav_profile">Perfil</string>
+    <string name="nav_contacts">Contatos</string>
+
+    <!-- Home -->
+    <string name="home_tagline">Façam o mesmo gesto e troquem contatos.</string>
+    <string name="home_greeting">Oi, %1$s</string>
+    <string name="home_greeting_no_profile">Configure seu cartão para começar</string>
+    <string name="home_contact_count">Contatos: %1$d</string>
+    <string name="home_share_button">Compartilhar</string>
+    <string name="home_share_hint">Combinem um gesto e depois toquem os dois em Compartilhar.</string>
+    <string name="home_share_needs_profile">Preencha seu Perfil primeiro para ter algo para compartilhar.</string>
+
+    <string name="home_room_button">Sala de arquivos</string>
+    <string name="home_practice_button">Praticar gestos</string>
+    <string name="practice_title">Prática</string>
+    <string name="home_room_hint">Compartilhe arquivos com quem está perto</string>
+    <string name="home_roll_button">Chamada</string>
+    <string name="home_more">Mais jeitos de usar o Ping</string>
+    <string name="home_practice_hint">Aprenda os gestos</string>
+    <string name="home_roll_hint">Presença na aula</string>
+    <string name="roll_tab_take">Fazer a chamada</string>
+    <string name="roll_tab_check_in">Marcar presença</string>
+    <string name="roll_admin_intro">Inicie a chamada e mantenha esta tela aberta. Os alunos na sala tocam em Marcar presença no celular e aparecem aqui; ninguém se conecta, então funciona com uma turma de qualquer tamanho.</string>
+    <string name="roll_class_label">Nome da turma</string>
+    <string name="roll_start">Iniciar chamada</string>
+    <string name="roll_stop">Encerrar chamada</string>
+    <string name="roll_history">Sessões anteriores</string>
+    <string name="roll_export">Exportar CSV</string>
+    <string name="roll_admin_title">Fazer a chamada</string>
+    <string name="roll_class_list">Lista da turma</string>
+    <plurals name="roll_students">
+        <item quantity="one">%1$d aluno</item>
+        <item quantity="many">%1$d alunos</item>
+        <item quantity="other">%1$d alunos</item>
+    </plurals>
+    <string name="roll_import">Importar CSV</string>
+    <string name="roll_import_hint">Um CSV com uma coluna de número de chamada e uma coluna opcional de nome. Assim os ausentes aparecem desde a primeira sessão.</string>
+    <string name="roll_import_failed">Não foi possível ler essa lista da turma.</string>
+    <plurals name="roll_imported">
+        <item quantity="one">%1$d aluno importado</item>
+        <item quantity="many">%1$d alunos importados</item>
+        <item quantity="other">%1$d alunos importados</item>
+    </plurals>
+    <string name="roll_manage">Gerenciar</string>
+    <string name="roll_hide">Ocultar</string>
+    <string name="roll_fraction">%1$d/%2$d</string>
+    <string name="roll_counts">%1$d presentes · %2$d ausentes · %3$d sinalizados</string>
+    <string name="roll_filter_all">Todos</string>
+    <string name="roll_filter_missing">Ausentes</string>
+    <string name="roll_filter_present">Presentes</string>
+    <string name="roll_filter_flagged">Sinalizados</string>
+    <string name="roll_view_list">Lista</string>
+    <string name="roll_view_grid">Grade</string>
+    <string name="roll_search">Buscar nome ou número</string>
+    <string name="roll_empty_roster">Ainda não há alunos. Importe uma lista da turma, ou os alunos aparecem conforme marcam presença.</string>
+    <string name="roll_grid_hint">Toque em um lugar para marcá-lo manualmente; toque e segure para editar o aluno.</string>
+    <string name="roll_seat_present">%1$s, %2$s, presente</string>
+    <string name="roll_seat_missing">%1$s, %2$s, ausente</string>
+    <string name="roll_live">AO VIVO</string>
+    <string name="roll_rate">Presente em %1$d de %2$d sessões (%3$d%%)</string>
+    <string name="roll_remove">Remover da turma</string>
+    <string name="roll_remove_confirm">Toque de novo para remover</string>
+    <string name="roll_no_phone">ainda sem celular</string>
+    <string name="roll_student_intro">Digite seu número de chamada uma vez e toque em Encontrar chamada quando seu professor iniciar uma. Da próxima vez que sua turma for encontrada, sua presença é marcada automaticamente.</string>
+    <string name="roll_number">Número de chamada</string>
+    <string name="roll_find">Encontrar chamada</string>
+    <string name="roll_searching">Procurando o celular do seu professor…</string>
+    <string name="roll_join">Marcar presença em %1$s</string>
+    <string name="roll_checked_in">Enviado para %1$s…</string>
+    <string name="roll_confirmed">✓ Presença marcada em %1$s</string>
+    <string name="roll_stay_hint">Mantenha esta tela aberta até o visto aparecer; normalmente leva alguns segundos.</string>
+    <string name="roll_last_done">Última presença: %1$s</string>
+
+    <!-- File room -->
+    <string name="room_title">Sala de arquivos</string>
+    <string name="room_intro">Compartilhe arquivos com quem está perto, sem internet. Um celular hospeda; os outros entram fazendo o mesmo gesto. Só os nomes dos arquivos são compartilhados até alguém tocar em Baixar.</string>
+    <string name="room_host">Hospedar uma sala</string>
+    <string name="room_join">Entrar em uma sala</string>
+    <string name="room_lock_prompt">Mostre o gesto da sala para a câmera</string>
+    <string name="room_open">Sala aberta. Os convidados entram fazendo o seu gesto; você aprova cada um.</string>
+    <string name="room_searching">Procurando uma sala com este gesto…</string>
+    <string name="room_waiting_approval">Conectado. Aguardando o anfitrião deixar você entrar…</string>
+    <string name="room_in">Você está na sala.</string>
+    <string name="room_denied">O anfitrião não deixou você entrar.</string>
+    <string name="room_none">Nenhuma sala encontrada por perto. Confira o gesto e tente de novo.</string>
+    <string name="room_closed">A sala foi fechada.</string>
+    <string name="room_wants_in">%1$s quer entrar</string>
+    <string name="room_allow">Permitir</string>
+    <string name="room_deny">Recusar</string>
+    <string name="room_add_files">Adicionar arquivos</string>
+    <string name="room_add_folder">Adicionar pasta</string>
+    <string name="room_host_hint">Abra uma sala em que outros entram com o seu gesto</string>
+    <string name="room_join_hint">Encontre uma sala fazendo o gesto dela</string>
+    <string name="room_you_host">Você está hospedando</string>
+    <string name="room_you_guest">Sala de arquivos</string>
+    <plurals name="room_member_count">
+        <item quantity="one">%1$d pessoa</item>
+        <item quantity="many">%1$d pessoas</item>
+        <item quantity="other">%1$d pessoas</item>
+    </plurals>
+    <string name="room_allow_all">Deixar os %1$d entrarem</string>
+    <string name="room_download_all">Baixar tudo (%1$d)</string>
+    <string name="room_speed">%1$s/s · faltam %2$s</string>
+    <string name="room_leave">Sair</string>
+    <string name="room_you_share">Você está compartilhando</string>
+    <string name="room_stop_sharing">Remover</string>
+    <string name="room_in_room">Arquivos na sala</string>
+    <string name="room_no_files">Ninguém compartilhou um arquivo ainda.</string>
+    <string name="room_file_meta">%1$s · de %2$s</string>
+    <string name="room_download">Baixar</string>
+    <string name="room_retry">Tentar de novo</string>
+    <string name="room_resume">Retomar</string>
+    <string name="room_receiving">Recebendo…</string>
+    <string name="room_open_file">Abrir</string>
+    <string name="notif_room">A sala de arquivos está aberta</string>
+
+    <!-- Exchange -->
+    <string name="someone">alguém</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_done">Concluído</string>
+    <string name="exchange_show_gesture">Mostre seu gesto para a câmera</string>
+    <string name="exchange_gesture_locked">Gesto travado: %1$s</string>
+    <string name="exchange_waiting_peer">Aguardando alguém fazendo o mesmo gesto…</string>
+    <string name="status_connecting">Par encontrado! Conectando…</string>
+    <string name="status_exchanging">Trocando cartões…</string>
+    <string name="exchange_completed">Troca feita com %1$s!</string>
+    <string name="stage_gesture">Gesto</string>
+    <string name="stage_find">Buscar</string>
+    <string name="stage_check">Verificar</string>
+    <string name="stage_swap">Trocar</string>
+    <plurals name="exchange_others_nearby">
+        <item quantity="one">%1$d celular por perto está fazendo um gesto diferente. Combinem um gesto e tentem de novo.</item>
+        <item quantity="many">%1$d celulares por perto estão fazendo um gesto diferente. Combinem um gesto e tentem de novo.</item>
+        <item quantity="other">%1$d celulares por perto estão fazendo um gesto diferente. Combinem um gesto e tentem de novo.</item>
+    </plurals>
+    <string name="exchange_cancelled">Cancelado</string>
+    <string name="exchange_error_generic">Algo deu errado. Tente de novo.</string>
+    <string name="exchange_no_match">Nenhum par encontrado por perto. Façam os dois o mesmo gesto e tentem de novo.</string>
+    <string name="exchange_waiting_peer_countdown">Aguardando o mesmo gesto por perto… %1$d s</string>
+    <string name="exchange_two_gestures">Senha de dois gestos</string>
+    <string name="exchange_second_gesture">Primeiro gesto travado. Agora mude para um gesto diferente.</string>
+    <string name="gesture_guide_button">Guia de gestos</string>
+    <string name="custom_gestures_title">Seus gestos</string>
+    <string name="custom_gestures_intro">Mantenha uma pose até ela travar e depois adicione. Adicione uma segunda pose para encadear as duas. Qualquer pessoa que faça as mesmas poses na mesma ordem combina, salvas ou não.</string>
+    <string name="custom_gesture_add_step">Adicionar esta pose</string>
+    <string name="custom_gesture_clear">Recomeçar</string>
+    <string name="custom_gesture_name">Nome</string>
+    <string name="custom_gestures_pick">Ou use um gesto salvo</string>
+    <string name="gesture_guide_title">Gestos que o Ping conhece</string>
+    <string name="gesture_guide_intro">Os dois celulares precisam fazer o mesmo gesto. Os nomes são aproximados; o que conta é o formato, a direção e o movimento. Mantenha uma pose parada por um instante ou continue o movimento.</string>
+    <string name="exchange_retry">Tentar de novo</string>
+    <string name="exchange_permission_denied">O Ping precisa das permissões de câmera e de dispositivos próximos para trocar cartões. Conceda-as nas Configurações para continuar.</string>
+
+    <!-- Gesture camera states -->
+    <string name="gesture_no_hand">Nenhuma mão detectada — aponte a câmera para sua mão</string>
+    <string name="gesture_detecting">%1$s — %2$d%% estável</string>
+    <string name="gesture_stable">%1$s — mantenha parado…</string>
+    <string name="gesture_model_error">Não foi possível carregar o modelo da câmera — reinicie o app.</string>
+    <string name="gesture_stability_desc">Estabilidade do gesto</string>
+    <string name="gesture_camera_preview_desc">Prévia da câmera para detecção de gestos</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Seu cartão</string>
+    <string name="profile_subtitle">É isso que as pessoas recebem quando vocês trocam.</string>
+    <string name="hint_name">Nome</string>
+    <string name="hint_phone">Telefone</string>
+    <string name="hint_email">E-mail</string>
+    <string name="hint_social">Rede social / usuário</string>
+    <string name="hint_note">Nota (2 linhas)</string>
+    <string name="profile_preview_label">Seu cartão</string>
+    <string name="profile_privacy">Só o que você preencher é enviado, e só depois que o outro celular provar que tem o mesmo gesto.</string>
+    <string name="profile_save">Salvar cartão</string>
+    <string name="profile_saved">Cartão salvo</string>
+    <string name="profile_name_required">Digite um nome primeiro.</string>
+
+    <!-- Contacts -->
+    <string name="empty_contacts">Nenhum contato ainda.\nToque em Compartilhar para trocar com alguém.</string>
+    <string name="contact_unknown_name">Desconhecido</string>
+    <string name="contact_label_phone">Telefone</string>
+    <string name="contact_label_email">E-mail</string>
+    <string name="contact_label_social">Redes sociais</string>
+    <string name="contact_label_note">Nota</string>
+    <string name="action_call">Ligar</string>
+    <string name="action_email_verb">Enviar e-mail</string>
+    <string name="action_copy">Copiar</string>
+    <string name="action_delete">Excluir</string>
+    <string name="action_close">Fechar</string>
+    <string name="contact_copied">Copiado</string>
+    <string name="contact_label_name">Nome</string>
+    <string name="contact_label_memo">Onde nos conhecemos</string>
+    <string name="exchange_memo_hint">Encontro, conferência, café…</string>
+    <string name="contact_memo_hint">Sua anotação fica neste celular. Ela nunca é trocada nem compartilhada; só o seu próprio backup a guarda.</string>
+    <string name="contact_edit_title">Editar contato</string>
+    <string name="contact_swapped_on">Trocado em %1$s</string>
+    <string name="action_edit">Editar</string>
+    <string name="action_save">Salvar</string>
+    <string name="shortcut_swap">Trocar contato</string>
+    <string name="shortcut_room">Sala de arquivos</string>
+    <string name="contacts_import">Importar</string>
+    <string name="contacts_favourites">Favoritos</string>
+    <string name="contacts_everyone">Todos</string>
+    <string name="contacts_import_failed">Não foi possível ler esse arquivo.</string>
+    <plurals name="contacts_imported">
+        <item quantity="one">%1$d contato importado</item>
+        <item quantity="many">%1$d contatos importados</item>
+        <item quantity="other">%1$d contatos importados</item>
+    </plurals>
+    <string name="contacts_count">Pessoas: %1$d</string>
+    <string name="contacts_search_hint">Buscar contatos</string>
+    <string name="contacts_no_results">Nenhum contato corresponde.</string>
+    <string name="action_add_to_phone">Adicionar ao celular</string>
+    <string name="action_share_vcard">Compartilhar vCard</string>
+    <string name="contacts_export_all">Exportar %1$d como vCard</string>
+    <string name="contacts_more">Mais opções</string>
+    <string name="contacts_backup">Fazer backup (com anotações)</string>
+    <string name="contacts_restore">Restaurar backup</string>
+    <string name="contacts_backup_saved">Backup salvo. Ele inclui suas anotações privadas, então guarde-o em local seguro.</string>
+    <string name="contacts_backup_failed">Não foi possível salvar o backup.</string>
+    <string name="contacts_restore_failed">Esse não é um backup do Ping que esta versão consiga ler, ou ele é grande demais.</string>
+    <plurals name="contacts_restored">
+        <item quantity="one">%1$d contato restaurado</item>
+        <item quantity="many">%1$d contatos restaurados</item>
+        <item quantity="other">%1$d contatos restaurados</item>
+    </plurals>
+    <string name="contact_toggle_favourite_initial">Marcar ou desmarcar como favorito</string>
+
+    <!-- Exchange success sheet -->
+    <string name="exchange_success_title">Novo contato</string>
+    <string name="exchange_success_subtitle">Toque para ver o cartão completo.</string>
+
+    <!-- Permissions -->
+    <string name="perm_rationale_title">O Ping precisa de algumas permissões</string>
+    <string name="perm_rationale_subtitle">Elas permitem que o Ping encontre pessoas bem ao seu lado e troque cartões com elas. Nada sai do seu dispositivo.</string>
+    <string name="perm_rationale_open_settings">Abrir Configurações</string>
+    <string name="perm_rationale_not_now">Agora não</string>
+
+    <!-- Foreground service notification -->
+    <string name="notif_channel_name">Troca do Ping</string>
+    <string name="notif_channel_desc">Troca de contatos em andamento</string>
+    <string name="notif_title">Ping</string>
+    <string name="notif_starting">Procurando um par…</string>
+</resources>

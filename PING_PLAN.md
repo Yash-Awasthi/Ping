@@ -24,7 +24,6 @@ Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-
 
 ## 5. Platform
 - An iOS companion.
-- Translations.
 
 ## 6. Cleanup
 - Run the shrunk release build through the gesture and room flows on a phone.

@@ -43,6 +43,7 @@ No server. No cloud. No account. Your data never leaves your phone.
 | 📳 **Haptics** | Pulse on gesture lock and on a finished swap |
 | 📇 **Contact Export** | Add a received card to the phone's contacts, or share it as a vCard |
 | 💾 **Offline Contacts** | Room v1 database — contacts persist on device |
+| 🌐 **Languages** | English, Hindi, Spanish, French, German and Brazilian Portuguese; on Android 13+ pick one per app in system settings |
 | 🔒 **Permission Denied UX** | Clear explanations when camera/Nearby permissions are missing |
 
 ---
