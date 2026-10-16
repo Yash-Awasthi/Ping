@@ -31,7 +31,7 @@ No server. No cloud. No account. Your data never leaves your phone.
 | ⚡ **Quick Launch** | Long-press the icon or add the Quick Settings tile to open a swap in one tap |
 | ⚠️ **Mismatch Notice** | Shows when nearby phones are holding a different gesture instead of timing out silently |
 | 🗂️ **File Room** | Host or join a room by gesture; share files or a whole folder, pull files on demand over a Nearby star link, each checked against its SHA-256. Guests start listening before their gesture locks, the host can let everyone in at once, and Download all fetches the whole room with live speed and time left. The host approves every guest and both phones show a link code to compare |
-| 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections |
+| 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections; without Play Services, BLE advertising plus an encrypted L2CAP channel |
 | 🔐 **E2E Encryption** | P-256 ECDH → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
 | 👤 **Contact Cards** | Name, phone, email, social handles, short note |
 | 🎯 **Auto-Matchmaking** | Phones only connect when the advertised gesture tokens match |
@@ -96,7 +96,7 @@ The frame is rotated and mirrored to match the preview before detection, so dire
 
 - Android SDK (platform 37.2)
 - JDK 25
-- Two physical Android phones with Google Play Services (emulators can't do BLE)
+- Two physical Android phones (emulators can't do BLE). With Google Play Services they use Nearby Connections; without it they need Android 10+ and Bluetooth 5 extended advertising
 
 ### Build
 
@@ -142,7 +142,7 @@ adb -s SERIAL_A logcat -s Ping:* NearbyExchangeService:* GestureCamera:*
 | Key derivation | HKDF-SHA256 |
 | Encryption | AES-256-GCM (authenticated encryption) |
 | Keys | Fresh every swap — nothing long-lived |
-| Transport | BLE + Wi-Fi Direct (no internet) |
+| Transport | BLE + Wi-Fi Direct via Nearby Connections, or BLE L2CAP when Play Services is missing (no internet). The L2CAP link runs an ephemeral P-256 ECDH handshake and seals every frame with AES-256-GCM under per-direction keys and counter nonces. |
 | Data | All on-device (Room v1 database) |
 | Matchmaking | The gesture is advertised only as a truncated SHA-256 token. With so few possible values a device in range can still recover it and try to join. |
 | Peer authentication | A six-digit short authentication string over both public keys. Users compare it on both screens; no card is sent until both confirm, and a man in the middle produces different digits on each phone. |
@@ -171,6 +171,7 @@ Ping uses **MVVM** with Hilt dependency injection:
 │              Service Layer                   │
 │  NearbyExchangeService                      │
 │  NearbyConnectionsTransport (BLE + Wi-Fi)   │
+│  BleL2capTransport (no Play Services)       │
 ├─────────────────────────────────────────────┤
 │              Crypto Layer                    │
 │  P-256 ECDH → HKDF-SHA256 → AES-256-GCM     │
