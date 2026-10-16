@@ -15,4 +15,9 @@
     <string name="favourite_on">Favourite</string>
     <string name="favourite_off">Not a favourite</string>
     <string name="action_back">Back</string>
+    <string name="indicator_scanning">Scanning…</string>
+    <string name="indicator_connecting">Connecting…</string>
+    <string name="indicator_paired">Paired</string>
+    <string name="indicator_error">Error</string>
+    <string name="indicator_idle">Idle</string>
 </resources>

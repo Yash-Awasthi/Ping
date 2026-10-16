@@ -1,11 +1,13 @@
 package com.ping.app.ui.navigation
 
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation3.runtime.NavKey
+import com.ping.app.R
 import androidx.savedstate.serialization.SavedStateConfiguration
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -36,12 +38,12 @@ val navStateConfiguration = SavedStateConfiguration { serializersModule = navKey
 /** Bottom navigation items. */
 data class BottomNavItem(
     val key: NavKey,
-    val label: String,
+    @StringRes val label: Int,
     val icon: ImageVector,
 )
 
 val bottomNavItems = listOf(
-    BottomNavItem(Home, "Home", Icons.Default.Home),
-    BottomNavItem(Contacts, "Contacts", Icons.Default.AccountBox),
-    BottomNavItem(Profile, "Profile", Icons.Default.Person),
+    BottomNavItem(Home, R.string.nav_home, Icons.Default.Home),
+    BottomNavItem(Contacts, R.string.nav_contacts, Icons.Default.AccountBox),
+    BottomNavItem(Profile, R.string.nav_profile, Icons.Default.Person),
 )

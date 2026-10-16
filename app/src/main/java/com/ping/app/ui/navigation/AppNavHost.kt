@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.ping.app.ui.QuickLaunch
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -58,8 +59,8 @@ fun AppNavHost(launchKey: NavKey? = null, onLaunchKeyHandled: () -> Unit = {}) {
                 NavigationBar {
                     bottomNavItems.forEach { item ->
                         NavigationBarItem(
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) },
+                            icon = { Icon(item.icon, contentDescription = null) },
+                            label = { Text(stringResource(item.label)) },
                             selected = current == item.key,
                             onClick = { if (current != item.key) backStack.openFromHome(item.key) },
                         )

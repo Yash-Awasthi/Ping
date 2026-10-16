@@ -14,6 +14,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import com.ping.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -50,11 +54,11 @@ private val stateColors = mapOf(
 )
 
 private val stateLabels = mapOf(
-    ConnectionState.SCANNING to "Scanning…",
-    ConnectionState.CONNECTING to "Connecting…",
-    ConnectionState.PAIRED to "Paired",
-    ConnectionState.ERROR to "Error",
-    ConnectionState.IDLE to "Idle",
+    ConnectionState.SCANNING to R.string.indicator_scanning,
+    ConnectionState.CONNECTING to R.string.indicator_connecting,
+    ConnectionState.PAIRED to R.string.indicator_paired,
+    ConnectionState.ERROR to R.string.indicator_error,
+    ConnectionState.IDLE to R.string.indicator_idle,
 )
 
 /**
@@ -112,63 +116,66 @@ fun ConnectionStatusIndicator(
         else -> 2.dp
     }
 
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier.size((size + 16).dp),
-    ) {
-        // Outer ring — rotating for CONNECTING
-        Box(
-            modifier = Modifier
-                .size(size.dp)
-                .scale(scale)
-                .clip(CircleShape)
-                .border(
-                    width = borderWidth,
-                    color = animatedColor.copy(alpha = 0.6f),
-                    shape = CircleShape,
-                )
-                .then(
-                    if (state == ConnectionState.CONNECTING) {
-                        Modifier.alpha(1f)
-                    } else Modifier
-                ),
-        )
-
-        // Inner circle
+    val label = stringResource(stateLabels.getValue(state))
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size((size - 8).dp)
-                .clip(CircleShape)
-                .background(animatedColor.copy(alpha = 0.15f))
-                .border(
-                    width = 1.5.dp,
-                    color = animatedColor,
-                    shape = CircleShape,
-                ),
+            modifier = Modifier.size((size + 16).dp),
         ) {
-            Text(
-                text = when (state) {
-                    ConnectionState.SCANNING -> "📡"
-                    ConnectionState.CONNECTING -> "⏳"
-                    ConnectionState.PAIRED -> "✓"
-                    ConnectionState.ERROR -> "✕"
-                    ConnectionState.IDLE -> "—"
-                },
-                fontSize = (size / 3).sp,
-                color = animatedColor,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
+            // Outer ring — rotating for CONNECTING
+            Box(
+                modifier = Modifier
+                    .size(size.dp)
+                    .scale(scale)
+                    .clip(CircleShape)
+                    .border(
+                        width = borderWidth,
+                        color = animatedColor.copy(alpha = 0.6f),
+                        shape = CircleShape,
+                    )
+                    .then(
+                        if (state == ConnectionState.CONNECTING) {
+                            Modifier.alpha(1f)
+                        } else Modifier
+                    ),
             )
-        }
 
-        // Label below
+            // Inner circle
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size((size - 8).dp)
+                    .clip(CircleShape)
+                    .background(animatedColor.copy(alpha = 0.15f))
+                    .border(
+                        width = 1.5.dp,
+                        color = animatedColor,
+                        shape = CircleShape,
+                    )
+                    .clearAndSetSemantics { contentDescription = label },
+            ) {
+                Text(
+                    text = when (state) {
+                        ConnectionState.SCANNING -> "📡"
+                        ConnectionState.CONNECTING -> "⏳"
+                        ConnectionState.PAIRED -> "✓"
+                        ConnectionState.ERROR -> "✕"
+                        ConnectionState.IDLE -> "—"
+                    },
+                    fontSize = (size / 3).sp,
+                    color = animatedColor,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        // Laid out below the rings, not offset past them, so it stays inside the indicator's bounds.
         Text(
-            text = stateLabels[state] ?: "",
-            fontSize = 10.sp,
+            text = label,
+            fontSize = 12.sp,
             color = animatedColor,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.align(Alignment.BottomCenter).offset(y = (size / 2 + 4).dp),
+            modifier = Modifier.clearAndSetSemantics {},
         )
     }
 }
@@ -200,7 +207,7 @@ fun ConnectionStatusBadge(
                 .background(animatedColor),
         )
         Text(
-            text = stateLabels[state] ?: "",
+            text = stringResource(stateLabels.getValue(state)),
             fontSize = 12.sp,
             color = animatedColor,
             fontWeight = FontWeight.Medium,
