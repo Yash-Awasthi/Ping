@@ -2,7 +2,10 @@ package com.ping.app.auth
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.RectF
 import android.os.SystemClock
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -25,6 +28,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.roundToInt
 
 /**
  * Front-camera hand pipeline for Ping.
@@ -73,8 +77,8 @@ class GestureCamera @Inject constructor(
     private val handedness = Handedness()
 
     fun start(owner: LifecycleOwner) {
-        executor = Executors.newSingleThreadExecutor()
-        warmUp()
+        // Off main: warmUp() is synchronized, so it would block on a load still running from app start.
+        executor = Executors.newSingleThreadExecutor().also { it.execute(::warmUp) }
         val future = ProcessCameraProvider.getInstance(context)
         future.addListener({
             cameraProvider = future.get()
@@ -104,6 +108,8 @@ class GestureCamera @Inject constructor(
     @Synchronized
     fun warmUp() {
         if (landmarker != null) return
+        // Starts CameraX's camera enumeration now so the first bind does not pay for it.
+        ProcessCameraProvider.getInstance(context)
         try {
             val options = HandLandmarker.HandLandmarkerOptions.builder()
                 .setBaseOptions(BaseOptions.builder().setModelAssetPath(MODEL_ASSET).build())
@@ -142,22 +148,45 @@ class GestureCamera @Inject constructor(
 
     private fun process(proxy: ImageProxy) {
         val lm = landmarker ?: run { proxy.close(); return }
-        val raw = proxy.toBitmap()
-        val rotation = proxy.imageInfo.rotationDegrees
-        proxy.close()
-        // Turn the sensor frame upright and mirror it like the preview, so "up" and "right"
-        // mean what the user sees on screen on any phone.
-        val matrix = Matrix().apply {
-            postRotate(rotation.toFloat())
-            postScale(-1f, 1f)
-        }
-        val upright = Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, matrix, true)
+        val upright = try { upright(proxy) } finally { proxy.close() }
         try {
             lm.detectAsync(BitmapImageBuilder(upright).build(), SystemClock.uptimeMillis())
         } catch (e: Exception) {
             Timber.w(e, "detectAsync failed")
         }
     }
+
+    private var rawFrame: Bitmap? = null
+    private var uprightFrame: Bitmap? = null
+    private val framePaint = Paint(Paint.FILTER_BITMAP_FLAG)
+
+    /**
+     * The frame turned upright and mirrored like the preview, so "up" and "right" mean what the
+     * user sees on any phone. Both bitmaps are reused: detectAsync copies the pixels before returning.
+     */
+    private fun upright(proxy: ImageProxy): Bitmap {
+        val plane = proxy.planes[0]
+        val raw = if (plane.pixelStride == 4 && plane.rowStride == proxy.width * 4) {
+            reuse(rawFrame, proxy.width, proxy.height).also {
+                rawFrame = it
+                it.copyPixelsFromBuffer(plane.buffer.rewind())
+            }
+        } else proxy.toBitmap()
+        val matrix = Matrix().apply {
+            postRotate(proxy.imageInfo.rotationDegrees.toFloat())
+            postScale(-1f, 1f)
+        }
+        val bounds = RectF(0f, 0f, raw.width.toFloat(), raw.height.toFloat()).also(matrix::mapRect)
+        matrix.postTranslate(-bounds.left, -bounds.top)
+        val out = reuse(uprightFrame, bounds.width().roundToInt(), bounds.height().roundToInt())
+        uprightFrame = out
+        Canvas(out).drawBitmap(raw, matrix, framePaint)
+        return out
+    }
+
+    private fun reuse(bitmap: Bitmap?, width: Int, height: Int): Bitmap =
+        bitmap?.takeIf { it.width == width && it.height == height }
+            ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
 
     private fun onResult(result: HandLandmarkerResult, @Suppress("UNUSED_PARAMETER") image: com.google.mediapipe.framework.image.MPImage) {
         val hands = result.landmarks()
