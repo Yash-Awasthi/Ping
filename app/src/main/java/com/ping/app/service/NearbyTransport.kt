@@ -75,6 +75,11 @@ interface NearbyTransport {
         get() = null
         @Suppress("UNUSED_PARAMETER") set(value) {}
 
+    /** Raw link token both phones derive for a pending connection; the app binds its PAKE to it. Fired before [onConnectionInitiated]. */
+    var onAuthToken: ((endpointId: String, token: ByteArray) -> Unit)?
+        get() = null
+        @Suppress("UNUSED_PARAMETER") set(value) {}
+
     /** Start advertising under [localName] and [serviceId]; [star] lets one host serve many guests. */
     fun startAdvertising(localName: String, serviceId: String, star: Boolean = false)
 
