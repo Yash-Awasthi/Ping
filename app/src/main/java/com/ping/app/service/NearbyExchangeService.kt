@@ -68,7 +68,9 @@ class NearbyExchangeService : Service() {
     /** Link tokens reported by the transport before each connection is accepted. */
     private val linkTokens = ConcurrentHashMap<String, ByteArray>()
     /** The current attempt; these fields all belong to [connectedEndpoint]. */
+    /** Built at lock, so a connection only waits on one scalar multiplication. */
     @Volatile private var pake: Pake.Session? = null
+    @Volatile private var linkContext = ByteArray(0)
     @Volatile private var keys: Pake.Keys? = null
     /** Shares that arrived before our own side of that attempt was set up. */
     private val earlyShares = ConcurrentHashMap<String, ByteArray>()
@@ -105,6 +107,7 @@ class NearbyExchangeService : Service() {
         // The advertised name is readable by any scanner in range, so it carries the
         // token rather than the code, and never the user's display name.
         localName = Pairing.advertisement(code, sessionNonce)
+        pake = Pake.Session(Pake.generator(code))
         _session.value = ExchangeSession(code, ExchangeSession.State.SEARCHING)
         transport.startAdvertising(localName, SERVICE_ID)
         Timber.i("Ping searching for a matching gesture")
@@ -156,8 +159,8 @@ class NearbyExchangeService : Service() {
                 markConnecting()
                 transport.stopAdvertising()
                 transport.stopDiscovery()
-                val session = Pake.Session(code, Pake.context(localName, remoteName, linkTokens[endpointId]))
-                pake = session
+                linkContext = Pake.context(localName, remoteName, linkTokens[endpointId])
+                val session = pake ?: Pake.Session(Pake.generator(code)).also { pake = it }
                 transport.sendBytes(endpointId, frame(TYPE_SHARE, session.share))
                 earlyShares.remove(endpointId)?.let { onShare(endpointId, it) }
                 Timber.i("Connected to %s — sent key share", endpointId)
@@ -228,7 +231,7 @@ class NearbyExchangeService : Service() {
 
     private fun onShare(endpointId: String, share: ByteArray) {
         if (keys != null) return
-        val k = pake?.finish(share) ?: run { attemptFailed(endpointId); return }
+        val k = pake?.finish(share, linkContext) ?: run { attemptFailed(endpointId); return }
         keys = k
         transport.sendBytes(endpointId, frame(TYPE_CONFIRM, k.myTag))
     }
@@ -246,7 +249,7 @@ class NearbyExchangeService : Service() {
         tried += endpointId
         failures++
         connectedEndpoint = null
-        pake = null
+        pake = gestureCode?.let { Pake.Session(Pake.generator(it)) }
         keys = null
         earlyShares.clear()
         verified = false
