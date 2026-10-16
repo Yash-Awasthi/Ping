@@ -19,6 +19,32 @@ class RoomProtocolTest {
     private fun decodeManifest(text: String) = RoomProtocol.decodeManifestPage(text)?.let { Manifest(it.files, it.members) }
 
     @Test
+    fun `a note survives a round trip and its author is cleaned`() {
+        val note = RoomProtocol.Note("../Ada", "wifi: hunter2\nsecond line")
+        val back = RoomProtocol.decodeNote(RoomProtocol.encodeNote(note))
+        assertEquals(RoomProtocol.Note("Ada", note.text), back)
+    }
+
+    @Test
+    fun `blank, oversized and malformed notes are refused`() {
+        assertNull(RoomProtocol.decodeNote(RoomProtocol.encodeNote(RoomProtocol.Note("A", "  "))))
+        assertNull(RoomProtocol.decodeNote(RoomProtocol.encodeNote(RoomProtocol.Note("A", "x".repeat(RoomProtocol.MAX_NOTE + 1)))))
+        assertNull(RoomProtocol.decodeNote("""{"from":"A"}"""))
+        assertNull(RoomProtocol.decodeNote("not json"))
+        assertTrue(RoomProtocol.noteFits("x".repeat(RoomProtocol.MAX_NOTE)))
+        // Multi-byte text is measured in bytes, not characters.
+        assertFalse(RoomProtocol.noteFits("\u00e9".repeat(RoomProtocol.MAX_NOTE / 2 + 1)))
+    }
+
+    @Test
+    fun `the largest note fits one frame even when every byte needs escaping`() {
+        val worst = RoomProtocol.Note("N".repeat(RoomProtocol.MAX_NAME), "\u0001".repeat(RoomProtocol.MAX_NOTE))
+        val frame = RoomProtocol.frameText(RoomProtocol.T_NOTE, RoomProtocol.encodeNote(worst))
+        assertTrue(frame.size <= RoomProtocol.MAX_FRAME)
+        assertEquals(worst, RoomProtocol.decodeNote(frame.copyOfRange(1, frame.size).toString(Charsets.UTF_8)))
+    }
+
+    @Test
     fun `merge namespaces ids per owner and lists members`() {
         val m = RoomProtocol.merge(
             "Host",

@@ -742,6 +742,50 @@ class RoomHubTest {
         assertEquals(null, radio.onConnected)
     }
 
+    @Test
+    fun `a guest note reaches every guest under the name the host knows`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        val bob = newHub("b", "Bob")
+        hostOpen(host, "FCC1")
+        ada.join("FCC1"); admitted(host, ada)
+        bob.join("FCC1"); admitted(host, bob)
+        ada.postNote("room code 4411")
+        val expected = listOf(RoomProtocol.Note("Ada", "room code 4411"))
+        await("bob has it") { bob.state.value.notes == expected }
+        await("ada has it") { ada.state.value.notes == expected }
+        assertEquals(expected, host.state.value.notes)
+    }
+
+    @Test
+    fun `a forged author is replaced and a late guest gets earlier notes`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        hostOpen(host, "FCC2")
+        ada.join("FCC2"); admitted(host, ada)
+        val forged = RoomProtocol.encodeNote(RoomProtocol.Note("Hana", "trust me"))
+        radios.getValue("a").sendBytes("h", RoomProtocol.frameText(RoomProtocol.T_NOTE, forged))
+        host.postNote("from the host")
+        await("host has both") { host.state.value.notes.size == 2 }
+        assertEquals(listOf("Ada", "Hana"), host.state.value.notes.map { it.from })
+        val bob = newHub("b", "Bob")
+        bob.join("FCC2"); admitted(host, bob)
+        await("bob caught up") { bob.state.value.notes == host.state.value.notes }
+    }
+
+    @Test
+    fun `notes from guests still waiting at the door go nowhere`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        hostOpen(host, "FCC3")
+        guest.join("FCC3")
+        await("knock") { host.state.value.pending.isNotEmpty() }
+        val note = RoomProtocol.encodeNote(RoomProtocol.Note("Gus", "hi"))
+        radios.getValue("g").sendBytes("h", RoomProtocol.frameText(RoomProtocol.T_NOTE, note))
+        host.flush()
+        assertTrue(host.state.value.notes.isEmpty())
+    }
+
     private fun downloads(id: String): List<File> =
         File(tmp, "$id/ext/Ping").listFiles().orEmpty().toList()
 

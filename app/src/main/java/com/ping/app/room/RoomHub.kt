@@ -412,6 +412,7 @@ class RoomHub @Inject constructor(
                 transport.sendBytes(endpointId, RoomProtocol.frameText(RoomProtocol.T_APPROVED, endpointId))
                 refreshPending()
                 broadcastManifest()
+                _state.value.notes.forEach { sendNote(endpointId, it) }
             } else {
                 transport.sendBytes(endpointId, RoomProtocol.frame(RoomProtocol.T_DENIED))
                 guests.remove(endpointId)
@@ -456,6 +457,27 @@ class RoomHub @Inject constructor(
             .map { RoomProtocol.frameText(RoomProtocol.T_MANIFEST_DOWN, it) }
         approved.keys.forEach { id -> frames.forEach { transport.sendBytes(id, it) } }
     }
+
+    /** Posts [text] to the room: the host shares it at once, a guest sends it up for the host to share. */
+    fun postNote(text: String) {
+        scope.launch {
+            if (!RoomProtocol.noteFits(text)) return@launch
+            val s = _state.value
+            when {
+                s.role == RoomRole.HOST -> shareNote(Note(myName, text))
+                s.phase == RoomPhase.IN_ROOM -> hostEndpoint?.let { sendNote(it, Note(myName, text)) }
+            }
+        }
+    }
+
+    // ponytail: no rate limit, a guest can flood notes; per-guest throttle if rooms get hostile.
+    private fun shareNote(note: Note) {
+        _state.update { it.copy(notes = (it.notes + note).takeLast(MAX_NOTES)) }
+        guests.filter { it.value.approved && links[it.key]?.verified == true }.keys.forEach { sendNote(it, note) }
+    }
+
+    private fun sendNote(endpointId: String, note: Note) =
+        transport.sendBytes(endpointId, RoomProtocol.frameText(RoomProtocol.T_NOTE, RoomProtocol.encodeNote(note)))
 
     private fun sendManifestUp() {
         val host = hostEndpoint ?: return
@@ -805,6 +827,8 @@ class RoomHub @Inject constructor(
                 RoomProtocol.parseRequest(text)?.let { (gid, offset) -> serve(endpointId, gid, offset) }
             }
             RoomProtocol.T_FAILED -> if (g.approved && RoomProtocol.ownerOf(text) == endpointId) relayFailed(text)
+            // The host names the author; a guest cannot post as someone else.
+            RoomProtocol.T_NOTE -> if (g.approved) RoomProtocol.decodeNote(text)?.let { shareNote(Note(g.name, it.text)) }
         }
     }
 
@@ -827,6 +851,10 @@ class RoomHub @Inject constructor(
                 sendShared(endpointId, RoomProtocol.globalId(s.myKey, localId), offset)
             }
             RoomProtocol.T_FAILED -> if (text in wanted) failTransfer(text)
+            RoomProtocol.T_NOTE -> if (_state.value.phase == RoomPhase.IN_ROOM) {
+                val note = RoomProtocol.decodeNote(text) ?: return
+                _state.update { it.copy(notes = (it.notes + note).takeLast(MAX_NOTES)) }
+            }
         }
     }
 
@@ -1111,6 +1139,7 @@ class RoomHub @Inject constructor(
         /** A connection must prove the gesture within this long, so silent links free their slot. */
         const val VERIFY_MS = 10_000L
         const val MAX_NAME = 30
+        const val MAX_NOTES = 50
         const val SEARCH_MS = 30_000L
         /** A transfer with no new bytes for this long gives up its slot. */
         const val IDLE_MS = 30_000L
