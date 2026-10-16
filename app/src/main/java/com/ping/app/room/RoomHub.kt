@@ -890,8 +890,11 @@ class RoomHub @Inject constructor(
         val meta = _state.value.manifest.files.firstOrNull { it.id == gid }
         val dest = if (file.parentFile == cacheDir()) {
             downloadFile(meta?.name ?: "file", meta?.path.orEmpty()).also {
-                file.copyTo(partOf(it), overwrite = true)
-                Files.move(partOf(it).toPath(), it.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                val part = partOf(it).toPath()
+                // A hard link costs nothing where cache and downloads share a file system; else a native copy.
+                runCatching { Files.deleteIfExists(part); Files.createLink(part, file.toPath()) }
+                    .getOrElse { Files.copy(file.toPath(), part, StandardCopyOption.REPLACE_EXISTING) }
+                Files.move(part, it.toPath(), StandardCopyOption.REPLACE_EXISTING)
             }
         } else file
         wanted -= gid
