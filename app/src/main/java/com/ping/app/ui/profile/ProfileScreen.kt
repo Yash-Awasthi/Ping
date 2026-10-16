@@ -66,9 +66,10 @@ fun ProfileScreen(
         else shareVCards(context, listOf(card), "my-card.vcf")
     }
     LaunchedEffect(shareOnOpen) {
+        // Clearing the flag first would change this key and cancel the share mid-read.
         if (shareOnOpen) {
-            onShareHandled()
             shareMyCard()
+            onShareHandled()
         }
     }
 
