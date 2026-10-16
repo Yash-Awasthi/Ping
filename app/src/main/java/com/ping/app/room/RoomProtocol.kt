@@ -45,6 +45,8 @@ object RoomProtocol {
     const val T_CONFIRM: Byte = 9
     /** Host to guest: a file it asked for cannot be relayed; body is the global id. */
     const val T_FAILED: Byte = 10
+    /** A [Note] as JSON: guest to host, then host to every guest in the room. */
+    const val T_NOTE: Byte = 11
 
     const val HOST_KEY = "host"
     /** Nearby's P2P_STAR has no fixed cap; this keeps a full room's listing and relay load sane. */
@@ -64,6 +66,8 @@ object RoomProtocol {
     private const val DIGEST_SIZE = 32
     /** Copy buffer for file bytes; big enough that per-read overhead vanishes next to the radio. */
     const val BUFFER = 256 * 1024
+    /** UTF-8 bytes of one note's text; even fully JSON-escaped it stays under [MAX_FRAME]. */
+    const val MAX_NOTE = 4 * 1024
 
     /**
      * A file a member offers: [id] is unique within that member only. [path] is the folder it
@@ -90,7 +94,20 @@ object RoomProtocol {
     @Serializable
     data class GuestShare(val key: String, val name: String, val files: List<FileMeta>)
 
+    /** A short text someone posted to the room, such as a link or a code. */
+    @Serializable
+    data class Note(val from: String, val text: String)
+
     private val json = Json { ignoreUnknownKeys = true }
+
+    fun noteFits(text: String) = text.isNotBlank() && text.toByteArray(Charsets.UTF_8).size <= MAX_NOTE
+
+    fun encodeNote(note: Note): String = json.encodeToString(Note.serializer(), note)
+
+    /** Null for malformed JSON or a text [noteFits] refuses; the sender's name is cleaned like a file name. */
+    fun decodeNote(text: String): Note? = runCatching { json.decodeFromString(Note.serializer(), text) }.getOrNull()
+        ?.takeIf { noteFits(it.text) }
+        ?.let { it.copy(from = safeName(it.from)) }
 
     /** Decodes each element on its own, so one malformed entry drops only itself. */
     private inline fun <reified T> JsonElement?.items(): List<T> = (this as? JsonArray).orEmpty()

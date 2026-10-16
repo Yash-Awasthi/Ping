@@ -22,6 +22,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
 /** Runs whole rooms in-process: hubs talk through [FakeAir] instead of Nearby Connections. */
@@ -69,6 +70,14 @@ class RoomHubTest {
         addShared(FileMeta("", name, content.length.toLong())) { ByteArrayInputStream(content.toByteArray()) }
     }
 
+    private fun hostOpen(host: RoomHub, code: String) {
+        host.host(code)
+        await("room open") { host.state.value.phase == RoomPhase.OPEN }
+    }
+
+    /** Drains every hub's control thread a few times, so frames bounced between them all land. */
+    private fun settle(vararg hubs: RoomHub) = repeat(8) { hubs.forEach { it.flush() } }
+
     private fun admitted(host: RoomHub, guest: RoomHub) {
         await("guest knocks") { host.state.value.pending.isNotEmpty() }
         host.decide(host.state.value.pending.single().endpointId, true)
@@ -79,7 +88,7 @@ class RoomHubTest {
     fun `a guest is only listed after the host lets them in`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F31A0"); Thread.sleep(50)
+        hostOpen(host, "F31A0")
         host.share("notes.txt", "hello")
         guest.join("F31A0")
         await("guest waits") { guest.state.value.phase == RoomPhase.WAITING_APPROVAL }
@@ -104,7 +113,7 @@ class RoomHubTest {
     fun `a guest downloads a host file byte for byte`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F0A0"); Thread.sleep(50)
+        hostOpen(host, "F0A0")
         host.share("a.txt", "host bytes")
         guest.join("F0A0")
         admitted(host, guest)
@@ -121,7 +130,7 @@ class RoomHubTest {
         val host = newHub("h", "Hana")
         val ada = newHub("a", "Ada")
         val bob = newHub("b", "Bob")
-        host.host("F1A1"); Thread.sleep(50)
+        hostOpen(host, "F1A1")
         ada.join("F1A1"); admitted(host, ada)
         ada.share("ada.bin", "from ada")
         bob.join("F1A1")
@@ -139,7 +148,7 @@ class RoomHubTest {
     fun `the host can pull a guest file too`() {
         val host = newHub("h", "Hana")
         val ada = newHub("a", "Ada")
-        host.host("F1A1"); Thread.sleep(50)
+        hostOpen(host, "F1A1")
         ada.join("F1A1"); admitted(host, ada)
         ada.share("ada.bin", "for the host")
         await("host sees file") { host.state.value.manifest.files.isNotEmpty() }
@@ -154,7 +163,7 @@ class RoomHubTest {
     fun `a denied guest gets nothing`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F2A2"); Thread.sleep(50)
+        hostOpen(host, "F2A2")
         host.share("secret.txt", "s")
         guest.join("F2A2")
         await("guest knocks") { host.state.value.pending.isNotEmpty() }
@@ -167,7 +176,7 @@ class RoomHubTest {
     fun `the same gesture alone gets a guest to the host's decision`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F3A3"); Thread.sleep(50)
+        hostOpen(host, "F3A3")
         guest.join("F3A3")
         await("knock") { host.state.value.pending.singleOrNull()?.name == "Gus" }
         assertEquals(RoomPhase.WAITING_APPROVAL, guest.state.value.phase)
@@ -177,7 +186,7 @@ class RoomHubTest {
     fun `guests learn the room closed when the host leaves`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F4A0"); Thread.sleep(50)
+        hostOpen(host, "F4A0")
         guest.join("F4A0"); admitted(host, guest)
         host.leave()
         await("closed") { guest.state.value.phase == RoomPhase.CLOSED }
@@ -187,7 +196,7 @@ class RoomHubTest {
     fun `a guest that leaves disappears from the room`() {
         val host = newHub("h", "Hana")
         val ada = newHub("a", "Ada")
-        host.host("F4A1"); Thread.sleep(50)
+        hostOpen(host, "F4A1")
         ada.join("F4A1"); admitted(host, ada)
         ada.share("x.txt", "x")
         await("listed") { host.state.value.manifest.files.size == 1 }
@@ -199,27 +208,27 @@ class RoomHubTest {
     fun `an unapproved guest cannot pull files`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F5A0"); Thread.sleep(50)
-        var opened = 0
-        host.addShared(FileMeta("", "s.txt", 1)) { opened++; ByteArrayInputStream(byteArrayOf(1)) }
+        hostOpen(host, "F5A0")
+        val opened = AtomicInteger()
+        host.addShared(FileMeta("", "s.txt", 1)) { opened.incrementAndGet(); ByteArrayInputStream(byteArrayOf(1)) }
         guest.join("F5A0")
         await("knock") { host.state.value.pending.isNotEmpty() }
         radios.getValue("g").sendBytes("h", RoomProtocol.frameText(RoomProtocol.T_REQUEST, "host:f1"))
-        Thread.sleep(300)
-        assertEquals(0, opened)
+        host.flush()
+        assertEquals(0, opened.get())
     }
 
     @Test
     fun `a stream nobody asked for is dropped`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F5A1"); Thread.sleep(50)
+        hostOpen(host, "F5A1")
         host.share("s.txt", "abc")
         guest.join("F5A1"); admitted(host, guest)
         await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
         val forged = RoomProtocol.header("host:f1") + "abc".toByteArray()
         radios.getValue("h").sendStream("g", ByteArrayInputStream(forged), forged.size.toLong())
-        Thread.sleep(300)
+        guest.drain()
         assertTrue(guest.state.value.transfers.isEmpty())
     }
 
@@ -227,7 +236,7 @@ class RoomHubTest {
     fun `a stream whose checksum does not match fails and leaves nothing behind`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F5A4"); Thread.sleep(50)
+        hostOpen(host, "F5A4")
         host.addShared(FileMeta("", "s.txt", 3)) { null }
         air.drop("h", RoomProtocol.T_FAILED)
         guest.join("F5A4"); admitted(host, guest)
@@ -246,7 +255,7 @@ class RoomHubTest {
     fun `a file longer than announced fails and leaves nothing behind`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F5A2"); Thread.sleep(50)
+        hostOpen(host, "F5A2")
         host.addShared(FileMeta("", "big.bin", 5)) { ByteArrayInputStream(ByteArray(50)) }
         guest.join("F5A2"); admitted(host, guest)
         await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
@@ -260,7 +269,7 @@ class RoomHubTest {
     fun `a file shorter than announced fails and only its part is kept`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F5A3"); Thread.sleep(50)
+        hostOpen(host, "F5A3")
         host.addShared(FileMeta("", "short.bin", 50)) { ByteArrayInputStream(ByteArray(4)) }
         guest.join("F5A3"); admitted(host, guest)
         await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
@@ -276,7 +285,7 @@ class RoomHubTest {
         val guest = newHub("g", "Gus")
         val data = Random(7).nextBytes(200_000)
         var opens = 0
-        host.host("F6A1"); Thread.sleep(50)
+        hostOpen(host, "F6A1")
         host.addShared(FileMeta("", "big.bin", data.size.toLong())) {
             if (opens++ == 0) CutAfter(data, 70_000) else ByteArrayInputStream(data)
         }
@@ -302,7 +311,7 @@ class RoomHubTest {
         val before = Random(1).nextBytes(100_000)
         val after = Random(2).nextBytes(100_000)
         var opens = 0
-        host.host("F6A2"); Thread.sleep(50)
+        hostOpen(host, "F6A2")
         host.addShared(FileMeta("", "doc.bin", before.size.toLong())) {
             if (opens++ == 0) CutAfter(before, 40_000) else ByteArrayInputStream(after)
         }
@@ -325,7 +334,7 @@ class RoomHubTest {
         val bob = newHub("b", "Bob")
         val data = Random(3).nextBytes(150_000)
         var opens = 0
-        host.host("F6A3"); Thread.sleep(50)
+        hostOpen(host, "F6A3")
         ada.join("F6A3"); admitted(host, ada)
         ada.addShared(FileMeta("", "ada.bin", data.size.toLong())) {
             if (opens++ == 0) CutAfter(data, 50_000) else ByteArrayInputStream(data)
@@ -347,7 +356,7 @@ class RoomHubTest {
     fun `two downloads of the same name do not overwrite each other`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F5A4"); Thread.sleep(50)
+        hostOpen(host, "F5A4")
         host.share("same.txt", "one")
         host.share("same.txt", "two")
         guest.join("F5A4"); admitted(host, guest)
@@ -361,7 +370,7 @@ class RoomHubTest {
     fun `folder files land in their subfolders and single files stay flat`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F7A1"); Thread.sleep(50)
+        hostOpen(host, "F7A1")
         host.addShared(FileMeta("", "a.txt", 1, "Trip/day1")) { ByteArrayInputStream("a".toByteArray()) }
         host.addShared(FileMeta("", "b.txt", 1, "Trip")) { ByteArrayInputStream("b".toByteArray()) }
         host.share("c.txt", "c")
@@ -379,7 +388,7 @@ class RoomHubTest {
     fun `a path that climbs out of the download folder lands flat`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F7A2"); Thread.sleep(50)
+        hostOpen(host, "F7A2")
         // The host's own list is not cleaned, so this is what a hostile host would broadcast.
         host.addShared(FileMeta("", "evil.txt", 1, "../../../escape")) { ByteArrayInputStream("e".toByteArray()) }
         guest.join("F7A2"); admitted(host, guest)
@@ -394,7 +403,7 @@ class RoomHubTest {
     @Test
     fun `a full room of guests all see each other's files and one more is turned away`() {
         val host = newHub("h", "Hana")
-        host.host("F8A1"); Thread.sleep(50)
+        hostOpen(host, "F8A1")
         host.share("host.txt", "h")
         val guests = (1..RoomProtocol.MAX_GUESTS).map { n ->
             newHub("g$n", "Guest$n").also { g ->
@@ -413,7 +422,8 @@ class RoomHubTest {
 
         val extra = newHub("x", "Extra")
         extra.join("F8A1")
-        Thread.sleep(300)
+        await("extra searching") { extra.state.value.phase == RoomPhase.SEARCHING }
+        settle(extra, host)
         assertEquals(RoomPhase.SEARCHING, extra.state.value.phase)
         assertTrue(host.state.value.pending.isEmpty())
         assertTrue(air.largestFrame <= RoomProtocol.MAX_FRAME)
@@ -424,14 +434,14 @@ class RoomHubTest {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
         val gate = CountDownLatch(1)
-        host.host("F9A8"); Thread.sleep(50)
+        hostOpen(host, "F9A8")
         repeat(5) { n -> host.addShared(FileMeta("", "f$n.txt", 1)) { Gated(byteArrayOf(n.toByte()), gate) } }
         guest.join("F9A8"); admitted(host, guest)
         await("manifest") { guest.state.value.manifest.files.size == 5 }
         try {
             guest.downloadAll()
             await("first requests") { air.texts("g", "h", RoomProtocol.T_REQUEST).size == 3 }
-            Thread.sleep(200)
+            guest.flush()
             assertEquals(3, air.texts("g", "h", RoomProtocol.T_REQUEST).size)
             assertEquals(2, guest.state.value.transfers.values.count { it.status == Transfer.Status.QUEUED })
         } finally {
@@ -445,7 +455,7 @@ class RoomHubTest {
     fun `an unreadable file fails the download instead of holding its slot`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F9A7"); Thread.sleep(50)
+        hostOpen(host, "F9A7")
         host.addShared(FileMeta("", "gone.txt", 3)) { null }
         guest.join("F9A7"); admitted(host, guest)
         await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
@@ -461,7 +471,7 @@ class RoomHubTest {
         val bob = newHub("b", "Bob")
         val data = Random(4).nextBytes(1 shl 20)
         val gate = CountDownLatch(1)
-        host.host("F9A6"); Thread.sleep(50)
+        hostOpen(host, "F9A6")
         ada.join("F9A6"); admitted(host, ada)
         ada.addShared(FileMeta("", "ada.bin", data.size.toLong())) { HalfGated(data, gate) }
         bob.join("F9A6"); admitted(host, bob)
@@ -483,7 +493,7 @@ class RoomHubTest {
         val ada = newHub("a", "Ada")
         val bob = newHub("b", "Bob")
         val data = Random(11).nextBytes(16 shl 20)
-        host.host("F9A9"); Thread.sleep(50)
+        hostOpen(host, "F9A9")
         host.addShared(FileMeta("", "host.bin", data.size.toLong())) { ByteArrayInputStream(data) }
         ada.join("F9A9"); admitted(host, ada)
         ada.addShared(FileMeta("", "ada.bin", data.size.toLong())) { ByteArrayInputStream(data) }
@@ -501,6 +511,114 @@ class RoomHubTest {
         }
     }
 
+    /** Host, one guest in the room, and the guest's id for the host's single file [name]. */
+    private fun oneFileRoom(code: String, name: String = "s.txt", opener: () -> InputStream?): Triple<RoomHub, RoomHub, String> {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        hostOpen(host, code)
+        host.addShared(FileMeta("", name, 3), opener)
+        guest.join(code); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
+        return Triple(host, guest, guest.state.value.manifest.files.single().id)
+    }
+
+    @Test
+    fun `a request for a file the host does not list is answered with a failure`() {
+        val (host, _, _) = oneFileRoom("FAA1") { ByteArrayInputStream("abc".toByteArray()) }
+        radios.getValue("g").sendBytes("h", RoomProtocol.frameText(RoomProtocol.T_REQUEST, "host:nope"))
+        host.flush()
+        assertEquals(listOf("host:nope"), air.texts("h", "g", RoomProtocol.T_FAILED))
+    }
+
+    @Test
+    fun `a guest that cannot open its file fails the relay and a retry asks again`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        val bob = newHub("b", "Bob")
+        hostOpen(host, "FAA2")
+        ada.join("FAA2"); admitted(host, ada)
+        ada.addShared(FileMeta("", "gone.bin", 5)) { null }
+        bob.join("FAA2"); admitted(host, bob)
+        await("bob sees file") { bob.state.value.manifest.files.isNotEmpty() }
+        val gid = bob.state.value.manifest.files.single().id
+        bob.download(gid)
+        await("failed") { bob.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+        bob.download(gid)
+        await("asked again") { air.texts("h", "a", RoomProtocol.T_PUSH).size == 2 }
+        await("failed again") { bob.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+    }
+
+    @Test
+    fun `a push for a file the guest no longer shares is answered with a failure`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        hostOpen(host, "FAA3")
+        ada.join("FAA3"); admitted(host, ada)
+        radios.getValue("h").sendBytes("a", RoomProtocol.frameText(RoomProtocol.T_PUSH, "f9"))
+        ada.flush()
+        assertEquals(listOf("a:f9"), air.texts("a", "h", RoomProtocol.T_FAILED))
+    }
+
+    @Test
+    fun `a stream that cannot start fails the download`() {
+        val (_, guest, gid) = oneFileRoom("FAA4") { ByteArrayInputStream("abc".toByteArray()) }
+        air.failStreams("h")
+        guest.download(gid)
+        await("failed") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+    }
+
+    @Test
+    fun `a stream for a file that left the room fails the download`() {
+        val (host, guest, gid) = oneFileRoom("FAA5") { null }
+        air.drop("h", RoomProtocol.T_FAILED)
+        guest.download(gid)
+        await("queued") { guest.state.value.transfers[gid] != null }
+        host.removeShared(host.state.value.shared.single().id)
+        await("gone") { guest.state.value.manifest.files.isEmpty() }
+        val forged = RoomProtocol.header(gid) + "abc".toByteArray()
+        radios.getValue("h").sendStream("g", ByteArrayInputStream(forged), 3)
+        await("failed") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+    }
+
+    @Test
+    fun `a download that hears nothing gives its slot back`() {
+        val (_, guest, gid) = oneFileRoom("FAA6") { null }
+        air.drop("h", RoomProtocol.T_FAILED)
+        guest.idleMs = 200
+        guest.download(gid)
+        await("failed") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+    }
+
+    @Test
+    fun `a relay that would overfill the host cache is refused`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        val bob = newHub("b", "Bob")
+        host.relayCap = 10
+        hostOpen(host, "FAA7")
+        ada.join("FAA7"); admitted(host, ada)
+        ada.share("big.txt", "more than ten bytes")
+        bob.join("FAA7"); admitted(host, bob)
+        await("bob sees file") { bob.state.value.manifest.files.isNotEmpty() }
+        val gid = bob.state.value.manifest.files.single().id
+        bob.download(gid)
+        await("failed") { bob.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+        assertTrue(air.texts("h", "a", RoomProtocol.T_PUSH).isEmpty())
+    }
+
+    @Test
+    fun `a transfer still running when the guest leaves does not touch the next room`() {
+        val gate = CountDownLatch(1)
+        val (_, guest, gid) = oneFileRoom("FAA8") { Gated("abc".toByteArray(), gate) }
+        guest.download(gid)
+        await("asked") { air.texts("g", "h", RoomProtocol.T_REQUEST).isNotEmpty() }
+        guest.leave()
+        await("left") { guest.state.value == RoomState() }
+        gate.countDown()
+        guest.drain()
+        assertEquals(RoomState(), guest.state.value)
+    }
+
     private fun downloads(id: String): List<File> =
         File(tmp, "$id/ext/Ping").listFiles().orEmpty().toList()
 
@@ -508,9 +626,10 @@ class RoomHubTest {
     fun `a different gesture never joins the room`() {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
-        host.host("F2A2"); Thread.sleep(50)
+        hostOpen(host, "F2A2")
         guest.join("F9A0")
-        Thread.sleep(300)
+        await("searching") { guest.state.value.phase == RoomPhase.SEARCHING }
+        settle(guest, host)
         assertEquals(RoomPhase.SEARCHING, guest.state.value.phase)
         assertTrue(host.state.value.pending.isEmpty())
     }
@@ -520,9 +639,10 @@ class RoomHubTest {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
         val other = (0 until 64).map { "F${it}A3" }.first { it != "F2A2" && Pairing.token(it) == Pairing.token("F2A2") }
-        host.host("F2A2"); Thread.sleep(50)
+        hostOpen(host, "F2A2")
         guest.join(other)
-        Thread.sleep(300)
+        await("searching") { guest.state.value.phase == RoomPhase.SEARCHING }
+        settle(guest, host)
         assertEquals(RoomPhase.SEARCHING, guest.state.value.phase)
         assertTrue(host.state.value.pending.isEmpty())
         assertTrue(guest.state.value.manifest.files.isEmpty())
@@ -533,9 +653,10 @@ class RoomHubTest {
         val host = newHub("h", "Hana")
         val guest = newHub("g", "Gus")
         air.splitLink("g")
-        host.host("F2A1"); Thread.sleep(50)
+        hostOpen(host, "F2A1")
         guest.join("F2A1")
-        Thread.sleep(300)
+        await("searching") { guest.state.value.phase == RoomPhase.SEARCHING }
+        settle(guest, host)
         assertEquals(RoomPhase.SEARCHING, guest.state.value.phase)
         assertTrue(host.state.value.pending.isEmpty())
     }
@@ -595,6 +716,9 @@ private class FakeAir {
     /** [id] stops sending frames of [type], as a peer that never answers would. */
     fun drop(id: String, type: Byte) { nodes.getValue(id).dropped += type }
 
+    /** [id]'s streams fail to start, as a link that just dropped would. */
+    fun failStreams(id: String) { nodes.getValue(id).streamsFail = true }
+
     inner class Node(val id: String) : NearbyTransport {
         override var onPayloadReceived: ((String, ByteArray) -> Unit)? = null
         override var onConnected: ((String, String, Boolean) -> Unit)? = null
@@ -606,6 +730,7 @@ private class FakeAir {
         /** Set to give the two legs different link tokens, as a relay in the middle would. */
         var tokenOverride: ByteArray? = null
         val dropped: MutableSet<Byte> = Collections.synchronizedSet(mutableSetOf())
+        @Volatile var streamsFail = false
 
         var advertised: String? = null
         var discovering = false
@@ -656,6 +781,7 @@ private class FakeAir {
         }
 
         override fun sendStream(endpointId: String, inputStream: InputStream, lengthHint: Long): Boolean {
+            if (streamsFail) return false
             nodes[endpointId]?.onStreamReceived?.invoke(id, inputStream) ?: return false
             return true
         }
