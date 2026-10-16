@@ -264,7 +264,7 @@ private fun ColumnScope.RoomContent(state: RoomState, viewModel: RoomViewModel, 
                             FileBadge(f.name)
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(f.name, style = MaterialTheme.typography.titleMedium)
+                                Text(shownName(f.path, f.name), style = MaterialTheme.typography.titleMedium)
                                 Text(Formatter.formatShortFileSize(context, f.size), style = MaterialTheme.typography.bodySmall)
                             }
                             TextButton(onClick = { viewModel.removeShared(f.id) }) {
@@ -294,7 +294,12 @@ private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> U
         FileBadge(file.name)
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(file.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                shownName(file.path, file.name),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 stringResource(R.string.room_file_meta, Formatter.formatShortFileSize(context, file.size), file.ownerName),
                 style = MaterialTheme.typography.bodySmall,
@@ -337,6 +342,8 @@ private fun RoomFileRow(file: RoomFile, transfer: Transfer?, onDownload: () -> U
         }
     }
 }
+
+private fun shownName(path: String, name: String) = if (path.isEmpty()) name else "$path/$name"
 
 /** Bytes per second and seconds left, once enough has arrived to say. */
 private fun transferRate(t: Transfer): Pair<Long, Long>? {

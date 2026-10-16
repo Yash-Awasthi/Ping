@@ -355,6 +355,40 @@ class RoomHubTest {
         assertEquals(setOf("same.txt", "same (2).txt"), downloads("g").map { it.name }.toSet())
     }
 
+    @Test
+    fun `folder files land in their subfolders and single files stay flat`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F7A1"); Thread.sleep(50)
+        host.addShared(FileMeta("", "a.txt", 1, "Trip/day1")) { ByteArrayInputStream("a".toByteArray()) }
+        host.addShared(FileMeta("", "b.txt", 1, "Trip")) { ByteArrayInputStream("b".toByteArray()) }
+        host.share("c.txt", "c")
+        guest.join("F7A1"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.size == 3 }
+        guest.downloadAll()
+        await("all") { guest.state.value.transfers.values.count { it.status == Transfer.Status.DONE } == 3 }
+        val root = File(tmp, "g/ext/Ping")
+        assertEquals("a", File(root, "Trip/day1/a.txt").readText())
+        assertEquals("b", File(root, "Trip/b.txt").readText())
+        assertEquals("c", File(root, "c.txt").readText())
+    }
+
+    @Test
+    fun `a path that climbs out of the download folder lands flat`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F7A2"); Thread.sleep(50)
+        // The host's own list is not cleaned, so this is what a hostile host would broadcast.
+        host.addShared(FileMeta("", "evil.txt", 1, "../../../escape")) { ByteArrayInputStream("e".toByteArray()) }
+        guest.join("F7A2"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
+        val gid = guest.state.value.manifest.files.single().id
+        guest.download(gid)
+        await("done") { guest.state.value.transfers[gid]?.status == Transfer.Status.DONE }
+        assertEquals(File(tmp, "g/ext/Ping/evil.txt").canonicalFile, File(guest.state.value.transfers.getValue(gid).path!!).canonicalFile)
+        assertTrue(File(tmp, "escape").let { !it.exists() } && File(tmp, "g/escape").let { !it.exists() })
+    }
+
     private fun downloads(id: String): List<File> =
         File(tmp, "$id/ext/Ping").listFiles().orEmpty().toList()
 

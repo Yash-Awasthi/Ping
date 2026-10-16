@@ -84,6 +84,34 @@ class RoomProtocolTest {
     }
 
     @Test
+    fun `folder paths stay relative and bounded`() {
+        assertEquals("Photos/2024", RoomProtocol.safePath("Photos/2024"))
+        listOf(
+            "../etc", "Photos/../../x", "./a", "/abs/dir", "\\\\server\\share", "C:/Windows", "C:", "a\\b",
+            "a//b", "a/", ".hidden/x", "a/b\u0000c", "a/b.", "x/".repeat(RoomProtocol.MAX_DEPTH) + "x",
+            "a".repeat(RoomProtocol.MAX_PATH + 1), null,
+        ).forEach { assertEquals("", RoomProtocol.safePath(it), "path $it") }
+        val deep = (1..RoomProtocol.MAX_DEPTH).joinToString("/") { "d$it" }
+        assertEquals(deep, RoomProtocol.safePath(deep))
+    }
+
+    @Test
+    fun `folder paths are built from clean names and stop at the depth bound`() {
+        assertEquals("Photos", RoomProtocol.childPath("", "Photos"))
+        assertEquals("Photos/trip", RoomProtocol.childPath("Photos", "../trip"))
+        val deep = (1..RoomProtocol.MAX_DEPTH).joinToString("/") { "d$it" }
+        assertEquals(deep, RoomProtocol.childPath(deep, "one-too-many"))
+    }
+
+    @Test
+    fun `decoded listings flatten malicious paths`() {
+        val metas = """[{"id":"a","name":"x","size":1,"path":"../../data"},{"id":"b","name":"y","size":1,"path":"Docs/work"}]"""
+        assertEquals(listOf("", "Docs/work"), RoomProtocol.decodeMetas(metas).map { it.path })
+        val manifest = """{"files":[{"id":"h:1","name":"a","size":1,"ownerKey":"h","ownerName":"H","path":"/sdcard/x"}],"members":[]}"""
+        assertEquals("", RoomProtocol.decodeManifest(manifest)!!.files.single().path)
+    }
+
+    @Test
     fun `long names are cut but keep their extension`() {
         val n = RoomProtocol.safeName("a".repeat(300) + ".pdf")
         assertEquals(RoomProtocol.MAX_NAME, n.length)

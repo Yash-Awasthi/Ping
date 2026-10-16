@@ -255,7 +255,10 @@ class RoomHub @Inject constructor(
         }
     }
 
-    /** Offers every file under a picked folder, subfolders included, up to the per-member cap. */
+    /**
+     * Offers every file under a picked folder, subfolders included, up to the per-member cap.
+     * Each file keeps its folder path, starting with the picked folder's own name.
+     */
     fun addFolder(tree: Uri) {
         scope.launch {
             val files = withContext(Dispatchers.IO) { listTree(tree) }
@@ -265,23 +268,32 @@ class RoomHub @Inject constructor(
 
     private fun listTree(tree: Uri): List<Pair<Uri, FileMeta>> {
         val out = mutableListOf<Pair<Uri, FileMeta>>()
-        val pending = ArrayDeque(listOf(DocumentsContract.getTreeDocumentId(tree)))
+        val rootId = DocumentsContract.getTreeDocumentId(tree)
         val columns = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
             DocumentsContract.Document.COLUMN_DISPLAY_NAME,
             DocumentsContract.Document.COLUMN_MIME_TYPE,
             DocumentsContract.Document.COLUMN_SIZE,
         )
+        val rootName = runCatching {
+            context.contentResolver.query(DocumentsContract.buildDocumentUriUsingTree(tree, rootId), columns, null, null, null)
+                ?.use { c -> if (c.moveToFirst()) c.getString(1) else null }
+        }.getOrNull()
+        val pending = ArrayDeque(listOf(rootId to RoomProtocol.childPath("", rootName)))
         while (pending.isNotEmpty() && out.size < RoomProtocol.MAX_FILES_PER_MEMBER) {
-            val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, pending.removeFirst())
+            val (dirId, path) = pending.removeFirst()
+            val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, dirId)
             runCatching {
                 context.contentResolver.query(children, columns, null, null, null)?.use { c ->
                     while (c.moveToNext() && out.size < RoomProtocol.MAX_FILES_PER_MEMBER) {
                         val id = c.getString(0)
-                        if (c.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) { pending += id; continue }
+                        if (c.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) {
+                            pending += id to RoomProtocol.childPath(path, c.getString(1))
+                            continue
+                        }
                         val size = if (c.isNull(3)) continue else c.getLong(3)
                         out += DocumentsContract.buildDocumentUriUsingTree(tree, id) to
-                            FileMeta("", RoomProtocol.safeName(c.getString(1)), size)
+                            FileMeta("", RoomProtocol.safeName(c.getString(1)), size, path)
                     }
                 }
             }.onFailure { Timber.w(it, "Could not list folder") }
@@ -416,7 +428,7 @@ class RoomHub @Inject constructor(
             serve(HOST_KEY, gid, 0)
             return
         }
-        val dest = partials.getOrPut(gid) { downloadFile(file.name) }
+        val dest = partials.getOrPut(gid) { downloadFile(file.name, file.path) }
         val offset = freshPart(dest, file.size).length()
         setTransfer(gid, Transfer(Transfer.Status.QUEUED, offset, file.size))
         hostEndpoint?.let {
@@ -757,9 +769,9 @@ class RoomHub @Inject constructor(
 
     private fun finish(gid: String, file: File) {
         // Host copying a relayed file out of the cache; guests already wrote straight to the download.
-        val name = _state.value.manifest.files.firstOrNull { it.id == gid }?.name ?: "file"
+        val meta = _state.value.manifest.files.firstOrNull { it.id == gid }
         val dest = if (file.parentFile == cacheDir()) {
-            downloadFile(name).also {
+            downloadFile(meta?.name ?: "file", meta?.path.orEmpty()).also {
                 file.copyTo(partOf(it), overwrite = true)
                 Files.move(partOf(it).toPath(), it.toPath(), StandardCopyOption.REPLACE_EXISTING)
             }
@@ -802,11 +814,15 @@ class RoomHub @Inject constructor(
         .resolve("Ping").apply { mkdirs() }
 
     /**
-     * A path inside [downloadDir] that no earlier or concurrent download uses. The empty part
-     * file created here holds the name until the transfer completes or gives up.
+     * A path inside [downloadDir], under the file's folder [path] when it has one, that no earlier
+     * or concurrent download uses. The empty part file created here holds the name until the
+     * transfer completes or gives up.
      */
-    private fun downloadFile(name: String): File = synchronized(downloadLock) {
-        val dir = downloadDir()
+    private fun downloadFile(name: String, path: String): File = synchronized(downloadLock) {
+        val root = downloadDir()
+        val dir = RoomProtocol.safePath(path).takeIf { it.isNotEmpty() }?.let { File(root, it) }
+            ?.takeIf { it.canonicalPath.startsWith(root.canonicalPath + File.separator) && (it.isDirectory || it.mkdirs()) }
+            ?: root
         val taken = dir.list()?.map { it.removeSuffix(".part") }?.toSet().orEmpty()
         File(dir, RoomProtocol.uniqueName(RoomProtocol.safeName(name), taken)).also { partOf(it).createNewFile() }
     }

@@ -43,13 +43,18 @@ object RoomProtocol {
     const val HOST_KEY = "host"
     const val MAX_FILES_PER_MEMBER = 100
     const val MAX_NAME = 80
+    const val MAX_DEPTH = 8
+    const val MAX_PATH = 160
     private const val MAX_HEADER = 200
     private const val MAX_ID = 40
     private const val DIGEST_SIZE = 32
 
-    /** A file a member offers: [id] is unique within that member only. */
+    /**
+     * A file a member offers: [id] is unique within that member only. [path] is the folder it
+     * sat in inside a shared folder, "" for a single file.
+     */
     @Serializable
-    data class FileMeta(val id: String, val name: String, val size: Long)
+    data class FileMeta(val id: String, val name: String, val size: Long, val path: String = "")
 
     /** A file as the whole room sees it; [id] is globally unique (see [globalId]). */
     @Serializable
@@ -59,6 +64,7 @@ object RoomProtocol {
         val size: Long,
         val ownerKey: String,
         val ownerName: String,
+        val path: String = "",
     )
 
     @Serializable
@@ -91,9 +97,9 @@ object RoomProtocol {
     /** Folds the host's own files and every approved guest's files into one room listing. */
     fun merge(hostName: String, hostFiles: List<FileMeta>, guests: List<GuestShare>): Manifest {
         val files = buildList {
-            hostFiles.forEach { add(RoomFile(globalId(HOST_KEY, it.id), it.name, it.size, HOST_KEY, hostName)) }
+            hostFiles.forEach { add(RoomFile(globalId(HOST_KEY, it.id), it.name, it.size, HOST_KEY, hostName, it.path)) }
             guests.forEach { g ->
-                g.files.forEach { add(RoomFile(globalId(g.key, it.id), it.name, it.size, g.key, g.name)) }
+                g.files.forEach { add(RoomFile(globalId(g.key, it.id), it.name, it.size, g.key, g.name, it.path)) }
             }
         }
         return Manifest(files, listOf(hostName) + guests.map { it.name })
@@ -108,7 +114,7 @@ object RoomProtocol {
         json.parseToJsonElement(text).items<FileMeta>().asSequence()
             .filter { it.id.isNotBlank() && it.id.length <= MAX_ID && it.id.none { c -> c == ':' || c.isWhitespace() } && it.size >= 0 }
             .take(MAX_FILES_PER_MEMBER)
-            .map { FileMeta(it.id, safeName(it.name), it.size) }
+            .map { FileMeta(it.id, safeName(it.name), it.size, safePath(it.path)) }
             .toList()
     }.getOrDefault(emptyList())
 
@@ -117,7 +123,7 @@ object RoomProtocol {
         Manifest(
             files = m["files"].items<RoomFile>().filter {
                 it.size >= 0 && it.id.contains(':') && it.ownerKey.isNotBlank() && it.ownerName.isNotBlank()
-            }.map { it.copy(name = safeName(it.name), ownerName = safeName(it.ownerName)) },
+            }.map { it.copy(name = safeName(it.name), ownerName = safeName(it.ownerName), path = safePath(it.path)) },
             members = m["members"].items<String>().map { safeName(it) },
         )
     }.getOrNull()
@@ -202,6 +208,21 @@ object RoomProtocol {
         } else cleaned
         return name.ifBlank { "file" }
     }
+
+    /**
+     * A folder path taken from a peer: relative, `/`-separated, every folder a name [safeName]
+     * leaves as it is, at most [MAX_DEPTH] deep and [MAX_PATH] long. Anything else gives "", a flat file.
+     */
+    fun safePath(raw: String?): String {
+        if (raw.isNullOrEmpty() || raw.length > MAX_PATH) return ""
+        val folders = raw.split('/')
+        val ok = folders.size <= MAX_DEPTH && folders.all { it.isNotEmpty() && it.length <= MAX_NAME && safeName(it) == it }
+        return if (ok) raw else ""
+    }
+
+    /** [parent] with one more folder, or [parent] itself when that would break [safePath]'s bounds. */
+    fun childPath(parent: String, folder: String?): String =
+        safePath(if (parent.isEmpty()) safeName(folder) else parent + "/" + safeName(folder)).ifEmpty { parent }
 
     /** [name] made unique against [taken] by inserting " (n)" before the extension. */
     fun uniqueName(name: String, taken: Set<String>): String {
