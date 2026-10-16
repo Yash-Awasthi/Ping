@@ -37,9 +37,8 @@ import javax.inject.Inject
  *  - We advertise `<codeToken>|<sessionNonce>`, a hash of the gesture code, never the code.
  *  - The token is a 4-bit bucket, so it only narrows who we try; we connect to a peer in
  *    our bucket and run [Pake] keyed by the gesture code and bound to the link.
- *  - Our card leaves sealed with our confirmation tag; the peer's card is saved only after its
- *    tag proves the same gesture. A failed attempt drops that peer and searches on, up to
- *    [MAX_ATTEMPTS] per session.
+ *  - Our sealed card rides with our tag; the peer's is saved only once its tag proves the gesture.
+ *    A failed attempt drops that peer and searches on, up to [MAX_ATTEMPTS] per session.
  *
  * Discovery starts when the swap screen opens ([prewarm]) so peers are already known by the
  * time the gesture locks. If no matching peer appears within [WINDOW_MS] of the lock the
