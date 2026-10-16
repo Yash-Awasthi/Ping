@@ -1,5 +1,6 @@
 package com.ping.app.room
 
+import android.app.ActivityManager
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -79,6 +80,8 @@ import com.ping.app.utils.RequiredPermissions
 import com.ping.app.utils.vibrateDouble
 import com.ping.app.utils.vibrateShort
 import java.io.File
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The file room: pick host or join, lock the room's gesture, then share file names and
@@ -94,7 +97,11 @@ fun RoomScreen(
     val context = LocalContext.current
 
     // The room and the swap share one radio; a swap still running would fight the room for it.
-    LaunchedEffect(Unit) { NearbyExchangeService.stop(context) }
+    var radioFree by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        stopSwap(context)
+        radioFree = true
+    }
 
     BackHandler {
         viewModel.leave()
@@ -105,6 +112,7 @@ fun RoomScreen(
         when {
             state.role != null -> RoomContent(state, viewModel, onLeave = { viewModel.leave(); onBack() })
             chosen == null -> Chooser(onPick = { chosen = it }, onBack = onBack)
+            !radioFree -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             else -> {
                 LaunchedEffect(chosen) { if (chosen == RoomRole.GUEST) viewModel.prewarm() }
                 GestureLock(
@@ -115,6 +123,21 @@ fun RoomScreen(
             }
         }
     }
+}
+
+/** Stops a running swap and returns once its teardown, which clears the shared radio, should have run. */
+private suspend fun stopSwap(context: Context) {
+    val running = context.stopService(Intent(context, NearbyExchangeService::class.java))
+    NearbyExchangeService.clearSession()
+    if (!running) return
+    val am = context.getSystemService(ActivityManager::class.java)
+    val name = NearbyExchangeService::class.java.name
+    withTimeoutOrNull(3_000) {
+        @Suppress("DEPRECATION") // Still lists the caller's own services.
+        while (am.getRunningServices(Int.MAX_VALUE).any { it.service.className == name }) delay(50)
+    }
+    // ponytail: the record goes just before onDestroy runs on main, so a fixed grace covers the gap; a swap "gone" signal if it races.
+    delay(300)
 }
 
 @Composable
