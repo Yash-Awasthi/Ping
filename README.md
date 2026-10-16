@@ -22,8 +22,9 @@ No server. No cloud. No account. Your data never leaves your phone.
 | Feature | Description |
 |---------|-------------|
 | 📡 **Connection Status** | Animated indicator — scanning (blue pulse), connecting (amber spin), paired (green check), error (red X) |
-| 🤝 **Gesture Matchmaking** | About 40 named hand poses plus circle and wave motions, two-hand gestures, left or right hand, or chain two gestures — no enrollment needed |
-| 🖐️ **Practice Mode** | Live label, finger count and raw measurements for your hand, with a guide to every gesture; never connects |
+| 🤝 **Gesture Matchmaking** | About 40 named hand poses plus circle, wave and swipe motions, two-hand gestures, left or right hand, or chain two gestures — no enrollment needed |
+| ⭐ **Custom Gestures** | Record and name your own one- or two-pose gestures in Practice, then start a swap or room from them with one tap; the code comes from the poses, so the other person can just make them live |
+| 🖐️ **Practice Mode** | Live label, finger count and raw measurements for your hand, with a guide to every gesture and a place to record your own; never connects |
 | 📤 **Export All** | Share every listed contact as one `.vcf` file |
 | 📥 **Import** | Load contacts from a `.vcf` file (vCard 2.1, 3.0 or 4.0); an exported file restores a backup |
 | ✏️ **Edit & Memo** | Edit any contact and keep a private "where we met" memo that is never swapped or exported |
@@ -82,8 +83,8 @@ No server. No cloud. No account. Your data never leaves your phone.
 - **5-bit finger mask** — each finger extended or curled, with the thumb judged by how straight it is and how far it sits from the index knuckle
 - **Direction** — up, right, down or left (a lone thumb uses its own direction, so 👍 and 👎 are stable)
 - **Gaps, pinch, crossed fingers and palm side** — the details behind ✌️ 🖖 🖐️ 👌 🤏 🤞 ✋ 🤚
-- **Left or right hand** — from the detector, trusted only when recent frames agree
-- **Motion** — a circle drawn in the air (either way round) or a wave, tracked over the last second
+- **Left or right hand** — the detector's call plus the way the fingers bend (the hand's chirality), smoothed over recent frames so it does not flicker
+- **Motion** — a circle drawn in the air (either way round), a wave, or a swipe left, right, up or down, tracked over the last second
 - **Two hands together** — the second hand's finger mask is added
 
 The frame is rotated and mirrored to match the preview before detection, so directions mean what you see on screen. Two strangers doing the same gesture derive the same code with zero enrollment. The emoji shown is a best guess for the user; only the code decides matching. Some poses cannot be told apart by a 2D camera (👊 vs ✊, 🫵, 🤌 vs 🤏).
@@ -216,7 +217,7 @@ Aura/
 | Hand direction | 2 | left/right/up/down |
 | Gaps (open hand only) | 3 | which neighbours are apart |
 | Pinch, crossed, palm side, hand side | 1–2 each | flags |
-| Motion | 3 | none / circle either way / wave |
+| Motion | 3 | none / circle either way / wave / swipe in four directions |
 | **Total** | | **thousands of codes** |
 
 ---
@@ -224,7 +225,6 @@ Aura/
 ## 🗺️ Roadmap
 
 - [ ] **iOS companion** — cross-platform gesture exchange
-- [ ] **Custom gesture sets** — user-defined gesture alphabets
 
 ---
 
