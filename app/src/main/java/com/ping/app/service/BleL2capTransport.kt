@@ -21,28 +21,10 @@ import android.os.Looper
 import android.os.ParcelUuid
 import android.os.SystemClock
 import androidx.annotation.RequiresApi
-import com.ping.app.service.BleWire.T_ACCEPT
-import com.ping.app.service.BleWire.T_BYTES
-import com.ping.app.service.BleWire.T_CHUNK
-import com.ping.app.service.BleWire.T_END
-import com.ping.app.service.BleWire.T_HELLO
-import com.ping.app.service.BleWire.T_REJECT
 import timber.log.Timber
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
-import java.io.DataInputStream
-import java.io.DataOutputStream
-import java.io.IOException
 import java.io.InputStream
-import java.io.PipedInputStream
-import java.io.PipedOutputStream
-import java.nio.ByteBuffer
-import java.util.Queue
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
-import java.util.concurrent.Semaphore
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -78,7 +60,6 @@ class BleL2capTransport(context: Context) : NearbyTransport {
 
     /** Discovered adverts by device address; survives stopDiscovery so a later request still resolves. */
     private val found = ConcurrentHashMap<String, Found>()
-    private val links = ConcurrentHashMap<String, Link>()
 
     @Volatile private var server: BluetoothServerSocket? = null
     private var advertising: AdvertisingSetCallback? = null
@@ -106,7 +87,18 @@ class BleL2capTransport(context: Context) : NearbyTransport {
         pool.execute {
             while (true) {
                 val socket = runCatching { srv.accept() }.getOrNull() ?: break
-                pool.execute { Link(newId(), socket, initiator = false, remoteName = "").run(null) }
+                // The discovered id lets the swap see a peer's request as the endpoint it already matched.
+                val address = socket.remoteDevice.address
+                val f = found[address]
+                val id = f?.id ?: newId()
+                val claim = claim(id, address, localName = null, remoteName = f?.name)
+                if (claim == null) {
+                    Timber.w("BleL2capTransport: refusing a second or excess link from $address")
+                    runCatching { socket.close() }
+                    continue
+                }
+                claim.socket = socket
+                pool.execute { start(id, claim, socket, initiator = false, remoteName = "", localName = null) }
             }
         }
 
@@ -189,216 +181,134 @@ class BleL2capTransport(context: Context) : NearbyTransport {
 
     // Connections
 
+    /** One per peer address, from request or accept until the link closes. */
+    private class Claim(val address: String, val localName: String?) {
+        @Volatile var socket: BluetoothSocket? = null
+        @Volatile var link: BleLink? = null
+        @Volatile var cancelled = false
+
+        fun cancel() {
+            cancelled = true
+            link?.close(notify = false)
+            runCatching { socket?.close() }
+        }
+    }
+
+    private val claims = ConcurrentHashMap<String, Claim>()
+
+    /**
+     * Claims [id] for [address], or null when it already has a link or [MAX_LINKS] are up. An incoming
+     * link crossing our own request wins only when [Pairing.shouldInitiate] picks the peer, as both sides agree.
+     */
+    private fun claim(id: String, address: String, localName: String?, remoteName: String?): Claim? = synchronized(claims) {
+        val prev = claims.entries.firstOrNull { it.value.address == address }
+        if (prev != null) {
+            val ours = prev.value.localName
+            if (localName != null || ours == null || remoteName == null || Pairing.shouldInitiate(ours, remoteName)) return null
+            claims.remove(prev.key, prev.value)
+            prev.value.cancel()
+        } else if (claims.size >= MAX_LINKS) {
+            return null
+        }
+        Claim(address, localName).also { claims[id] = it }
+    }
+
+    private fun start(id: String, claim: Claim, socket: BluetoothSocket, initiator: Boolean, remoteName: String, localName: String?) {
+        val link = BleLink(id, socket.inputStream, socket.outputStream, initiator, remoteName, host)
+        claim.link = link
+        if (claim.cancelled) link.close(notify = false)
+        link.run(localName)
+    }
+
+    private fun link(endpointId: String) = claims[endpointId]?.link
+
+    private val host = object : BleLink.Host {
+        override fun initiated(link: BleLink, token: ByteArray) {
+            main.post {
+                onAuthToken?.invoke(link.id, token)
+                onConnectionInitiated?.invoke(link.id, link.remoteName)
+            }
+        }
+
+        override fun connected(link: BleLink) {
+            Timber.i("BleL2capTransport: connected to ${link.id} (incoming=${link.incoming})")
+            main.post { onConnected?.invoke(link.id, link.remoteName, link.incoming) }
+        }
+
+        override fun bytes(link: BleLink, body: ByteArray) {
+            main.post { onPayloadReceived?.invoke(link.id, body) }
+        }
+
+        override fun stream(link: BleLink): ((InputStream) -> Unit)? =
+            onStreamReceived?.let { cb -> { s: InputStream -> main.post { cb(link.id, s) } } }
+
+        override fun closed(link: BleLink, notify: Boolean) {
+            claims[link.id]?.takeIf { it.link === link }?.let { claims.remove(link.id, it) }
+            if (notify) main.post { onDisconnected?.invoke(link.id) }
+        }
+    }
+
     override fun requestConnection(localName: String, endpointId: String) {
         val f = found.values.firstOrNull { it.id == endpointId }
             ?: return Timber.e("BleL2capTransport: requestConnection to unknown $endpointId")
-        if (links.containsKey(endpointId)) return
+        val claim = claim(endpointId, f.device.address, localName, f.name) ?: return
         pool.execute {
             val socket = try {
-                f.device.createInsecureL2capChannel(f.psm).apply { connect() }
+                f.device.createInsecureL2capChannel(f.psm).also {
+                    claim.socket = it
+                    if (claim.cancelled) it.close()
+                    it.connect()
+                }
             } catch (e: Exception) {
-                Timber.e(e, "BleL2capTransport: connect to $endpointId failed")
-                main.post { onDisconnected?.invoke(endpointId) }
+                claims.remove(endpointId, claim)
+                if (!claim.cancelled) {
+                    Timber.e(e, "BleL2capTransport: connect to $endpointId failed")
+                    main.post { onDisconnected?.invoke(endpointId) }
+                }
                 return@execute
             }
-            Link(endpointId, socket, initiator = true, remoteName = f.name).run(localName)
+            start(endpointId, claim, socket, initiator = true, remoteName = f.name, localName = localName)
         }
     }
 
     override fun acceptConnection(endpointId: String) {
-        val link = links[endpointId] ?: return Timber.w("BleL2capTransport: accept for unknown $endpointId")
-        link.localAccepted = true
-        link.enqueue(BleWire.message(T_ACCEPT))
-        link.maybeConnected()
+        val link = link(endpointId) ?: return Timber.w("BleL2capTransport: accept for unknown $endpointId")
+        link.accept()
     }
 
     override fun rejectConnection(endpointId: String) {
-        val link = links[endpointId] ?: return
-        link.enqueue(BleWire.message(T_REJECT))
-        runCatching { link.writer.execute { link.close(notify = !link.connected) } }
+        link(endpointId)?.reject()
     }
 
     override fun disconnect(endpointId: String) {
-        links[endpointId]?.close(notify = false)
+        claims.remove(endpointId)?.cancel()
     }
 
     override fun stopAllEndpoints() {
         stopAdvertising()
         stopDiscovery()
-        links.values.forEach { it.close(notify = false) }
+        synchronized(claims) { claims.values.toList().also { claims.clear() } }.forEach { it.cancel() }
         found.clear()
     }
 
     override fun sendBytes(endpointId: String, data: ByteArray) {
-        val link = links[endpointId]?.takeIf { it.connected }
+        val link = link(endpointId)?.takeIf { it.connected }
             ?: return Timber.w("BleL2capTransport: sendBytes to unconnected $endpointId")
         if (data.size > BleWire.MAX_BYTES) return Timber.e("BleL2capTransport: ${data.size} bytes is over the payload cap")
-        link.enqueue(BleWire.message(T_BYTES, data))
+        link.sendBytes(data)
     }
 
     override fun sendStream(endpointId: String, inputStream: InputStream, lengthHint: Long): Boolean {
-        val link = links[endpointId]?.takeIf { it.connected } ?: return false
-        val streamId = link.nextStream.incrementAndGet()
-        pool.execute {
-            runCatching {
-                inputStream.use { input ->
-                    val buf = ByteArray(CHUNK_BYTES)
-                    while (true) {
-                        val n = input.read(buf)
-                        if (n < 0) break
-                        if (n > 0) link.enqueueChunk(BleWire.chunk(streamId, buf, n))
-                    }
-                }
-                link.enqueueChunk(BleWire.end(streamId))
-            }.onFailure { Timber.e(it, "BleL2capTransport: stream to $endpointId failed") }
-        }
+        val link = link(endpointId)?.takeIf { it.connected } ?: return false
+        pool.execute { link.sendStream(inputStream) }
         return true
     }
 
     private fun newId() = "b${nextId.incrementAndGet()}"
 
-    private inner class Link(
-        val id: String,
-        private val socket: BluetoothSocket,
-        private val initiator: Boolean,
-        @Volatile var remoteName: String,
-    ) {
-        private val input = DataInputStream(BufferedInputStream(socket.inputStream))
-        private val out = DataOutputStream(BufferedOutputStream(socket.outputStream, OUT_BUFFER))
-        private lateinit var cipher: LinkCipher
-        val writer = Executors.newSingleThreadExecutor { Thread(it, "ble-l2cap-$id").apply { isDaemon = true } }
-        val nextStream = AtomicInteger()
-        private val inbound = ConcurrentHashMap<Int, PipedOutputStream>()
-        private val dropped: MutableSet<Int> = ConcurrentHashMap.newKeySet()
-        private val control = ConcurrentLinkedQueue<ByteArray>()
-        private val chunks = ConcurrentLinkedQueue<ByteArray>()
-        private val chunkRoom = Semaphore(QUEUED_CHUNKS)
-
-        @Volatile var localAccepted = false
-        @Volatile private var remoteAccepted = false
-        @Volatile var connected = false
-        @Volatile private var closed = false
-
-        /** Runs on a pool thread until the channel closes. */
-        fun run(localName: String?) {
-            try {
-                val session = BleWire.handshake(input, out, initiator)
-                cipher = session.cipher
-                if (localName != null) {
-                    send(BleWire.message(T_HELLO, localName.toByteArray(Charsets.UTF_8)))
-                } else {
-                    val hello = cipher.open(BleWire.readBlob(input))
-                    if (hello[0] != T_HELLO) throw IOException("expected hello")
-                    remoteName = hello.copyOfRange(1, hello.size).toString(Charsets.UTF_8)
-                }
-                links[id] = this
-                main.post {
-                    onAuthToken?.invoke(id, session.token)
-                    onConnectionInitiated?.invoke(id, remoteName)
-                }
-                while (!closed) dispatch(cipher.open(BleWire.readBlob(input)))
-            } catch (e: Exception) {
-                if (!closed) Timber.d(e, "BleL2capTransport: link $id ended")
-            } finally {
-                close(notify = true)
-            }
-        }
-
-        private fun dispatch(msg: ByteArray) {
-            when (msg[0]) {
-                T_ACCEPT -> { remoteAccepted = true; maybeConnected() }
-                T_REJECT -> throw IOException("rejected by peer")
-                T_BYTES -> if (connected) {
-                    val body = msg.copyOfRange(1, msg.size)
-                    main.post { onPayloadReceived?.invoke(id, body) }
-                }
-                T_CHUNK -> if (connected) {
-                    val streamId = ByteBuffer.wrap(msg, 1, 4).int
-                    receiveChunk(streamId, msg)
-                }
-                T_END -> inbound.remove(ByteBuffer.wrap(msg, 1, 4).int)?.close()
-            }
-        }
-
-        // ponytail: a stream reader slower than the radio stalls this link's inbound control; per-stream credits if that bites.
-        private fun receiveChunk(streamId: Int, msg: ByteArray) {
-            if (streamId in dropped) return
-            val sink = inbound[streamId] ?: run {
-                val callback = onStreamReceived
-                if (callback == null) {
-                    dropped.add(streamId)
-                    return
-                }
-                val pipe = PipedOutputStream()
-                val source = PipedInputStream(pipe, PIPE_BYTES)
-                inbound[streamId] = pipe
-                main.post { callback(id, source) }
-                pipe
-            }
-            try {
-                sink.write(msg, 5, msg.size - 5)
-                // A JDK pipe's reader otherwise naps up to a second before it sees the bytes.
-                sink.flush()
-            } catch (_: IOException) {
-                inbound.remove(streamId)
-                dropped += streamId
-            }
-        }
-
-        @Synchronized
-        fun maybeConnected() {
-            if (connected || !localAccepted || !remoteAccepted || closed) return
-            connected = true
-            Timber.i("BleL2capTransport: connected to $id (incoming=${!initiator})")
-            main.post { onConnected?.invoke(id, remoteName, !initiator) }
-        }
-
-        /** Seal and write one message; only [run] before the link is listed, then only [writer], calls it. */
-        private fun send(plain: ByteArray, flush: Boolean = true) = BleWire.writeBlob(out, cipher.seal(plain), flush)
-
-        fun enqueue(plain: ByteArray) {
-            runCatching { post(control, plain) }
-        }
-
-        /** Blocks while [QUEUED_CHUNKS] wait, so a stream never runs far ahead of the radio. */
-        fun enqueueChunk(plain: ByteArray) {
-            while (!chunkRoom.tryAcquire(1, TimeUnit.SECONDS)) if (closed) throw IOException("link closed")
-            post(chunks, plain)
-        }
-
-        private fun post(queue: Queue<ByteArray>, plain: ByteArray) {
-            queue += plain
-            writer.execute(::drain)
-        }
-
-        /** One task per queued frame; control frames jump queued chunks, and a flush waits until both run dry. */
-        private fun drain() {
-            val plain = control.poll() ?: chunks.poll()?.also { chunkRoom.release() } ?: return
-            runCatching { send(plain, flush = control.isEmpty() && chunks.isEmpty()) }
-                .onFailure { Timber.w(it, "BleL2capTransport: send to $id failed") }
-        }
-
-        @Synchronized
-        fun close(notify: Boolean) {
-            if (closed) return
-            closed = true
-            links.remove(id, this)
-            runCatching { socket.close() }
-            writer.shutdown()
-            inbound.values.forEach { runCatching { it.close() } }
-            inbound.clear()
-            if (notify) main.post { onDisconnected?.invoke(id) }
-        }
-    }
-
     private companion object {
         const val SWEEP_MS = 3_000L
         const val LOST_MS = 10_000L
-        /** A control frame waits behind at most one chunk on the air; 32 KiB is ~0.2 s at LE rates. */
-        const val CHUNK_BYTES = 32 * 1024
-        const val QUEUED_CHUNKS = 4
-        /** Holds a whole chunk frame, so its length prefix never goes out as a separate SDU. */
-        const val OUT_BUFFER = 64 * 1024
-        const val PIPE_BYTES = 256 * 1024
+        const val MAX_LINKS = 8
     }
 }
