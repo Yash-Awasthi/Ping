@@ -6,6 +6,8 @@ What is still to do, most important first.
 Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-Fi Direct.
 - Pair two phones by gesture end to end, including a wrong gesture in the same bucket failing the check.
 - Run a file room with a host and two guests: gesture check, approval, download, guest-to-guest relay.
+- Fill a room with sixteen guests and check that Nearby keeps the star up; walk out of range
+  mid-download and resume.
 - Tune the limits that came from one hand on one phone: pinch, finger gaps, thumb, palm edge-on,
   motion (circle, wave and swipes), the hand-shape cut-off `SHAPE_MIN`, `COMMIT_FRAMES` and
   `WINDOW_SECONDS`. The Practice screen prints the raw numbers for this.
@@ -17,9 +19,8 @@ Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-
 - Check-in is proximity only: a phone carried by a friend counts as present.
 
 ## 3. File room
-- Resume an interrupted transfer.
-- Keep a shared folder's subfolder layout; files currently arrive flat.
-- More than seven guests.
+- Resume after the link to the host drops: today the room closes, a rejoin is a new room, and
+  leaving deletes the kept `.part` files. Resume works while the guest stays in the room.
 
 ## 5. Platform
 - An iOS companion.
