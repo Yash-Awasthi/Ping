@@ -21,6 +21,7 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.util.Collections
+import java.util.concurrent.CountDownLatch
 import kotlin.random.Random
 
 /** Runs whole rooms in-process: hubs talk through [FakeAir] instead of Nearby Connections. */
@@ -56,8 +57,8 @@ class RoomHubTest {
         return RoomHub(context, radio, ProfileRepository(dao)).also { hubs += it }
     }
 
-    private fun await(what: String, cond: () -> Boolean) {
-        val end = System.currentTimeMillis() + 5_000
+    private fun await(what: String, ms: Long = 5_000, cond: () -> Boolean) {
+        val end = System.currentTimeMillis() + ms
         while (!cond()) {
             if (System.currentTimeMillis() > end) throw AssertionError("timed out waiting for $what")
             Thread.sleep(10)
@@ -228,6 +229,7 @@ class RoomHubTest {
         val guest = newHub("g", "Gus")
         host.host("F5A4"); Thread.sleep(50)
         host.addShared(FileMeta("", "s.txt", 3)) { null }
+        air.drop("h", RoomProtocol.T_FAILED)
         guest.join("F5A4"); admitted(host, guest)
         await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
         val gid = guest.state.value.manifest.files.single().id
@@ -417,6 +419,88 @@ class RoomHubTest {
         assertTrue(air.largestFrame <= RoomProtocol.MAX_FRAME)
     }
 
+    @Test
+    fun `download all keeps a few files in flight and gets every one`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        val gate = CountDownLatch(1)
+        host.host("F9A8"); Thread.sleep(50)
+        repeat(5) { n -> host.addShared(FileMeta("", "f$n.txt", 1)) { Gated(byteArrayOf(n.toByte()), gate) } }
+        guest.join("F9A8"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.size == 5 }
+        try {
+            guest.downloadAll()
+            await("first requests") { air.texts("g", "h", RoomProtocol.T_REQUEST).size == 3 }
+            Thread.sleep(200)
+            assertEquals(3, air.texts("g", "h", RoomProtocol.T_REQUEST).size)
+            assertEquals(2, guest.state.value.transfers.values.count { it.status == Transfer.Status.QUEUED })
+        } finally {
+            gate.countDown()
+        }
+        await("all") { guest.state.value.transfers.values.count { it.status == Transfer.Status.DONE } == 5 }
+        assertEquals(5, air.texts("g", "h", RoomProtocol.T_REQUEST).size)
+    }
+
+    @Test
+    fun `an unreadable file fails the download instead of holding its slot`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        host.host("F9A7"); Thread.sleep(50)
+        host.addShared(FileMeta("", "gone.txt", 3)) { null }
+        guest.join("F9A7"); admitted(host, guest)
+        await("manifest") { guest.state.value.manifest.files.isNotEmpty() }
+        val gid = guest.state.value.manifest.files.single().id
+        guest.download(gid)
+        await("failed") { guest.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+    }
+
+    @Test
+    fun `a relayed file reaches the requester while it is still landing at the host`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        val bob = newHub("b", "Bob")
+        val data = Random(4).nextBytes(1 shl 20)
+        val gate = CountDownLatch(1)
+        host.host("F9A6"); Thread.sleep(50)
+        ada.join("F9A6"); admitted(host, ada)
+        ada.addShared(FileMeta("", "ada.bin", data.size.toLong())) { HalfGated(data, gate) }
+        bob.join("F9A6"); admitted(host, bob)
+        await("bob sees file") { bob.state.value.manifest.files.isNotEmpty() }
+        val gid = bob.state.value.manifest.files.single().id
+        try {
+            bob.download(gid)
+            await("first half at bob") { downloads("b").singleOrNull()?.length() == data.size / 2L }
+        } finally {
+            gate.countDown()
+        }
+        await("done") { bob.state.value.transfers[gid]?.status == Transfer.Status.DONE }
+        assertArrayEquals(data, File(bob.state.value.transfers.getValue(gid).path!!).readBytes())
+    }
+
+    @Test
+    fun `megabytes move host to guest and guest to guest byte for byte`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        val bob = newHub("b", "Bob")
+        val data = Random(11).nextBytes(16 shl 20)
+        host.host("F9A9"); Thread.sleep(50)
+        host.addShared(FileMeta("", "host.bin", data.size.toLong())) { ByteArrayInputStream(data) }
+        ada.join("F9A9"); admitted(host, ada)
+        ada.addShared(FileMeta("", "ada.bin", data.size.toLong())) { ByteArrayInputStream(data) }
+        bob.join("F9A9"); admitted(host, bob)
+        await("listed") { bob.state.value.manifest.files.size == 2 }
+
+        for (name in listOf("host.bin", "ada.bin")) {
+            val gid = bob.state.value.manifest.files.single { it.name == name }.id
+            val started = System.nanoTime()
+            bob.download(gid)
+            await(name, 60_000) { bob.state.value.transfers[gid]?.status == Transfer.Status.DONE }
+            val secs = (System.nanoTime() - started) / 1e9
+            println("Room %s: %.1f MB/s".format(name, data.size / 1e6 / secs))
+            assertArrayEquals(data, File(bob.state.value.transfers.getValue(gid).path!!).readBytes())
+        }
+    }
+
     private fun downloads(id: String): List<File> =
         File(tmp, "$id/ext/Ping").listFiles().orEmpty().toList()
 
@@ -457,6 +541,28 @@ class RoomHubTest {
     }
 }
 
+/** [data], but only once [gate] opens. */
+private class Gated(data: ByteArray, private val gate: CountDownLatch) : InputStream() {
+    private val inner = ByteArrayInputStream(data)
+    override fun read(): Int = gate.await().let { inner.read() }
+    override fun read(b: ByteArray, off: Int, len: Int): Int = gate.await().let { inner.read(b, off, len) }
+}
+
+/** The first half of [data] at once, the rest once [gate] opens. */
+private class HalfGated(private val data: ByteArray, private val gate: CountDownLatch) : InputStream() {
+    private var pos = 0
+    override fun read(): Int = ByteArray(1).let { if (read(it, 0, 1) < 0) -1 else it[0].toInt() and 0xff }
+    override fun read(b: ByteArray, off: Int, len: Int): Int {
+        if (pos >= data.size) return -1
+        if (pos >= data.size / 2) gate.await()
+        val end = if (pos < data.size / 2) data.size / 2 else data.size
+        val n = minOf(len, end - pos)
+        System.arraycopy(data, pos, b, off, n)
+        pos += n
+        return n
+    }
+}
+
 /** Hands out the first [cut] bytes of [data], then fails like a dropped link. */
 private class CutAfter(private val data: ByteArray, private val cut: Int) : InputStream() {
     private var pos = 0
@@ -486,6 +592,9 @@ private class FakeAir {
 
     fun splitLink(id: String) { nodes.getValue(id).tokenOverride = byteArrayOf(6, 6, 6) }
 
+    /** [id] stops sending frames of [type], as a peer that never answers would. */
+    fun drop(id: String, type: Byte) { nodes.getValue(id).dropped += type }
+
     inner class Node(val id: String) : NearbyTransport {
         override var onPayloadReceived: ((String, ByteArray) -> Unit)? = null
         override var onConnected: ((String, String, Boolean) -> Unit)? = null
@@ -496,6 +605,7 @@ private class FakeAir {
         override var onAuthToken: ((String, ByteArray) -> Unit)? = null
         /** Set to give the two legs different link tokens, as a relay in the middle would. */
         var tokenOverride: ByteArray? = null
+        val dropped: MutableSet<Byte> = Collections.synchronizedSet(mutableSetOf())
 
         var advertised: String? = null
         var discovering = false
@@ -539,6 +649,7 @@ private class FakeAir {
         override fun rejectConnection(endpointId: String) {}
 
         override fun sendBytes(endpointId: String, data: ByteArray) {
+            if (data.firstOrNull() in dropped) return
             frames += Triple(id, endpointId, data)
             largestFrame = maxOf(largestFrame, data.size)
             nodes[endpointId]?.onPayloadReceived?.invoke(id, data)

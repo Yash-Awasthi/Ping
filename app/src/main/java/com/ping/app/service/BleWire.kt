@@ -54,10 +54,11 @@ internal object BleWire {
 
     fun fitsLegacy(advert: ByteArray): Boolean = advert.size <= LEGACY_ROOM
 
-    fun writeBlob(out: DataOutputStream, blob: ByteArray) {
+    /** Unflushed writes let a buffered stream coalesce the length and its blob into one L2CAP SDU. */
+    fun writeBlob(out: DataOutputStream, blob: ByteArray, flush: Boolean = true) {
         out.writeInt(blob.size)
         out.write(blob)
-        out.flush()
+        if (flush) out.flush()
     }
 
     fun readBlob(input: DataInputStream): ByteArray {
@@ -101,17 +102,22 @@ internal object BleWire {
 internal class LinkCipher(sendKey: ByteArray, recvKey: ByteArray) {
     private val send = SecretKeySpec(sendKey, "AES")
     private val recv = SecretKeySpec(recvKey, "AES")
+    // One instance per direction, re-initialised per frame: every init gets the next counter nonce.
+    private val sealer = Cipher.getInstance(GCM)
+    private val opener = Cipher.getInstance(GCM)
     private var sent = 0L
     private var received = 0L
 
     @Synchronized
-    fun seal(plain: ByteArray): ByteArray = cipher(Cipher.ENCRYPT_MODE, send, sent++).doFinal(plain)
+    fun seal(plain: ByteArray): ByteArray = sealer.run { init(Cipher.ENCRYPT_MODE, send, nonce(sent++)); doFinal(plain) }
 
     @Synchronized
-    fun open(blob: ByteArray): ByteArray = cipher(Cipher.DECRYPT_MODE, recv, received).doFinal(blob).also { received++ }
+    fun open(blob: ByteArray): ByteArray =
+        opener.run { init(Cipher.DECRYPT_MODE, recv, nonce(received)); doFinal(blob) }.also { received++ }
 
-    private fun cipher(mode: Int, key: SecretKeySpec, counter: Long) =
-        Cipher.getInstance("AES/GCM/NoPadding").apply {
-            init(mode, key, GCMParameterSpec(128, ByteBuffer.allocate(12).putLong(4, counter).array()))
-        }
+    private fun nonce(counter: Long) = GCMParameterSpec(128, ByteBuffer.allocate(12).putLong(4, counter).array())
+
+    private companion object {
+        const val GCM = "AES/GCM/NoPadding"
+    }
 }
