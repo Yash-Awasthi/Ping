@@ -21,6 +21,7 @@ import java.util.Queue
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
@@ -38,6 +39,7 @@ internal class BleLink(
     @Volatile var remoteName: String,
     private val host: Host,
     private val handshakeMs: Long = HANDSHAKE_MS,
+    private val acceptMs: Long = ACCEPT_MS,
 ) {
     /** Called from link threads; the transport hops to the main thread itself. */
     interface Host {
@@ -62,7 +64,11 @@ internal class BleLink(
     private val control = ConcurrentLinkedQueue<ByteArray>()
     private val chunks = ConcurrentLinkedQueue<ByteArray>()
     private val chunkRoom = Semaphore(QUEUED_CHUNKS)
+    // Matches the peer's MAX_INBOUND, which drops excess streams without telling us.
+    private val streamRoom = Semaphore(MAX_INBOUND)
+    @Volatile private var watchdog: ScheduledFuture<*>? = null
 
+    @Volatile private var initiated = false
     @Volatile private var localAccepted = false
     @Volatile private var remoteAccepted = false
     @Volatile var connected = false
@@ -73,38 +79,50 @@ internal class BleLink(
 
     /** Runs until the channel closes; [localName] is sent as the hello by the initiator only. */
     fun run(localName: String?) {
-        val watchdog = TIMER.schedule({ close(notify = true) }, handshakeMs, TimeUnit.MILLISECONDS)
+        arm(handshakeMs)
         try {
             val session = BleWire.handshake(input, out, initiator)
             cipher = session.cipher
             if (localName != null) send(BleWire.hello(localName))
             else remoteName = BleWire.parseHello(cipher.open(BleWire.readBlob(input, BleWire.HANDSHAKE_BLOB)))
-            watchdog.cancel(false)
+            arm(acceptMs)
+            initiated = true
             host.initiated(this, session.token)
             while (!closed) dispatch(cipher.open(BleWire.readBlob(input)))
         } catch (e: Exception) {
             if (!closed) Timber.d(e, "BleLink: $id ended")
         } finally {
-            watchdog.cancel(false)
             close(notify = true)
         }
     }
 
+    /** Until [connected], an unaccepted link would otherwise hold a transport slot forever. */
+    private fun arm(ms: Long) {
+        watchdog?.cancel(false)
+        watchdog = TIMER.schedule({ close(notify = true) }, ms, TimeUnit.MILLISECONDS)
+    }
+
+    /** Ignored before [Host.initiated], so a stale accept for a reused id cannot race the hello. */
     fun accept() {
+        if (!initiated) return
         localAccepted = true
         enqueue(BleWire.message(T_ACCEPT))
         maybeConnected()
     }
 
     fun reject() {
+        if (!initiated) return
         enqueue(BleWire.message(T_REJECT))
         runCatching { writer.execute { close(notify = !connected) } }
     }
 
     fun sendBytes(data: ByteArray) = enqueue(BleWire.message(T_BYTES, data))
 
-    /** Blocks the calling thread until [source] is sent; a failed read aborts the stream at the peer. */
+    /** Blocks until [source] is sent, and while [MAX_INBOUND] streams are out; a failed read aborts it at the peer. */
     fun sendStream(source: InputStream) {
+        while (!streamRoom.tryAcquire(1, TimeUnit.SECONDS)) {
+            if (closed) { runCatching { source.close() }; return }
+        }
         val streamId = nextStream.incrementAndGet()
         try {
             source.use {
@@ -119,6 +137,8 @@ internal class BleLink(
         } catch (e: Exception) {
             Timber.e(e, "BleLink: stream to $id failed")
             runCatching { enqueueChunk(BleWire.abort(streamId)) }
+        } finally {
+            streamRoom.release()
         }
     }
 
@@ -163,6 +183,7 @@ internal class BleLink(
     private fun maybeConnected() {
         if (connected || !localAccepted || !remoteAccepted || closed) return
         connected = true
+        watchdog?.cancel(false)
         host.connected(this)
     }
 
@@ -195,6 +216,7 @@ internal class BleLink(
     fun close(notify: Boolean) {
         if (closed) return
         closed = true
+        watchdog?.cancel(false)
         runCatching { rawIn.close() }
         runCatching { rawOut.close() }
         writer.shutdown()
@@ -224,6 +246,7 @@ internal class BleLink(
     private companion object {
         /** Handshake and hello must finish in this long, so a silent peer cannot hold a link slot. */
         const val HANDSHAKE_MS = 5_000L
+        const val ACCEPT_MS = 30_000L
         const val MAX_INBOUND = 4
         const val MAX_DROPPED = 64
         /** A control frame waits behind at most one chunk on the air; 32 KiB is ~0.2 s at LE rates. */

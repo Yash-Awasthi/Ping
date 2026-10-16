@@ -42,7 +42,7 @@ class BleLinkTest {
     private fun thread(block: () -> Unit) = Thread(block).apply { isDaemon = true; start() }
 
     /** a initiates as "alice" to b; both have seen the handshake and hello. */
-    private fun pair(): Ends {
+    private fun pair(acceptMs: Long = 30_000, early: (BleLink) -> Unit = {}): Ends {
         val aOut = PipedOutputStream()
         val bOut = PipedOutputStream()
         val aIn = PipedInputStream(bOut, 1 shl 20)
@@ -50,7 +50,8 @@ class BleLinkTest {
         val ha = Recorder()
         val hb = Recorder()
         val a = BleLink("a", aIn, aOut, initiator = true, remoteName = "bob", host = ha)
-        val b = BleLink("b", bIn, bOut, initiator = false, remoteName = "", host = hb)
+        val b = BleLink("b", bIn, bOut, initiator = false, remoteName = "", host = hb, acceptMs = acceptMs)
+        early(b)
         thread { b.run(null) }
         thread { a.run("alice") }
         assertEquals("initiated bob", ha.next())
@@ -145,7 +146,7 @@ class BleLinkTest {
     }
 
     @Test
-    fun `at most four inbound streams are open per link`() {
+    fun `a sender holds its fifth stream until the receiver has room`() {
         val e = connected()
         val release = CountDownLatch(1)
         repeat(5) {
@@ -164,6 +165,35 @@ class BleLinkTest {
         assertNull(e.hb.streams.poll(500, TimeUnit.MILLISECONDS))
         release.countDown()
         sources.forEach { assertEquals(10, it.readBytes().size) }
+        assertEquals(10, e.hb.nextStream().readBytes().size)
+    }
+
+    @Test
+    fun `an accept before the handshake is ignored`() {
+        val e = pair(early = { it.accept() })
+        e.a.accept()
+        assertNull(e.ha.events.poll(500, TimeUnit.MILLISECONDS))
+        e.b.accept()
+        assertEquals("connected", e.ha.next())
+    }
+
+    @Test
+    fun `a link nobody accepts is dropped after the accept timeout`() {
+        val e = pair(acceptMs = 300)
+        e.a.accept()
+        assertEquals("closed true", e.hb.next())
+        assertEquals("closed true", e.ha.next())
+    }
+
+    @Test
+    fun `a connected link outlives the accept timeout`() {
+        val e = pair(acceptMs = 300)
+        e.a.accept()
+        e.b.accept()
+        assertEquals("connected", e.hb.next())
+        Thread.sleep(600)
+        e.a.sendBytes("x".toByteArray())
+        assertEquals("bytes x", e.hb.next())
     }
 
     @Test
