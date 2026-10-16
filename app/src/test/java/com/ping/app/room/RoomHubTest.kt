@@ -643,6 +643,57 @@ class RoomHubTest {
     }
 
     @Test
+    fun `links that connect and never speak spend guesses until the room stops taking knocks`() {
+        val host = newHub("h", "Hana")
+        host.verifyMs = 100
+        hostOpen(host, "FBB6")
+        repeat(5) { silentKnock("s$it", "FBB6") }
+        await("guessing") { host.state.value.guessing }
+    }
+
+    @Test
+    fun `a room that misses the gesture window once is knocked on again`() {
+        val host = newHub("h", "Hana")
+        val guest = newHub("g", "Gus")
+        guest.verifyMs = 200
+        hostOpen(host, "FBB7")
+        air.drop("h", RoomProtocol.T_SHARE)
+        guest.join("FBB7")
+        await("first knock") { "h" in air.knocks("g") }
+        (radios.getValue("h") as FakeAir.Node).dropped.clear()
+        await("guest waits at the room") { guest.state.value.phase == RoomPhase.WAITING_APPROVAL }
+        assertEquals(2, air.knocks("g").count { it == "h" })
+    }
+
+    @Test
+    fun `a relay never writes past the size it was admitted at`() {
+        val host = newHub("h", "Hana")
+        val ada = newHub("a", "Ada")
+        val bob = newHub("b", "Bob")
+        host.relayCap = 100
+        hostOpen(host, "FAA9")
+        ada.join("FAA9"); admitted(host, ada)
+        ada.share("small.txt", "ten bytes!")
+        bob.join("FAA9"); admitted(host, bob)
+        await("bob sees file") { bob.state.value.manifest.files.isNotEmpty() }
+        val gid = bob.state.value.manifest.files.single().id
+        air.drop("h", RoomProtocol.T_PUSH)
+        bob.download(gid)
+        settle(bob, host)
+        // Ada's radio, past the gesture check, now lists the same file far larger and streams it.
+        val big = Random(5).nextBytes(10_000)
+        val a = radios.getValue("a")
+        val page = RoomProtocol.metaPages(listOf(FileMeta(RoomProtocol.localIdOf(gid), "small.txt", big.size.toLong())), 99)
+        a.sendBytes("h", RoomProtocol.frameText(RoomProtocol.T_MANIFEST_UP, page.single()))
+        await("bigger listing") { host.state.value.manifest.files.single { it.id == gid }.size == big.size.toLong() }
+        val body = java.io.SequenceInputStream(ByteArrayInputStream(RoomProtocol.header(gid)), RoomProtocol.withDigest(ByteArrayInputStream(big)))
+        a.sendStream("h", body, big.size.toLong())
+        await("failed") { bob.state.value.transfers[gid]?.status == Transfer.Status.FAILED }
+        host.drain()
+        assertTrue(File(tmp, "h/cache").walk().filter { it.isFile }.sumOf { it.length() } <= 100)
+    }
+
+    @Test
     fun `a host that keeps failing gesture checks stops advertising and says so`() {
         val host = newHub("h", "Hana")
         hostOpen(host, "F2A2")
@@ -957,9 +1008,13 @@ private class FakeAir {
             return true
         }
 
+        // Like the real transports, hanging up locally only tells the other end.
         override fun disconnect(endpointId: String) {
+            synchronized(this@FakeAir) {
+                accepted -= endpointId
+                nodes[endpointId]?.accepted?.remove(id)
+            }
             nodes[endpointId]?.onDisconnected?.invoke(id)
-            onDisconnected?.invoke(endpointId)
         }
 
         override fun stopAdvertising() { advertised = null }

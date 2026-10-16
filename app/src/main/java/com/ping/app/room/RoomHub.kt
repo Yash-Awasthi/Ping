@@ -142,6 +142,8 @@ class RoomHub @Inject constructor(
     private val backlog = ArrayDeque<String>()
     /** Host: guest files on their way into the cache, and who waits for them from which offset. */
     private val relay = ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>()
+    /** Host: the size each relay passed the disk check at; the owner cannot grow it after. */
+    private val admitted = ConcurrentHashMap<String, Long>()
     private val cache = ConcurrentHashMap<String, File>()
     /** Host: relayed files still landing in the cache, which requesters already read as they grow. */
     private val landing = ConcurrentHashMap<String, Landing>()
@@ -154,6 +156,10 @@ class RoomHub @Inject constructor(
     private val restarted: MutableSet<String> = ConcurrentHashMap.newKeySet()
     /** Guest: rooms whose gesture check failed, never retried this search. */
     private val tried: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Guest: rooms that went quiet or dropped once without a gesture check, which get one more knock. */
+    private val missed: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Guest: bumped per knock and per connect, so only the latest timer may hang up. */
+    private var knock = 0
     /** When each wanted or relayed file last made progress, for the idle timeout. */
     private val lastBytes = ConcurrentHashMap<String, Long>()
     /** Streams being read per file; a result only counts while its stream is still the one listed. */
@@ -282,6 +288,7 @@ class RoomHub @Inject constructor(
         wanted.clear()
         backlog.clear()
         relay.clear()
+        admitted.clear()
         cache.clear()
         landing.values.forEach { it.end(false) }
         landing.clear()
@@ -292,6 +299,7 @@ class RoomHub @Inject constructor(
         links.clear()
         earlyShares.clear()
         tried.clear()
+        missed.clear()
         accepting.clear()
         guesses = 0
         mismatched = false
@@ -537,7 +545,7 @@ class RoomHub @Inject constructor(
             owner == HOST_KEY -> if (requester != HOST_KEY) sendShared(requester, globalId, offset)
             cache[globalId]?.exists() == true -> deliver(requester, globalId, cache.getValue(globalId), offset)
             requester != HOST_KEY && landing[globalId] != null ->
-                forward(requester, globalId, landing.getValue(globalId), file.size, offset)
+                forward(requester, globalId, landing.getValue(globalId), admitted[globalId] ?: file.size, offset)
             guests.containsKey(owner) -> {
                 val fresh = relay[globalId] == null
                 relay.getOrPut(globalId) { ConcurrentHashMap() }[requester] = offset
@@ -559,10 +567,13 @@ class RoomHub @Inject constructor(
      */
     private fun push(file: RoomFile) {
         val offset = freshPart(cacheFile(file.id), file.size).length()
-        val sizes = _state.value.manifest.files.associate { it.id to it.size }
-        val owed = relay.keys.sumOf { gid -> ((sizes[gid] ?: 0) - partOf(cacheFile(gid)).length()).coerceAtLeast(0) }
+        val owed = relay.keys.sumOf { gid ->
+            val size = if (gid == file.id) file.size else admitted[gid] ?: 0
+            (size - partOf(cacheFile(gid)).length()).coerceAtLeast(0)
+        }
         val onDisk = cacheDir().listFiles().orEmpty().sumOf { it.length() }
         if (onDisk + owed > relayCap || cacheDir().usableSpace <= owed) return relayFailed(file.id)
+        admitted[file.id] = file.size
         touch(file.id)
         transport.sendBytes(
             file.ownerKey,
@@ -572,6 +583,7 @@ class RoomHub @Inject constructor(
 
     /** Host: a relayed file will not come; everyone waiting for it hears so. */
     private fun relayFailed(gid: String) {
+        admitted.remove(gid)
         relay.remove(gid)?.keys?.forEach { refuse(it, gid) }
     }
 
@@ -663,7 +675,10 @@ class RoomHub @Inject constructor(
             null -> false
         }
         if (!ok) return transport.rejectConnection(endpointId)
-        if (s.role == RoomRole.HOST) accepting += endpointId
+        if (s.role == RoomRole.HOST) {
+            accepting += endpointId
+            expectVerified(endpointId) { endpointId in accepting }
+        }
         transport.acceptConnection(endpointId)
     }
 
@@ -676,7 +691,13 @@ class RoomHub @Inject constructor(
         }
         val link = Link(Pake.Session(Pake.generator(code)), Pake.context(localAdvert, remoteName, linkTokens[endpointId]))
         links[endpointId] = link
-        if (role == RoomRole.HOST) expectVerified(endpointId) { links[endpointId] === link && !link.verified }
+        if (role == RoomRole.HOST) {
+            expectVerified(endpointId) { links[endpointId] === link && !link.verified }
+        } else {
+            // The knock's timer covered reaching the room; the gesture check gets its own full window.
+            val k = ++knock
+            expectVerified(endpointId) { knock == k && hostEndpoint == endpointId && _state.value.phase == RoomPhase.SEARCHING }
+        }
         transport.sendBytes(endpointId, RoomProtocol.frame(RoomProtocol.T_SHARE, link.session.share))
         earlyShares.remove(endpointId)?.let { onShare(endpointId, link, it) }
     }
@@ -686,9 +707,10 @@ class RoomHub @Inject constructor(
         if (hostEndpoint != null || _state.value.phase != RoomPhase.SEARCHING) return
         val (id, _) = Pairing.firstMatch(code, seen, tried) ?: return
         hostEndpoint = id
+        val k = ++knock
         transport.requestConnection(localAdvert, id)
         // A request that fails never calls back, so a silent knock counts as a failed one.
-        expectVerified(id) { hostEndpoint == id && _state.value.phase == RoomPhase.SEARCHING }
+        expectVerified(id) { knock == k && hostEndpoint == id && _state.value.phase == RoomPhase.SEARCHING }
     }
 
     /** Hangs up on [endpointId] unless its gesture checked out within [verifyMs]; [still] says it did not. */
@@ -721,7 +743,11 @@ class RoomHub @Inject constructor(
         }
     }
 
-    /** Drops what we kept for one link; a link that swapped keys but never verified spent a guess. */
+    // Host: any link let in that never proved the gesture spent a guess, however it ended,
+    // or a silent peer could re-knock and hold guest slots without ever tripping [guessSpent].
+    private fun unproven(endpointId: String) = endpointId in accepting || links[endpointId]?.verified == false
+
+    /** Drops what we kept for one link; true when it swapped keys but never verified, a wrong gesture. */
     private fun forget(endpointId: String): Boolean {
         linkTokens.remove(endpointId)
         earlyShares.remove(endpointId)
@@ -733,14 +759,15 @@ class RoomHub @Inject constructor(
     /** The peer does not hold this room's gesture, or is guessing it: hang up, and a guest tries the next room. */
     private fun gestureFailed(endpointId: String) {
         Timber.w("Gesture check with %s failed", endpointId)
-        val spent = forget(endpointId)
+        val unproven = unproven(endpointId)
+        val mismatch = forget(endpointId)
         runCatching { transport.disconnect(endpointId) }
         if (_state.value.role == RoomRole.HOST) {
             guests.remove(endpointId)
-            if (spent) guessSpent()
+            if (unproven) guessSpent()
             refreshPending()
         } else if (endpointId == hostEndpoint) {
-            knockFailed(endpointId, spent)
+            knockFailed(endpointId, mismatch)
         }
     }
 
@@ -756,7 +783,8 @@ class RoomHub @Inject constructor(
     private fun knockFailed(endpointId: String, mismatch: Boolean) {
         if (mismatch) mismatched = true
         hostEndpoint = null
-        tried += endpointId
+        // Only a failed gesture check is final; a slow or dropped link to the right room gets another go.
+        if (mismatch || !missed.add(endpointId)) tried += endpointId
         if (tried.size >= MAX_JOIN_ATTEMPTS) noRoom() else knockNext()
     }
 
@@ -767,16 +795,17 @@ class RoomHub @Inject constructor(
 
     private fun onGone(endpointId: String) {
         val s = _state.value
-        val spent = forget(endpointId)
+        val unproven = s.role == RoomRole.HOST && unproven(endpointId)
+        val mismatch = forget(endpointId)
         if (s.role == RoomRole.HOST) {
+            if (unproven) guessSpent()
             val g = guests.remove(endpointId) ?: return
-            if (spent) guessSpent()
             relay.values.forEach { it.remove(endpointId) }
             relay.keys.filter { RoomProtocol.ownerOf(it) == endpointId }.forEach(::relayFailed)
             refreshPending()
             if (g.approved) broadcastManifest()
         } else if (endpointId == hostEndpoint && s.phase == RoomPhase.SEARCHING) {
-            knockFailed(endpointId, spent)
+            knockFailed(endpointId, mismatch)
         } else if (endpointId == hostEndpoint && s.phase != RoomPhase.DENIED) {
             backlog.clear()
             _state.update { st ->
@@ -898,6 +927,8 @@ class RoomHub @Inject constructor(
                 }
                 // The host only takes bytes from the guest that owns the file, and only if someone asked.
                 if (endpointId != file.ownerKey || relay[gid].isNullOrEmpty()) return
+                // A listing re-sent after the push could claim a larger size than the disk check allowed.
+                val size = admitted[gid]?.takeIf { it == file.size } ?: return onControl(e) { relayFailed(gid) }
                 val dest = cacheFile(gid)
                 val growing = Landing(partOf(dest), dest)
                 landing[gid] = growing
@@ -906,12 +937,12 @@ class RoomHub @Inject constructor(
                 onControl(e) {
                     val waiting = relay[gid] ?: return@onControl
                     waiting.keys.filter { it != HOST_KEY }.forEach { who ->
-                        waiting.remove(who)?.let { from -> forward(who, gid, growing, file.size, from) }
+                        waiting.remove(who)?.let { from -> forward(who, gid, growing, size, from) }
                     }
                 }
                 var outcome = Outcome.CUT
                 try {
-                    outcome = receive(input, dest, gid, file.size, offset, e, growing)
+                    outcome = receive(input, dest, gid, size, offset, e, growing)
                 } finally {
                     growing.end(outcome == Outcome.DONE)
                 }
@@ -921,6 +952,7 @@ class RoomHub @Inject constructor(
                     when (outcome) {
                         Outcome.DONE -> {
                             cache[gid] = dest
+                            admitted.remove(gid)
                             relay.remove(gid)?.forEach { (who, from) -> deliver(who, gid, dest, from) }
                         }
                         Outcome.CUT -> relayFailed(gid)
