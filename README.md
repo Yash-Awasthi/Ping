@@ -34,9 +34,9 @@ No server. No cloud. No account. Your data never leaves your phone.
 | ⚠️ **Mismatch Notice** | Shows when nearby phones are holding a different gesture instead of timing out silently |
 | 🗂️ **File Room** | Host or join a room by gesture; share files or a whole folder, pull files on demand over a Nearby star link, each checked against its SHA-256. Guests start listening before their gesture locks, the host can let everyone in at once, and Download all fetches the whole room with live speed and time left. Guests prove the room's gesture before the host sees them, and the host approves every guest |
 | 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections; without Play Services, BLE advertising plus an encrypted L2CAP channel |
-| 🔐 **E2E Encryption** | P-256 ECDH → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
+| 🔐 **E2E Encryption** | Gesture-keyed PAKE on P-256 → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
 | 👤 **Contact Cards** | Name, phone, email, social handles, short note |
-| 🎯 **Auto-Matchmaking** | Phones only connect when the advertised gesture tokens match |
+| 🎯 **Auto-Matchmaking** | Phones only try peers whose advertised gesture bucket matches; the gesture check decides |
 | ✅ **Gesture Proof** | The gesture keys the exchange itself; nothing is sent until both phones prove they hold it |
 | 📷 **Live Gesture Preview** | See the detected pose and its stability before it locks |
 | 🔎 **Contact Search** | Filter by any field; favourites sort first |
