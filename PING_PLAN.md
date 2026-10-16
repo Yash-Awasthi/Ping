@@ -13,6 +13,13 @@ Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-
   `WINDOW_SECONDS`. The Practice screen prints the raw numbers for this.
 - Check the hand-shape sign on a phone: a right hand should read negative `shape` in Practice.
 - Soak-test the foreground services when the app is backgrounded.
+- Run `MigrationTest` on a device (`./gradlew :app:connectedDebugAndroidTest`) against the
+  exported 1, 2 and 3 schemas.
+- Camera bitmap reuse: check frames never show a stale or torn image when the rotation or
+  resolution changes mid-session.
+- BLE tie-break: two L2CAP phones that discover each other at once must settle on one link.
+- Swap timing grace of 1.5 s before the larger advertisement requests: check it neither stalls
+  a swap nor double-connects on slow phones.
 
 ## 2. Roll call
 - Measure a full class (100+ phones) on real hardware; tune the scan and announce windows.
@@ -22,10 +29,10 @@ Two or more phones with Play Services are needed; emulators cannot do BLE or Wi-
 - Resume after the link to the host drops: today the room closes, a rejoin is a new room, and
   leaving deletes the kept `.part` files. Resume works while the guest stays in the room.
 
-## 5. Platform
+## 4. Platform
 - An iOS companion.
 
-## 6. Cleanup
+## 5. Cleanup
 - Run the shrunk release build through the gesture and room flows on a phone.
 
 ## Not planned

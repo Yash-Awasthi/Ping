@@ -5,7 +5,7 @@
 [![build](https://github.com/Yash-Awasthi/Ping/actions/workflows/build.yml/badge.svg)](https://github.com/Yash-Awasthi/Ping/actions/workflows/build.yml)
 [![release](https://img.shields.io/github/v/release/Yash-Awasthi/Ping)](https://github.com/Yash-Awasthi/Ping/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Android](https://img.shields.io/badge/Android-36+-green.svg)](https://developer.android.com)
+[![Android](https://img.shields.io/badge/Android-8.0+-green.svg)](https://developer.android.com)
 [![BLE](https://img.shields.io/badge/Connectivity-BLE%20/%20Wi-Fi%20Direct-blue.svg)]()
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20On--Device-brightgreen.svg)]()
 
@@ -14,6 +14,8 @@
 The gesture is the only check. It is the password of a PAKE key exchange: two phones derive the same key only if they hold the same gesture, and no card or file moves until each phone has proved that to the other. There is no code to read out or compare. The gesture comes from the pose alone, so a single gesture has only a few hundred possible values (far more with the optional two-gesture password). A stranger in range cannot test guesses offline, but each connection they make is one guess, so Ping allows only three failed attempts per swap.
 
 No server. No cloud. No account. Your data never leaves your phone.
+
+> **Version 0.7.0 cannot swap or share rooms with versions before 0.7.0.** The pairing protocol and service ids changed; update both phones. See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -27,22 +29,22 @@ No server. No cloud. No account. Your data never leaves your phone.
 | 🖐️ **Practice Mode** | Live label, finger count and raw measurements for your hand, with a guide to every gesture and a place to record your own; never connects |
 | 📤 **Export All** | Share every listed contact as one `.vcf` file |
 | 📥 **Import** | Load contacts from a `.vcf` file (vCard 2.1, 3.0 or 4.0) |
-| 💾 **Back up & Restore** | Save every contact to a JSON file you choose, private memos, stars and swap times included; restoring merges into the list without duplicating anyone |
+| 💾 **Back up & Restore** | Save every contact to a JSON file you choose, private memos, stars and swap times included, optionally sealed with a passphrase (PBKDF2-SHA256 + AES-GCM); restoring merges into the list without duplicating anyone |
 | ✏️ **Edit & Memo** | Edit any contact and keep a private "where we met" memo that is never swapped or shared; only your own backup keeps it |
 | 🧑‍🏫 **Roll Call** | Offline attendance for a whole class: the teacher's phone scans while students tap Check in; no connections, so 100+ students fit one scan. Class-list CSV import, a live seat grid that lights up as students arrive, per-student attendance rates, manual ticks, session history and CSV export |
 | ⚡ **Quick Launch** | Long-press the icon or add the Quick Settings tile to open a swap in one tap |
 | ⚠️ **Mismatch Notice** | Shows when nearby phones are holding a different gesture instead of timing out silently |
-| 🗂️ **File Room** | Host or join a room by gesture, up to sixteen guests; share files or a whole folder (its subfolders are recreated on download), pull files on demand over a Nearby star link, each checked against its SHA-256. A failed download keeps what arrived and resumes from there. Guests start listening before their gesture locks, the host can let everyone in at once, and Download all fetches the whole room with live speed and time left. Guests prove the room's gesture before the host sees them, and the host approves every guest |
+| 🗂️ **File Room** | Host or join a room by gesture, up to sixteen guests; share files or a whole folder (its subfolders are recreated on download), pull files on demand over a Nearby star link, each checked against its SHA-256. A failed download keeps what arrived and resumes from there. Guests start listening before their gesture locks, the host can let everyone in at once, and Download all fetches the whole room with live speed and time left. Guests prove the room's gesture before the host sees them, and the host approves every guest. Guests can post room notes, which the host relays to approved guests |
 | 📡 **Offline P2P** | BLE + Wi-Fi Direct via Google Nearby Connections; without Play Services, BLE advertising plus an encrypted L2CAP channel |
 | 🔐 **E2E Encryption** | Gesture-keyed PAKE on P-256 → HKDF-SHA256 → AES-256-GCM, fresh keys every swap |
-| 👤 **Contact Cards** | Name, phone, email, social handles, short note |
+| 👤 **Contact Cards** | Name, phone, email, social handles, short note; choose which fields each swap sends, and share your own card as a `.vcf` |
 | 🎯 **Auto-Matchmaking** | Phones only try peers whose advertised gesture bucket matches; the gesture check decides |
 | ✅ **Gesture Proof** | The gesture keys the exchange itself; nothing is sent until both phones prove they hold it |
 | 📷 **Live Gesture Preview** | See the detected pose and its stability before it locks |
 | 🔎 **Contact Search** | Filter by any field; favourites sort first |
 | 📳 **Haptics** | Pulse on gesture lock and on a finished swap |
 | 📇 **Contact Export** | Add a received card to the phone's contacts, or share it as a vCard |
-| 💾 **Offline Contacts** | Room v1 database — contacts persist on device |
+| 💾 **Offline Contacts** | Room database with exported schemas and migrations — contacts persist on device and survive upgrades |
 | 🌐 **Languages** | English, Hindi, Spanish, French, German and Brazilian Portuguese; on Android 13+ pick one per app in system settings |
 | 🔒 **Permission Denied UX** | Clear explanations when camera/Nearby permissions are missing |
 
@@ -146,7 +148,7 @@ adb -s SERIAL_A logcat -s Ping:* NearbyExchangeService:* GestureCamera:*
 | Encryption | AES-256-GCM (authenticated encryption) |
 | Keys | Fresh every swap — nothing long-lived |
 | Transport | BLE + Wi-Fi Direct via Nearby Connections, or BLE L2CAP when Play Services is missing (no internet). The L2CAP link runs an ephemeral P-256 ECDH handshake and seals every frame with AES-256-GCM under per-direction keys and counter nonces. |
-| Data | All on-device (Room v1 database) |
+| Data | All on-device (Room database) |
 | Matchmaking | The advertisement carries only a 4-bit bucket of the gesture, which narrows who to try without giving the gesture away. |
 | Peer authentication | HMAC key-confirmation tags over both shares. A peer without the gesture fails, and a relay in the middle fails because each leg has a different link token. One online guess per connection; a swap gives up after three failed peers, a guest after three failed rooms. |
 | Permissions | No `INTERNET` permission, by design: the manifest removes the one a Play Services dependency injects. Networking code cannot ship in this app. |
@@ -177,7 +179,7 @@ Ping uses **MVVM** with Hilt dependency injection:
 │  BleL2capTransport (no Play Services)       │
 ├─────────────────────────────────────────────┤
 │              Crypto Layer                    │
-│  P-256 ECDH → HKDF-SHA256 → AES-256-GCM     │
+│  Pake (P-256) → HKDF-SHA256 → AES-256-GCM   │
 └─────────────────────────────────────────────┘
 ```
 
@@ -193,15 +195,19 @@ class ExchangeViewModel @Inject constructor(
 ## 📂 Project Structure
 
 ```
-Aura/
+Ping/
 ├── app/src/main/java/com/ping/app/
-│   ├── auth/           # GestureFingerprint, GestureCamera (MediaPipe)
-│   ├── data/           # Room DAOs, repositories, transport bridges
-│   ├── di/             # Hilt modules
+│   ├── auth/           # GestureFingerprint, GestureCamera (MediaPipe), custom gestures, motion
+│   ├── data/           # Room database and DAOs, repositories, contact backup
+│   ├── di/             # Hilt modules, transport choice
 │   ├── model/          # Contact, Profile, ExchangeSession
-│   ├── service/        # NearbyExchangeService and its transport
+│   ├── rollcall/       # Offline class attendance
+│   ├── room/           # File room hub, protocol and screen
+│   ├── service/        # NearbyExchangeService, ExchangeEngine, Nearby and BLE L2CAP transports
 │   ├── ui/             # Compose screens
-│   └── utils/          # CryptoUtils (P-256 ECDH + HKDF + AES-256-GCM)
+│   └── utils/          # Pake (gesture-keyed PAKE), CryptoUtils (HKDF + AES-256-GCM)
+├── app/schemas/        # Exported Room schemas for migration tests
+├── CHANGELOG.md
 ├── PING_PLAN.md        # Roadmap
 └── README.md
 ```
