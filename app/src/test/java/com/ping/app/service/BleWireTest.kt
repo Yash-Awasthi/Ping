@@ -60,10 +60,31 @@ class BleWireTest {
     }
 
     @Test
+    fun `handshake reads refuse blobs over their cap`() {
+        val buf = ByteArrayOutputStream()
+        BleWire.writeBlob(DataOutputStream(buf), ByteArray(BleWire.HANDSHAKE_BLOB + 1))
+        assertThrows(IOException::class.java) {
+            BleWire.readBlob(DataInputStream(ByteArrayInputStream(buf.toByteArray())), BleWire.HANDSHAKE_BLOB)
+        }
+    }
+
+    @Test
     fun `chunk and end frames carry the stream id`() {
         val chunk = BleWire.chunk(7, byteArrayOf(9, 8, 7), 2)
         assertArrayEquals(byteArrayOf(BleWire.T_CHUNK, 0, 0, 0, 7, 9, 8), chunk)
         assertArrayEquals(byteArrayOf(BleWire.T_END, 0, 0, 0, 7), BleWire.end(7))
+        assertArrayEquals(byteArrayOf(BleWire.T_ABORT, 0, 0, 0, 7), BleWire.abort(7))
+        assertEquals(7, BleWire.streamId(chunk))
+        assertThrows(IOException::class.java) { BleWire.streamId(byteArrayOf(BleWire.T_END, 0, 0, 7)) }
+    }
+
+    @Test
+    fun `hello names over 64 bytes are refused`() {
+        val name = "x".repeat(BleWire.MAX_NAME_BYTES)
+        assertEquals(name, BleWire.parseHello(BleWire.hello(name)))
+        assertThrows(IOException::class.java) { BleWire.parseHello(BleWire.hello(name + "x")) }
+        assertThrows(IOException::class.java) { BleWire.parseHello(BleWire.message(BleWire.T_BYTES, byteArrayOf(1))) }
+        assertThrows(IOException::class.java) { BleWire.parseHello(ByteArray(0)) }
     }
 
     private fun pair(): Pair<BleWire.Session, BleWire.Session> {

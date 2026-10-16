@@ -30,9 +30,14 @@ internal object BleWire {
     const val T_BYTES: Byte = 4
     const val T_CHUNK: Byte = 5
     const val T_END: Byte = 6
+    /** Ends a stream the sender could not finish; the reader sees an IOException, not EOF. */
+    const val T_ABORT: Byte = 7
 
     const val MAX_BYTES = 1 shl 20
     private const val MAX_BLOB = MAX_BYTES + 64
+    /** Caps what an unauthenticated peer can make us buffer: a P-256 key is 91 bytes, a hello at most 81. */
+    const val HANDSHAKE_BLOB = 256
+    const val MAX_NAME_BYTES = 64
 
     // 31 bytes minus the flags AD (3), the service-data AD header (2) and the 128-bit UUID (16).
     private const val LEGACY_ROOM = 31 - 3 - 2 - 16
@@ -61,9 +66,9 @@ internal object BleWire {
         if (flush) out.flush()
     }
 
-    fun readBlob(input: DataInputStream): ByteArray {
+    fun readBlob(input: DataInputStream, max: Int = MAX_BLOB): ByteArray {
         val n = input.readInt()
-        if (n !in 1..MAX_BLOB) throw IOException("bad frame length $n")
+        if (n !in 1..max) throw IOException("bad frame length $n")
         return ByteArray(n).also(input::readFully)
     }
 
@@ -74,7 +79,7 @@ internal object BleWire {
         val keys = KeyPairGenerator.getInstance("EC").apply { initialize(256) }.generateKeyPair()
         val mine = keys.public.encoded
         writeBlob(out, mine)
-        val theirs = readBlob(input)
+        val theirs = readBlob(input, HANDSHAKE_BLOB)
         val shared = KeyAgreement.getInstance("ECDH").run {
             init(keys.private)
             doPhase(KeyFactory.getInstance("EC").generatePublic(X509EncodedKeySpec(theirs)), true)
@@ -93,6 +98,23 @@ internal object BleWire {
         ByteBuffer.allocate(5 + len).put(T_CHUNK).putInt(streamId).put(data, 0, len).array()
 
     fun end(streamId: Int): ByteArray = ByteBuffer.allocate(5).put(T_END).putInt(streamId).array()
+
+    fun abort(streamId: Int): ByteArray = ByteBuffer.allocate(5).put(T_ABORT).putInt(streamId).array()
+
+    /** Stream id of a chunk, end or abort frame. */
+    fun streamId(msg: ByteArray): Int {
+        if (msg.size < 5) throw IOException("short stream frame")
+        return ByteBuffer.wrap(msg, 1, 4).int
+    }
+
+    fun hello(name: String): ByteArray = message(T_HELLO, name.toByteArray(Charsets.UTF_8))
+
+    /** The remote name in a hello frame. */
+    fun parseHello(msg: ByteArray): String {
+        if (msg.isEmpty() || msg[0] != T_HELLO) throw IOException("expected hello")
+        if (msg.size - 1 > MAX_NAME_BYTES) throw IOException("hello name of ${msg.size - 1} bytes")
+        return msg.copyOfRange(1, msg.size).toString(Charsets.UTF_8)
+    }
 }
 
 /**
