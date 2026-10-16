@@ -45,7 +45,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -83,7 +88,7 @@ fun ContactDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 actions = {
@@ -191,12 +196,16 @@ fun ContactDetailScreen(
                         Text(stringResource(R.string.action_copy))
                     }
                     Spacer(modifier = Modifier.weight(0.1f))
+                    val starState = stringResource(if (c.isFavorite) R.string.favourite_on else R.string.favourite_off)
                     IconButton(
                         onClick = { viewModel.toggleFavorite(c) },
+                        modifier = Modifier.semantics { stateDescription = starState },
                     ) {
                         Icon(
-                            Icons.Default.Star,
-                            contentDescription = stringResource(R.string.contact_toggle_favourite_initial),
+                            if (c.isFavorite) Icons.Default.Star else StarOutline,
+                            contentDescription = stringResource(
+                                if (c.isFavorite) R.string.favourite_remove else R.string.favourite_add,
+                            ),
                             tint = if (c.isFavorite) MaterialTheme.colorScheme.primary
                                    else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -255,6 +264,17 @@ fun ContactDetailScreen(
         }
     }
 }
+
+// Material's star_border; the core icon set only ships the filled star.
+private val StarOutline: ImageVector = ImageVector.Builder("StarOutline", 24.dp, 24.dp, 24f, 24f)
+    .addPath(
+        addPathNodes(
+            "M22,9.24l-7.19,-0.62L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21 12,17.27 18.18,21l-1.63,-7.03L22,9.24z" +
+                "M12,15.4l-3.76,2.27 1,-4.28 -3.32,-2.88 4.38,-0.38L12,6.1l1.71,4.04 4.38,0.38 -3.32,2.88 1,4.28L12,15.4z",
+        ),
+        fill = SolidColor(Color.Black),
+    )
+    .build()
 
 /** Edits every card field plus the private memo; blank cards cannot be saved. */
 @Composable

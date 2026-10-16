@@ -10,4 +10,9 @@
     <string name="profile_share_card">Share my card (.vcf)</string>
     <string name="profile_share_empty">Save your card first.</string>
     <string name="shortcut_my_card">Send my card</string>
+    <string name="favourite_add">Add to favourites</string>
+    <string name="favourite_remove">Remove from favourites</string>
+    <string name="favourite_on">Favourite</string>
+    <string name="favourite_off">Not a favourite</string>
+    <string name="action_back">Back</string>
 </resources>
