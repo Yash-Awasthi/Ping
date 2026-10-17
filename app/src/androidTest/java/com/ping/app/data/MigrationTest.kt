@@ -22,7 +22,8 @@ class MigrationTest {
     @get:Rule
     val helper = MigrationTestHelper(
         instrumentation = instrumentation,
-        file = instrumentation.targetContext.getDatabasePath("migration-test.db"),
+        // The driver opens the file directly, so a fresh install's missing databases/ dir must exist first.
+        file = instrumentation.targetContext.getDatabasePath("migration-test.db").apply { parentFile?.mkdirs() },
         driver = AndroidSQLiteDriver(),
         databaseClass = AppDatabase::class,
     )
