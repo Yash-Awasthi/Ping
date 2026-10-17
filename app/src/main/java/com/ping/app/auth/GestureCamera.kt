@@ -14,6 +14,7 @@ import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
 import androidx.lifecycle.LifecycleOwner
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
@@ -56,9 +57,6 @@ class GestureCamera @Inject constructor(
         /** MediaPipe failed to initialise. */
         data class ModelError(val message: String) : State()
     }
-
-    // Every fingerprint comes from here, so names are resolvable before any is shown.
-    init { GestureNames.appResources = context.resources }
 
     private val _state = MutableStateFlow<State>(State.NoHand)
     val state: StateFlow<State> = _state
@@ -218,7 +216,7 @@ class GestureCamera @Inject constructor(
 
     private fun reuse(bitmap: Bitmap?, width: Int, height: Int): Bitmap =
         bitmap?.takeIf { it.width == width && it.height == height }
-            ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            ?: createBitmap(width, height)
 
     private fun onResult(result: HandLandmarkerResult, @Suppress("UNUSED_PARAMETER") image: com.google.mediapipe.framework.image.MPImage) {
         synchronized(streak) { if (result.timestampMs() >= acceptFrom) analyse(result) }

@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -197,8 +198,8 @@ private fun GestureLock(viewModel: RoomViewModel, onLocked: (String) -> Unit, on
         text = when (val c = camera) {
             is GestureCamera.State.NoHand -> stringResource(R.string.gesture_no_hand)
             is GestureCamera.State.Detecting ->
-                stringResource(R.string.gesture_detecting, c.fingerprint.label, (c.stability * 100).toInt())
-            is GestureCamera.State.Locked -> stringResource(R.string.exchange_gesture_locked, c.fingerprint.label)
+                stringResource(R.string.gesture_detecting, c.fingerprint.label(LocalResources.current), (c.stability * 100).toInt())
+            is GestureCamera.State.Locked -> stringResource(R.string.exchange_gesture_locked, c.fingerprint.label(LocalResources.current))
             is GestureCamera.State.ModelError -> stringResource(R.string.gesture_model_error)
         },
         style = MaterialTheme.typography.bodyMedium,

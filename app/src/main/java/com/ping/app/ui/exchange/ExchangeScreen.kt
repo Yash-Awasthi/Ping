@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -59,6 +60,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.core.content.edit
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ping.app.R
@@ -185,18 +187,19 @@ fun ExchangeScreen(
         }
     }
 
+    val res = LocalResources.current
     val gestureText = if (twoStep && firstCode != null && cameraState !is GestureCamera.State.ModelError) {
         stringResource(R.string.exchange_second_gesture)
     } else when (val state = cameraState) {
         is GestureCamera.State.NoHand -> stringResource(R.string.gesture_no_hand)
         is GestureCamera.State.Detecting -> stringResource(
             R.string.gesture_detecting,
-            state.fingerprint.label,
+            state.fingerprint.label(res),
             (state.stability * 100).toInt(),
         )
         is GestureCamera.State.Locked -> stringResource(
             R.string.exchange_gesture_locked,
-            state.fingerprint.label,
+            state.fingerprint.label(res),
         )
         is GestureCamera.State.ModelError -> stringResource(R.string.gesture_model_error)
     }
@@ -222,7 +225,7 @@ fun ExchangeScreen(
     // The percentage ticks every frame, so a screen reader hears only the pose it names.
     val spokenStatus = (cameraState as? GestureCamera.State.Detecting)
         ?.takeIf { session == null && !(twoStep && firstCode != null) }
-        ?.fingerprint?.label ?: statusText
+        ?.fingerprint?.label(res) ?: statusText
 
     val connectionState = when (session?.state) {
         ExchangeSession.State.SEARCHING -> ConnectionState.SCANNING
@@ -493,7 +496,7 @@ private fun loadFields(context: Context): Set<String> =
         ?: Profile.FIELDS
 
 private fun saveFields(context: Context, fields: Set<String>) {
-    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet(KEY_FIELDS, fields).apply()
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putStringSet(KEY_FIELDS, fields) }
 }
 
 private fun openAppSettings(context: Context): Intent =

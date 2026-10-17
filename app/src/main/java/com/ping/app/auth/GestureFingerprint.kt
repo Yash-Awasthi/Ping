@@ -87,10 +87,6 @@ data class GestureFingerprint(
     /** Friendly one-liner for the UI in the user's language, e.g. "✌️ peace up". */
     fun label(res: Resources): String = GestureNames.label(this, res)
 
-    // ponytail: app-wide resources for callers without a Resources at hand; move them to label(res).
-    @Deprecated("Use label(res)", ReplaceWith("label(res)"))
-    val label: String get() = GestureNames.appResources?.let(::label).orEmpty()
-
     /** The same hand with only what stays stable while it moves, plus the [motion]. */
     fun withMotion(motion: Motion) =
         GestureFingerprint(fingerMask, 0, partner = partner, motion = motion, hand = hand)
