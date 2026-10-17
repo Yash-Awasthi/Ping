@@ -94,10 +94,12 @@ class GestureCamera @Inject constructor(
             clearStreak()
             acceptFrom = SystemClock.uptimeMillis()
         }
-        val future = ProcessCameraProvider.getInstance(context)
+        // No usable camera (none fitted, or blocked by policy) must end in an error state, not a crash.
+        val future = runCatching { ProcessCameraProvider.getInstance(context) }
+            .getOrElse { cameraFailed(it); return }
         future.addListener({
             if (gen != generation || executor !== exec) return@addListener
-            cameraProvider = future.get()
+            cameraProvider = runCatching { future.get() }.getOrElse { cameraFailed(it); return@addListener }
             bind(owner, exec)
         }, ContextCompat.getMainExecutor(context))
     }
@@ -118,6 +120,11 @@ class GestureCamera @Inject constructor(
     /** Forget the current streak so the next lock is a fresh capture. */
     fun reset() = synchronized(streak) { clearStreak() }
 
+    private fun cameraFailed(e: Throwable) {
+        Timber.e(e, "Camera unavailable")
+        _state.value = State.ModelError(e.message ?: "camera unavailable")
+    }
+
     private fun clearStreak() {
         forget()
         if (_state.value !is State.ModelError) _state.value = State.NoHand
@@ -135,7 +142,7 @@ class GestureCamera @Inject constructor(
     fun warmUp() {
         if (landmarker != null) return
         // Starts CameraX's camera enumeration now so the first bind does not pay for it.
-        ProcessCameraProvider.getInstance(context)
+        runCatching { ProcessCameraProvider.getInstance(context) }.onFailure { Timber.w(it, "CameraX warm-up failed") }
         try {
             val options = HandLandmarker.HandLandmarkerOptions.builder()
                 // ponytail: CPU delegate; GPU may cut inference time but fp16 shifts landmarks across phones,
