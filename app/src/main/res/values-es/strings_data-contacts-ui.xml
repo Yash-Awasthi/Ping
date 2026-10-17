@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_passphrase_title">Proteger copia de seguridad</string>
+    <string name="backup_passphrase_message">Frase de contraseña opcional. Déjala en blanco para guardar un archivo sin cifrar que cualquiera puede leer.</string>
+    <string name="restore_passphrase_title">Copia de seguridad bloqueada</string>
+    <string name="restore_passphrase_message">Introduce la frase de contraseña con la que se guardó esta copia de seguridad.</string>
+    <string name="restore_passphrase_wrong">Frase de contraseña incorrecta, o el archivo está dañado.</string>
+    <string name="backup_passphrase_hint">Frase de contraseña</string>
+    <string name="action_continue">Continuar</string>
+    <string name="profile_share_card">Compartir mi tarjeta (.vcf)</string>
+    <string name="profile_share_empty">Guarda tu tarjeta primero.</string>
+    <string name="shortcut_my_card">Enviar mi tarjeta</string>
+    <string name="favourite_add">Añadir a favoritos</string>
+    <string name="favourite_remove">Quitar de favoritos</string>
+    <string name="favourite_on">Favorito</string>
+    <string name="favourite_off">No es favorito</string>
+    <string name="action_back">Atrás</string>
+    <string name="indicator_scanning">Buscando…</string>
+    <string name="indicator_connecting">Conectando…</string>
+    <string name="indicator_paired">Emparejado</string>
+    <string name="indicator_error">Error</string>
+    <string name="indicator_idle">Inactivo</string>
+    <string name="onboarding_title">Cómo funciona un intercambio</string>
+    <string name="onboarding_step_profile">Configura tu tarjeta en Perfil.</string>
+    <string name="onboarding_step_gesture">Tú y tu amigo hacen el mismo gesto con la mano.</string>
+    <string name="onboarding_step_hold">Mantenlo firme hasta que los teléfonos se encuentren.</string>
+    <string name="onboarding_practice">Practicar</string>
+    <string name="onboarding_dismiss">Entendido</string>
+</resources>

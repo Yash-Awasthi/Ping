@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exchange_peer_empty_card">L\'autre personne n\'a pas configuré sa carte.</string>
+    <string name="exchange_no_match_gesture">Quelqu\'un à proximité a essayé, mais son geste ne correspondait pas. Mettez-vous d\'accord sur un geste et réessayez.</string>
+    <string name="exchange_peer_outdated">Un téléphone à proximité utilise une ancienne version de Ping. Demandez-lui de la mettre à jour pour échanger.</string>
+    <string name="exchange_step_desc">Étape %1$d sur %2$d : %3$s</string>
+    <string name="exchange_share_fields">Partager lors de cet échange</string>
+</resources>

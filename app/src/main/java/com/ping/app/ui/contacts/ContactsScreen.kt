@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -29,7 +30,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -37,15 +45,20 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import com.ping.app.R
 import com.ping.app.model.Contact
 import com.ping.app.ui.components.Avatar
@@ -63,12 +76,36 @@ fun ContactsScreen(
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(viewModel::importVCards)
     }
+    val backupWriter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let(viewModel::backUp)
+    }
+    val sealedWriter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null) viewModel.backUpSealed(uri) else viewModel.setBackupPassphrase(null)
+    }
+    val backupReader = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::restore)
+    }
+    var menuOpen by remember { mutableStateOf(false) }
+    var askBackupPassphrase by remember { mutableStateOf(false) }
+    var lockedBackup by remember { mutableStateOf<Pair<android.net.Uri, Boolean>?>(null) }
     val resources = LocalResources.current
     LaunchedEffect(Unit) {
-        viewModel.imported.collect { n ->
-            val text = if (n < 0) resources.getString(R.string.contacts_import_failed)
-            else resources.getQuantityString(R.plurals.contacts_imported, n, n)
-            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+        fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+        launch { viewModel.locked.collect { lockedBackup = it } }
+        launch {
+            viewModel.imported.collect { n ->
+                toast(if (n < 0) resources.getString(R.string.contacts_import_failed)
+                else resources.getQuantityString(R.plurals.contacts_imported, n, n))
+            }
+        }
+        launch {
+            viewModel.backedUp.collect { ok ->
+                toast(resources.getString(if (ok) R.string.contacts_backup_saved else R.string.contacts_backup_failed))
+            }
+        }
+        viewModel.restored.collect { n ->
+            toast(if (n < 0) resources.getString(R.string.contacts_restore_failed)
+            else resources.getQuantityString(R.plurals.contacts_restored, n, n))
         }
     }
 
@@ -91,7 +128,7 @@ fun ContactsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(R.string.contacts_count, contacts.size),
+                text = pluralStringResource(R.plurals.contacts_count, contacts.size, contacts.size),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -101,12 +138,93 @@ fun ContactsScreen(
             }
             if (contacts.isNotEmpty()) {
                 TextButton(onClick = { shareVCards(context, contacts) }) {
-                    Text(stringResource(R.string.contacts_export_all, contacts.size), color = PingCyan)
+                    Text(pluralStringResource(R.plurals.contacts_export_all, contacts.size, contacts.size), color = PingCyan)
+                }
+            }
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.contacts_more))
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.contacts_backup)) },
+                        onClick = { menuOpen = false; askBackupPassphrase = true },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.contacts_restore)) },
+                        onClick = { menuOpen = false; backupReader.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) },
+                    )
                 }
             }
         }
         ContactList(contacts, query, onContactClick)
     }
+
+    if (askBackupPassphrase) {
+        PassphraseDialog(
+            title = R.string.backup_passphrase_title,
+            message = R.string.backup_passphrase_message,
+            wrong = false,
+            onConfirm = { pass ->
+                askBackupPassphrase = false
+                viewModel.setBackupPassphrase(pass.takeIf { it.isNotEmpty() })
+                if (pass.isEmpty()) backupWriter.launch("Ping-backup.json") else sealedWriter.launch("Ping-backup.pingseal")
+            },
+            onDismiss = { askBackupPassphrase = false },
+        )
+    }
+    lockedBackup?.let { (uri, wrong) ->
+        PassphraseDialog(
+            title = R.string.restore_passphrase_title,
+            message = R.string.restore_passphrase_message,
+            wrong = wrong,
+            onConfirm = { pass -> lockedBackup = null; viewModel.restore(uri, pass) },
+            onDismiss = { lockedBackup = null },
+        )
+    }
+}
+
+/** Asks for a backup passphrase; [onConfirm] gets it trimmed, empty when left blank. */
+@Composable
+private fun PassphraseDialog(
+    title: Int,
+    message: Int,
+    wrong: Boolean,
+    onConfirm: (CharArray) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var pass by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(title)) },
+        text = {
+            Column {
+                Text(stringResource(message), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = pass,
+                    onValueChange = { pass = it },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.backup_passphrase_hint)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    isError = wrong,
+                    supportingText = if (wrong) {
+                        { Text(stringResource(R.string.restore_passphrase_wrong)) }
+                    } else null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(pass.trim().toCharArray()) }) {
+                Text(stringResource(R.string.action_continue))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }
 
 @Composable
@@ -141,12 +259,13 @@ private fun ContactList(
             }
         }
     } else {
+        val favourites = remember(contacts) { contacts.filter { it.isFavorite } }
+        val rest = remember(contacts, query) { if (query.isBlank()) contacts.filterNot { it.isFavorite } else contacts }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            val favourites = contacts.filter { it.isFavorite }
             if (query.isBlank() && favourites.isNotEmpty()) {
                 item { SectionLabel(stringResource(R.string.contacts_favourites)) }
                 items(favourites, key = { "f-" + it.id }) { contact ->
@@ -154,7 +273,6 @@ private fun ContactList(
                 }
                 item { SectionLabel(stringResource(R.string.contacts_everyone)) }
             }
-            val rest = if (query.isBlank()) contacts.filterNot { it.isFavorite } else contacts
             items(rest, key = { it.id }) { contact ->
                 ContactItem(contact = contact, onClick = { onContactClick(contact.id) })
             }

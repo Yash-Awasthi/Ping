@@ -43,6 +43,8 @@ class RoomViewModel @Inject constructor(
 
     fun approveAll() = hub.approveAll()
 
+    fun postNote(text: String) = hub.postNote(text)
+
     fun prewarm() = hub.prewarm()
 
     fun cancelPrewarm() = hub.cancelPrewarm()

@@ -8,7 +8,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.ping.app.ui.QuickLaunch
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
@@ -34,9 +40,13 @@ private fun NavBackStack<NavKey>.openFromHome(key: NavKey) {
 @Composable
 fun AppNavHost(launchKey: NavKey? = null, onLaunchKeyHandled: () -> Unit = {}) {
     val backStack = rememberNavBackStack(navStateConfiguration, Home)
+    var shareCard by remember { mutableStateOf(false) }
     LaunchedEffect(launchKey) {
         val key = launchKey ?: return@LaunchedEffect
-        backStack.openFromHome(key)
+        if (key == QuickLaunch.ShareMyCard) {
+            backStack.openFromHome(Profile)
+            shareCard = true
+        } else backStack.openFromHome(key)
         onLaunchKeyHandled()
     }
     val current = backStack.lastOrNull()
@@ -49,8 +59,8 @@ fun AppNavHost(launchKey: NavKey? = null, onLaunchKeyHandled: () -> Unit = {}) {
                 NavigationBar {
                     bottomNavItems.forEach { item ->
                         NavigationBarItem(
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label) },
+                            icon = { Icon(item.icon, contentDescription = null) },
+                            label = { Text(stringResource(item.label)) },
                             selected = current == item.key,
                             onClick = { if (current != item.key) backStack.openFromHome(item.key) },
                         )
@@ -76,7 +86,7 @@ fun AppNavHost(launchKey: NavKey? = null, onLaunchKeyHandled: () -> Unit = {}) {
                         onRollCallClick = { backStack.add(RollCall) },
                     )
                 }
-                entry<Profile> { ProfileScreen() }
+                entry<Profile> { ProfileScreen(shareOnOpen = shareCard, onShareHandled = { shareCard = false }) }
                 entry<Contacts> {
                     ContactsScreen(onContactClick = { backStack.add(ContactDetail(it)) })
                 }

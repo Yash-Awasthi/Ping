@@ -1,5 +1,6 @@
 package com.ping.app.auth
 
+import com.ping.app.R
 import kotlin.math.cos
 import kotlin.math.sin
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -15,6 +16,19 @@ import org.junit.jupiter.api.Test
  * the emoji a person would expect.
  */
 class GestureFingerprintTest {
+
+    /** Stands in for Resources: a few strings in English, the rest as their id. */
+    private val english = GestureNames.Text { id, args ->
+        when (id) {
+            R.string.gesture_hand_left -> "left hand"
+            R.string.gesture_circle_cw -> "circle clockwise"
+            R.string.gesture_sided -> "%1\$s (%2\$s)"
+            R.string.gesture_both_hands -> "both hands · %1\$s"
+            else -> "#$id"
+        }.format(*args)
+    }
+
+    private val GestureFingerprint.shown get() = GestureNames.label(this, english)
 
     /** Fingers laid out along the vertical; each tip can be overridden to make gaps, pinches and crosses. */
     private class Hand {
@@ -66,7 +80,7 @@ class GestureFingerprintTest {
     @Test
     fun `open palm pointing up`() {
         assertEquals("F31A0", fp(open()).code)
-        assertTrue(fp(open()).label.startsWith("✋"))
+        assertTrue(fp(open()).shown.startsWith("✋"))
     }
 
     @Test
@@ -75,15 +89,15 @@ class GestureFingerprintTest {
         assertEquals("F0A1", fp(Hand().rotated(90.0)).code)
         assertEquals("F0A3", fp(Hand().rotated(-90.0)).code)
         assertEquals("F0A2", fp(Hand().rotated(180.0)).code)
-        assertTrue(fp(Hand().rotated(90.0)).label.startsWith("🤜"))
-        assertTrue(fp(Hand().rotated(-90.0)).label.startsWith("🤛"))
+        assertTrue(fp(Hand().rotated(90.0)).shown.startsWith("🤜"))
+        assertTrue(fp(Hand().rotated(-90.0)).shown.startsWith("🤛"))
     }
 
     @Test
     fun `one finger points in four directions`() {
         val labels = listOf(0.0 to "☝️", 90.0 to "👉", 180.0 to "👇", -90.0 to "👈")
         for ((deg, emoji) in labels) {
-            assertTrue(fp(Hand().fingers(1).rotated(deg)).label.startsWith(emoji), "$deg")
+            assertTrue(fp(Hand().fingers(1).rotated(deg)).shown.startsWith(emoji), "$deg")
         }
     }
 
@@ -93,8 +107,8 @@ class GestureFingerprintTest {
         val down = Hand().set(4, 0.32f, 0.85f).set(3, 0.36f, 0.72f)
         assertEquals("F1A0", fp(up).code)
         assertEquals("F1A2", fp(down).code)
-        assertTrue(fp(up).label.startsWith("👍"))
-        assertTrue(fp(down).label.startsWith("👎"))
+        assertTrue(fp(up).shown.startsWith("👍"))
+        assertTrue(fp(down).shown.startsWith("👎"))
     }
 
     @Test
@@ -111,23 +125,41 @@ class GestureFingerprintTest {
         val right = fp(open()).copy(hand = GestureFingerprint.Hand.RIGHT)
         assertEquals("F31A0HL", left.code)
         assertEquals("F31A0HR", right.code)
-        assertTrue(left.label.contains("left hand"))
+        assertTrue(left.shown.contains("left hand"))
         assertEquals("F31~WAVEHL", left.withMotion(GestureFingerprint.Motion.WAVE).code)
+    }
+
+    private fun curled(h: Hand, z: Float) = h.xyz().also { xyz ->
+        for (j in intArrayOf(6, 7, 8, 10, 11, 12, 14, 15, 16, 18, 19, 20)) xyz[j * 3 + 2] = z
+    }
+
+    private fun mirrored(xyz: FloatArray) = xyz.copyOf().also { for (i in 0 until 21) it[i * 3] = 1f - it[i * 3] }
+
+    @Test
+    fun `hand side from shape follows the way the fingers bend`() {
+        // Thumb on the image left with fingers bending toward the camera: a right palm in the mirrored preview.
+        val rightPalm = curled(Hand(), -0.04f)
+        assertEquals(true, GestureFingerprint.shapeIsRight(rightPalm))
+        assertEquals(true, GestureFingerprint.shapeIsRight(curled(Hand().rotated(90.0), -0.04f)))
+        assertEquals(false, GestureFingerprint.shapeIsRight(mirrored(rightPalm)))
+        // Back of the right hand: thumb on the image right, fingers bending away.
+        assertEquals(true, GestureFingerprint.shapeIsRight(mirrored(curled(Hand(), 0.04f))))
+        assertNull(GestureFingerprint.shapeIsRight(curled(open(), 0f)))
     }
 
     @Test
     fun `peace, rock on, love you and call me`() {
-        assertTrue(fp(Hand().fingers(1, 2)).label.startsWith("✌️"))
-        assertTrue(fp(Hand().fingers(1, 4)).label.startsWith("🤘"))
-        assertTrue(fp(Hand().thumbOut().fingers(1, 4)).label.startsWith("🤟"))
-        assertTrue(fp(Hand().thumbOut().fingers(4)).label.startsWith("🤙"))
+        assertTrue(fp(Hand().fingers(1, 2)).shown.startsWith("✌️"))
+        assertTrue(fp(Hand().fingers(1, 4)).shown.startsWith("🤘"))
+        assertTrue(fp(Hand().thumbOut().fingers(1, 4)).shown.startsWith("🤟"))
+        assertTrue(fp(Hand().thumbOut().fingers(4)).shown.startsWith("🤙"))
     }
 
     @Test
     fun `crossed fingers are told from peace`() {
         val crossed = Hand().extend(1, tipX = 0.52f).extend(2, tipX = 0.47f)
         assertEquals("F6A0X", fp(crossed).code)
-        assertTrue(fp(crossed).label.startsWith("🤞"))
+        assertTrue(fp(crossed).shown.startsWith("🤞"))
         assertFalse(fp(Hand().fingers(1, 2)).crossed)
     }
 
@@ -157,10 +189,10 @@ class GestureFingerprintTest {
     fun `vulcan salute and spread fingers`() {
         val vulcan = open().set(8, 0.46f, 0.28f).set(12, 0.50f, 0.28f).set(16, 0.62f, 0.28f).set(20, 0.66f, 0.28f)
         assertEquals(0b010, fp(vulcan).gaps)
-        assertTrue(fp(vulcan).label.startsWith("🖖"))
+        assertTrue(fp(vulcan).shown.startsWith("🖖"))
         val spread = open().set(8, 0.34f, 0.28f).set(12, 0.48f, 0.28f).set(16, 0.64f, 0.28f).set(20, 0.78f, 0.28f)
         assertEquals(0b111, fp(spread).gaps)
-        assertTrue(fp(spread).label.startsWith("🖐️"))
+        assertTrue(fp(spread).shown.startsWith("🖐️"))
     }
 
     @Test
@@ -169,10 +201,10 @@ class GestureFingerprintTest {
         fun pinched(h: Hand) = h.set(8, 0.42f, 0.42f).set(7, 0.43f, 0.36f).set(4, 0.42f, 0.44f)
         val ok = pinched(Hand().fingers(2, 3, 4))
         assertEquals("F28A0P", fp(ok).code)
-        assertTrue(fp(ok).label.startsWith("👌"))
+        assertTrue(fp(ok).shown.startsWith("👌"))
         val tiny = pinched(Hand())
         assertEquals("F0A0P", fp(tiny).code)
-        assertTrue(fp(tiny).label.startsWith("🤏"))
+        assertTrue(fp(tiny).shown.startsWith("🤏"))
     }
 
     @Test
@@ -185,7 +217,7 @@ class GestureFingerprintTest {
         assertEquals(GestureFingerprint.Palm.AWAY, fp(open(), right = true).palm)
         assertEquals(GestureFingerprint.Palm.FACING, fp(open(), right = false).palm)
         assertEquals(GestureFingerprint.Palm.UNKNOWN, fp(open(), right = null).palm)
-        assertTrue(fp(open(), right = true).label.startsWith("🤚"))
+        assertTrue(fp(open(), right = true).shown.startsWith("🤚"))
         val edge = open().set(5, 0.47f, 0.50f).set(17, 0.50f, 0.51f)
         assertEquals(GestureFingerprint.Palm.EDGE, fp(edge).palm)
     }
@@ -226,14 +258,14 @@ class GestureFingerprintTest {
         val moving = fp(Hand().fingers(1)).withMotion(GestureFingerprint.Motion.CIRCLE_CW)
         assertEquals("F2~CW", moving.code)
         assertEquals("F31~WAVE", fp(open()).withMotion(GestureFingerprint.Motion.WAVE).code)
-        assertTrue(moving.label.contains("clockwise"))
+        assertTrue(moving.shown.contains("clockwise"))
     }
 
     @Test
     fun `two hands together add the partner mask`() {
         val both = fp(open()).copy(partner = 31)
         assertEquals("F31A0&F31", both.code)
-        assertTrue(both.label.contains("both hands"))
+        assertTrue(both.shown.contains("both hands"))
     }
 
     @Test

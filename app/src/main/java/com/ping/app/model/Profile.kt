@@ -19,15 +19,14 @@ data class Profile(
     val note: String = "",
     val updatedAt: Long = System.currentTimeMillis(),
 ) {
-    fun toShareableMap(): Map<String, String> = buildMap {
-        if (displayName.isNotBlank()) put("name", displayName)
-        if (phone.isNotBlank()) put("phone", phone)
-        if (email.isNotBlank()) put("email", email)
-        if (social.isNotBlank()) put("social", social)
-        if (note.isNotBlank()) put("note", note)
-    }
+    /** The filled fields whose wire keys are in [fields]. */
+    fun toShareableMap(fields: Set<String> = FIELDS): Map<String, String> =
+        mapOf("name" to displayName, "phone" to phone, "email" to email, "social" to social, "note" to note)
+            .filter { (key, value) -> key in fields && value.isNotBlank() }
 
     companion object {
         const val LOCAL_ID = "local_profile"
+        /** Every wire key a card can carry. */
+        val FIELDS = setOf("name", "phone", "email", "social", "note")
     }
 }

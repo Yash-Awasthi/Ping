@@ -26,19 +26,33 @@ class ContactRepository @Inject constructor(
 
     suspend fun save(contact: Contact) = contactDao.insert(contact)
 
-    /** Saves a received card; a repeat swap refreshes the existing entry and keeps its id and star. */
-    suspend fun saveReceived(contact: Contact): Contact {
-        val existing = contacts.first().firstOrNull { it.isSamePerson(contact) }
+    /**
+     * Saves a received card. A repeat swap from a matching person with the same name refreshes that
+     * entry, keeping its id, star and memo; a different name sharing a phone or email gets its own row.
+     */
+    suspend fun saveReceived(contact: Contact): Contact = upsert(contact, contact::isSameNamedPerson)
+
+    private suspend fun upsert(contact: Contact, matches: (Contact) -> Boolean): Contact {
+        val existing = contacts.first().firstOrNull(matches)
         val toSave = if (existing == null) contact
         else contact.copy(id = existing.id, isFavorite = existing.isFavorite, memo = existing.memo)
         contactDao.insert(toSave)
         return toSave
     }
 
-    /** Saves cards from a .vcf file, merging each into a matching contact; returns how many. */
+    /**
+     * Saves cards from a .vcf file, merging each into a contact with the same phone or email whatever
+     * the name, since a file's FN often differs from the swapped name; returns how many.
+     */
     suspend fun import(cards: List<Contact>): Int {
-        cards.forEach { saveReceived(it) }
+        cards.forEach { upsert(it, it::isSamePerson) }
         return cards.size
+    }
+
+    /** Merges contacts from a backup file without duplicating anyone; returns how many it held. */
+    suspend fun restore(backup: List<Contact>): Int {
+        contactDao.insertAll(mergeBackup(contacts.first(), backup))
+        return backup.size
     }
 
     suspend fun update(contact: Contact) = contactDao.update(contact)
@@ -52,4 +66,6 @@ class ContactRepository @Inject constructor(
     suspend fun deleteAll() = contactDao.deleteAll()
 
     suspend fun count(): Int = contactDao.count()
+
+    val contactCount: Flow<Int> = contactDao.observeCount()
 }

@@ -40,9 +40,32 @@ class MotionTrackerTest {
     }
 
     @Test
-    fun `a straight sweep is neither`() {
-        val t = tracker(30) { i -> 0.3 + 0.4 * i / 29 to 0.5 }
+    fun `a straight sweep reads as a swipe that way`() {
+        assertEquals(Motion.SWIPE_RIGHT, tracker(30) { i -> 0.3 + 0.4 * i / 29 to 0.5 }.classify())
+        assertEquals(Motion.SWIPE_LEFT, tracker(30) { i -> 0.7 - 0.4 * i / 29 to 0.5 }.classify())
+        assertEquals(Motion.SWIPE_DOWN, tracker(30) { i -> 0.5 to 0.3 + 0.4 * i / 29 }.classify())
+        assertEquals(Motion.SWIPE_UP, tracker(30) { i -> 0.5 to 0.7 - 0.4 * i / 29 }.classify())
+    }
+
+    @Test
+    fun `a quick swipe between still holds still reads as a swipe`() {
+        val t = tracker(30) { i ->
+            val x = when { i < 10 -> 0.3; i < 16 -> 0.3 + 0.4 * (i - 9) / 6; else -> 0.7 }
+            x + 0.004 * sin(i * 1.3) to 0.5 + 0.004 * cos(i * 1.9)
+        }
+        assertEquals(Motion.SWIPE_RIGHT, t.classify())
+    }
+
+    @Test
+    fun `a sweep there and back is not a swipe`() {
+        val t = tracker(30) { i -> (if (i < 15) 0.3 + 0.4 * i / 14 else 0.7 - 0.3 * (i - 14) / 15) to 0.5 }
         assertNull(t.classify())
+    }
+
+    @Test
+    fun `a diagonal or short sweep is not a swipe`() {
+        assertNull(tracker(30) { i -> 0.3 + 0.4 * i / 29 to 0.3 + 0.4 * i / 29 }.classify())
+        assertNull(tracker(30) { i -> 0.45 + 0.1 * i / 29 to 0.5 }.classify())
     }
 
     @Test

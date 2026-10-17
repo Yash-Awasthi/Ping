@@ -15,27 +15,21 @@ fun Context.toast(msg: String, long: Boolean = false) {
     Toast.makeText(this, msg, if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
 }
 
-/**
- * Short haptic pulse — used as confirmation feedback when a gesture is recognised.
- */
-fun Context.vibrateShort() {
-    val effect = VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
-    val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-        (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
-    } else {
-        @Suppress("DEPRECATION")
-        getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-    }
-    vibrator.vibrate(effect)
-}
+/** Short haptic pulse — used as confirmation feedback when a gesture is recognised. */
+fun Context.vibrateShort() = vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
 
-/**
- * Double-pulse — "connection established" feedback.
- */
-fun Context.vibrateDouble() {
-    val timings = longArrayOf(0, 80, 80, 80)
-    val amplitudes = intArrayOf(0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE)
-    val effect = VibrationEffect.createWaveform(timings, amplitudes, -1)
+/** A light tick as the held gesture steadies. */
+fun Context.vibrateTick() = vibrate(VibrationEffect.createOneShot(15, VibrationEffect.DEFAULT_AMPLITUDE))
+
+/** Double-pulse — "connection established" feedback. */
+fun Context.vibrateDouble() = vibrate(
+    VibrationEffect.createWaveform(longArrayOf(0, 80, 80, 80), intArrayOf(0, VibrationEffect.DEFAULT_AMPLITUDE, 0, VibrationEffect.DEFAULT_AMPLITUDE), -1),
+)
+
+/** One long buzz — the swap failed. */
+fun Context.vibrateError() = vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
+
+private fun Context.vibrate(effect: VibrationEffect) {
     val vibrator = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
         (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
     } else {

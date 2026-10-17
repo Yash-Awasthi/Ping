@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="room_guessing_warning">कोई बार-बार गलत इशारे आज़मा रहा है। रूम ने नए मेहमान लेना बंद कर दिया है; और लोगों को अंदर आने देने के लिए किसी दूसरे इशारे के साथ नया रूम शुरू करें।</string>
+    <string name="room_gesture_mismatch">आस-पास एक रूम है, लेकिन उसका इशारा मेल नहीं खाया। इशारा जाँचें और फिर कोशिश करें।</string>
+    <string name="room_notes">नोट्स</string>
+    <string name="room_note_paste">क्लिपबोर्ड से पेस्ट करें</string>
+    <string name="room_note_unusable">क्लिपबोर्ड खाली है या नोट के लिए बहुत लंबा है।</string>
+</resources>

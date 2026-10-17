@@ -16,6 +16,9 @@ interface ContactDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(contact: Contact)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(contacts: List<Contact>)
+
     @Update
     suspend fun update(contact: Contact)
 
@@ -27,4 +30,7 @@ interface ContactDao {
 
     @Query("SELECT COUNT(*) FROM contacts")
     suspend fun count(): Int
+
+    @Query("SELECT COUNT(*) FROM contacts")
+    fun observeCount(): Flow<Int>
 }

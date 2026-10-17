@@ -5,6 +5,7 @@ import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.ConnectionInfo
 import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback
+import com.google.android.gms.nearby.connection.ConnectionOptions
 import com.google.android.gms.nearby.connection.ConnectionResolution
 import com.google.android.gms.nearby.connection.ConnectionsClient
 import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo
@@ -20,12 +21,10 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Production [NearbyTransport] implementation backed by Google Nearby Connections.
  *
- * Wraps [ConnectionsClient] and its callback hierarchy, exposing the same
- * interface as [WifiDirectTransport] and [FakeNearbyTransport] so that
- * [NearbyExchangeService] is transport-agnostic.
+ * Wraps [ConnectionsClient] and its callback hierarchy, exposing the same interface as
+ * [BleL2capTransport] and the tests' `FakeAir` so that [ExchangeEngine] is transport-agnostic.
  *
- * Provided via Hilt in the `gms` product flavor — see `di/TransportModule.kt`
- * in the `gms` source set.
+ * Chosen at runtime when Play Services is present — see `di/TransportModule.kt`.
  *
  * STREAM payloads carry file bytes for the room hub; see [sendStream] and [onStreamReceived].
  */
@@ -41,7 +40,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     override var onEndpointFound: ((endpointId: String, remoteName: String) -> Unit)? = null
     override var onConnectionInitiated: ((endpointId: String, remoteName: String) -> Unit)? = null
     override var onEndpointLost: ((endpointId: String) -> Unit)? = null
-    override var onAuthDigits: ((endpointId: String, digits: String) -> Unit)? = null
+    override var onAuthToken: ((endpointId: String, token: ByteArray) -> Unit)? = null
 
     // Streaming — NearbyTransport optional extension
 
@@ -62,6 +61,15 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
      * (i.e. we are the advertising/server side). Used to set isIncoming in [onConnected].
      */
     private val incomingInitiated: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** Endpoints with an established link. */
+    private val connected: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /**
+     * A swap moves a few hundred bytes, so its link never pays a disruptive Wi-Fi upgrade that pauses
+     * payloads; rooms keep it for file bandwidth. Set by the latest advertise or discover call.
+     */
+    @Volatile private var swapLink = true
 
     // Nearby Connections callbacks
 
@@ -90,7 +98,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
             endpointNames[endpointId] = info.endpointName
             incomingInitiated.add(endpointId)
             Timber.d("NearbyConnectionsTransport: connection initiated from $endpointId (${info.endpointName})")
-            onAuthDigits?.invoke(endpointId, info.authenticationDigits)
+            onAuthToken?.invoke(endpointId, info.rawAuthenticationToken)
             onConnectionInitiated?.invoke(endpointId, info.endpointName)
         }
 
@@ -99,6 +107,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
             val incoming = incomingInitiated.remove(endpointId)
             if (result.status.isSuccess) {
                 Timber.i("NearbyConnectionsTransport: connected to $endpointId (incoming=$incoming)")
+                connected += endpointId
                 onConnected?.invoke(endpointId, name, incoming)
             } else {
                 Timber.w("NearbyConnectionsTransport: connection to $endpointId failed: ${result.status.statusMessage}")
@@ -111,6 +120,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
         override fun onDisconnected(endpointId: String) {
             endpointNames.remove(endpointId)
             incomingInitiated.remove(endpointId)
+            connected.remove(endpointId)
             Timber.d("NearbyConnectionsTransport: disconnected from $endpointId")
             onDisconnected?.invoke(endpointId)
         }
@@ -131,13 +141,15 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     // NearbyTransport — implementation
 
     override fun startAdvertising(localName: String, serviceId: String, star: Boolean) {
-        val options = AdvertisingOptions.Builder().setStrategy(strategy(star)).build()
+        swapLink = !star
+        val options = AdvertisingOptions.Builder().setStrategy(strategy(star)).setDisruptiveUpgrade(star).build()
         client.startAdvertising(localName, serviceId, connectionLifecycleCallback, options)
             .addOnSuccessListener { Timber.d("NearbyConnectionsTransport: advertising started as $localName") }
             .addOnFailureListener { e -> Timber.e(e, "NearbyConnectionsTransport: startAdvertising failed") }
     }
 
     override fun startDiscovery(serviceId: String, star: Boolean) {
+        swapLink = !star
         val options = DiscoveryOptions.Builder().setStrategy(strategy(star)).build()
         client.startDiscovery(serviceId, endpointDiscoveryCallback, options)
             .addOnSuccessListener { Timber.d("NearbyConnectionsTransport: discovery started") }
@@ -145,10 +157,13 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     }
 
     override fun requestConnection(localName: String, endpointId: String) {
-        client.requestConnection(localName, endpointId, connectionLifecycleCallback)
+        val options = ConnectionOptions.Builder().setDisruptiveUpgrade(!swapLink).build()
+        client.requestConnection(localName, endpointId, connectionLifecycleCallback, options)
             .addOnSuccessListener { Timber.d("NearbyConnectionsTransport: connection request sent to $endpointId") }
             .addOnFailureListener { e ->
                 Timber.e(e, "NearbyConnectionsTransport: requestConnection failed to $endpointId")
+                // A link already pending or up for this endpoint reports its own end; only a dead request is ours.
+                if (!endpointNames.containsKey(endpointId) &&endpointId !in connected) onDisconnected?.invoke(endpointId)
             }
     }
 
@@ -165,6 +180,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     }
 
     override fun disconnect(endpointId: String) {
+        connected.remove(endpointId)
         client.disconnectFromEndpoint(endpointId)
     }
 
@@ -182,6 +198,7 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
         client.stopAllEndpoints()
         endpointNames.clear()
         incomingInitiated.clear()
+        connected.clear()
         Timber.d("NearbyConnectionsTransport: all endpoints stopped")
     }
 
@@ -213,6 +230,8 @@ class NearbyConnectionsTransport(context: Context) : NearbyTransport {
     }
 
     companion object {
+        // P2P_CLUSTER kept for swaps: discovery speed matches POINT_TO_POINT, the payload needs no
+        // bandwidth, and changing it would hide this build from phones on the previous one.
         private fun strategy(star: Boolean) = if (star) Strategy.P2P_STAR else Strategy.P2P_CLUSTER
     }
 }

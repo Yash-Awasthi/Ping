@@ -19,9 +19,13 @@ object QuickLaunch {
     const val SWAP = "exchange"
     private const val ROOM = "room"
     private const val ROLL_CALL = "roll_call"
+    private const val MY_CARD = "my_card"
+
+    /** Opens Profile and shares the saved card; never put on the back stack, so not a Screen key. */
+    data object ShareMyCard : NavKey
 
     /** MainActivity is exported, so only these screens may be opened from outside. */
-    private val allowed = mapOf(SWAP to Exchange, ROOM to Room, ROLL_CALL to RollCall)
+    private val allowed = mapOf(SWAP to Exchange, ROOM to Room, ROLL_CALL to RollCall, MY_CARD to ShareMyCard)
 
     fun keyOf(intent: Intent?): NavKey? = intent?.getStringExtra(EXTRA_ROUTE)?.let(allowed::get)
 
@@ -37,6 +41,7 @@ object QuickLaunch {
             Triple("swap", SWAP, R.string.shortcut_swap),
             Triple("room", ROOM, R.string.shortcut_room),
             Triple("roll", ROLL_CALL, R.string.home_roll_button),
+            Triple("card", MY_CARD, R.string.shortcut_my_card),
         ).map { (id, route, label) ->
             ShortcutInfoCompat.Builder(context, id)
                 .setShortLabel(context.getString(label))

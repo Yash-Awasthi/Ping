@@ -2,9 +2,13 @@ package com.ping.app.ui.contacts
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ping.app.data.BackupLockedException
 import com.ping.app.data.ContactRepository
+import com.ping.app.data.decodeBackup
+import com.ping.app.data.encodeBackup
 import com.ping.app.model.Contact
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -15,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -28,6 +33,14 @@ class ContactsViewModel @Inject constructor(
     private val _imported = MutableSharedFlow<Int>(extraBufferCapacity = 1)
     /** How many cards the last import saved; -1 when the file could not be read. */
     val imported: SharedFlow<Int> = _imported
+
+    private val _backedUp = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
+    /** Whether the last backup was written. */
+    val backedUp: SharedFlow<Boolean> = _backedUp
+
+    private val _restored = MutableSharedFlow<Int>(extraBufferCapacity = 1)
+    /** How many contacts the last restore held; -1 when the file was not a readable backup. */
+    val restored: SharedFlow<Int> = _restored
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query
@@ -50,12 +63,61 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
+    private val _locked = MutableSharedFlow<Pair<Uri, Boolean>>(extraBufferCapacity = 1)
+    /** A restore that needs a passphrase: the file, and whether the last one tried was wrong. */
+    val locked: SharedFlow<Pair<Uri, Boolean>> = _locked
+
+    // Held here, not in saved UI state, so the passphrase never lands in a saved-state bundle.
+    private var backupPassphrase: CharArray? = null
+
+    /** Passphrase for the next [backUp]; null or blank writes a plain file. */
+    fun setBackupPassphrase(passphrase: CharArray?) {
+        backupPassphrase?.fill(' ')
+        backupPassphrase = passphrase
+    }
+
+    fun backUp(uri: Uri) = write(uri, backupPassphrase.also { backupPassphrase = null })
+
+    /** Like [backUp] but never plain: a passphrase lost to process death fails instead of leaking. */
+    fun backUpSealed(uri: Uri) {
+        val passphrase = backupPassphrase.also { backupPassphrase = null }
+        if (passphrase == null || passphrase.all(Char::isWhitespace)) {
+            runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
+            _backedUp.tryEmit(false)
+        } else write(uri, passphrase)
+    }
+
+    private fun write(uri: Uri, passphrase: CharArray?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = runCatching {
+                val file = encodeBackup(contactRepository.contacts.first(), passphrase)
+                context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(file) }
+            }.isSuccess
+            passphrase?.fill(' ')
+            _backedUp.tryEmit(ok)
+        }
+    }
+
+    fun restore(uri: Uri, passphrase: CharArray? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val bytes = context.contentResolver.openInputStream(uri)!!.use { it.readNBytesCompat(MAX_BACKUP_BYTES + 1) }
+                require(bytes.size <= MAX_BACKUP_BYTES) { "file too large" }
+                contactRepository.restore(decodeBackup(bytes, passphrase))
+            }.onSuccess { _restored.tryEmit(it) }.onFailure {
+                if (it is BackupLockedException) _locked.tryEmit(uri to it.wrongPassphrase) else _restored.tryEmit(-1)
+            }
+            passphrase?.fill(' ')
+        }
+    }
+
     fun deleteContact(contact: Contact) {
         viewModelScope.launch { contactRepository.delete(contact) }
     }
 }
 
 private const val MAX_VCF_BYTES = 5 * 1024 * 1024
+private const val MAX_BACKUP_BYTES = 10 * 1024 * 1024
 
 /** Reads at most [limit] bytes; InputStream.readNBytes needs API 33. */
 private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {

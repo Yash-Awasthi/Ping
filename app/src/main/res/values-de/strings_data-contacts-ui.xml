@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_passphrase_title">Sicherung schützen</string>
+    <string name="backup_passphrase_message">Optionale Passphrase. Leer lassen, um eine unverschlüsselte Datei zu speichern, die jeder lesen kann.</string>
+    <string name="restore_passphrase_title">Gesperrte Sicherung</string>
+    <string name="restore_passphrase_message">Gib die Passphrase ein, mit der diese Sicherung gespeichert wurde.</string>
+    <string name="restore_passphrase_wrong">Falsche Passphrase, oder die Datei ist beschädigt.</string>
+    <string name="backup_passphrase_hint">Passphrase</string>
+    <string name="action_continue">Weiter</string>
+    <string name="profile_share_card">Meine Karte teilen (.vcf)</string>
+    <string name="profile_share_empty">Speichere zuerst deine Karte.</string>
+    <string name="shortcut_my_card">Meine Karte senden</string>
+    <string name="favourite_add">Zu Favoriten hinzufügen</string>
+    <string name="favourite_remove">Aus Favoriten entfernen</string>
+    <string name="favourite_on">Favorit</string>
+    <string name="favourite_off">Kein Favorit</string>
+    <string name="action_back">Zurück</string>
+    <string name="indicator_scanning">Suche…</string>
+    <string name="indicator_connecting">Verbinde…</string>
+    <string name="indicator_paired">Gekoppelt</string>
+    <string name="indicator_error">Fehler</string>
+    <string name="indicator_idle">Bereit</string>
+    <string name="onboarding_title">So funktioniert ein Tausch</string>
+    <string name="onboarding_step_profile">Richte deine Karte im Profil ein.</string>
+    <string name="onboarding_step_gesture">Du und deine Freundin oder dein Freund zeigt beide dieselbe Handgeste.</string>
+    <string name="onboarding_step_hold">Halte sie ruhig, bis sich die Handys gefunden haben.</string>
+    <string name="onboarding_practice">Üben</string>
+    <string name="onboarding_dismiss">Verstanden</string>
+</resources>

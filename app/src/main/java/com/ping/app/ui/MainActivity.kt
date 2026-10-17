@@ -12,6 +12,7 @@ import com.ping.app.ui.navigation.AppNavHost
 import com.ping.app.ui.theme.PingTheme
 import com.ping.app.utils.RequiredPermissions
 import dagger.hilt.android.AndroidEntryPoint
+import kotlin.concurrent.thread
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -30,8 +31,12 @@ class MainActivity : ComponentActivity() {
             val missing = RequiredPermissions.missing(this)
             if (missing.isNotEmpty()) permissions.launch(missing.toTypedArray())
         }
-        if (savedInstanceState == null) pendingKey.value = QuickLaunch.keyOf(intent)
-        QuickLaunch.publishShortcuts(this)
+        if (savedInstanceState == null) {
+            pendingKey.value = QuickLaunch.keyOf(intent)
+            // A binder call to the launcher; nothing on screen waits for it.
+            val app = applicationContext
+            thread(name = "shortcuts") { QuickLaunch.publishShortcuts(app) }
+        }
         setContent {
             PingTheme {
                 AppNavHost(

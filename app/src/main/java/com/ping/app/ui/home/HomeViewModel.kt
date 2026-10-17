@@ -8,7 +8,6 @@ import com.ping.app.model.Profile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
@@ -21,7 +20,6 @@ class HomeViewModel @Inject constructor(
     val profile: StateFlow<Profile?> = profileRepository.profile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val contactCount: StateFlow<Int> = contactRepository.contacts
-        .map { it.size }
+    val contactCount: StateFlow<Int> = contactRepository.contactCount
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 }
