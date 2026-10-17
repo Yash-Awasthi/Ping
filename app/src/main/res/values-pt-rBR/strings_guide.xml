@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="guide_fist">Punho (também 🤛 esquerda, 🤜 direita, 👊 para baixo)</string>
+    <string name="guide_open_palm">Palma aberta, dedos juntos</string>
+    <string name="guide_spread">Mão aberta, dedos afastados</string>
+    <string name="guide_vulcan">Saudação vulcana: espaço entre o médio e o anelar</string>
+    <string name="guide_back">Costas da mão</string>
+    <string name="guide_push">Empurrar para a esquerda / para a direita</string>
+    <string name="guide_side">Mão estendida para o lado</string>
+    <string name="guide_palm_down">Palma para baixo</string>
+    <string name="guide_one_finger">Um dedo para cima, para baixo, para a esquerda, para a direita</string>
+    <string name="guide_peace">Paz: indicador e médio</string>
+    <string name="guide_crossed">Dedos cruzados</string>
+    <string name="guide_rock_on">Chifrinho do rock</string>
+    <string name="guide_love_you">Te amo</string>
+    <string name="guide_call_me">Me liga</string>
+    <string name="guide_thumbs">Joinha / polegar para baixo</string>
+    <string name="guide_thumb_index">Polegar e indicador esticados</string>
+    <string name="guide_ok">OK: polegar e indicador se tocando, os outros esticados</string>
+    <string name="guide_pinch">Pinça</string>
+    <string name="guide_three_four">Três ou quatro dedos</string>
+    <string name="guide_wave">Tchau: mão aberta de um lado para o outro</string>
+    <string name="guide_circle">Desenhe um círculo no ar, em qualquer sentido</string>
+    <string name="guide_swipe">Deslizar: um movimento para a esquerda, direita, cima ou baixo, e parar</string>
+    <string name="guide_both_hands">As duas mãos juntas, com qualquer uma das poses acima</string>
+</resources>

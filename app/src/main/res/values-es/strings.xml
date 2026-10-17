@@ -11,7 +11,11 @@
     <string name="home_tagline">Haced el mismo gesto e intercambiad contactos.</string>
     <string name="home_greeting">Hola, %1$s</string>
     <string name="home_greeting_no_profile">Configura tu tarjeta para empezar</string>
-    <string name="home_contact_count">Contactos: %1$d</string>
+    <plurals name="home_contact_count">
+        <item quantity="one">%1$d contacto</item>
+        <item quantity="many">%1$d contactos</item>
+        <item quantity="other">%1$d contactos</item>
+    </plurals>
     <string name="home_share_button">Compartir</string>
     <string name="home_share_hint">Acordad un gesto y luego tocad Compartir los dos.</string>
     <string name="home_share_needs_profile">Primero completa tu Perfil para tener algo que compartir.</string>
@@ -50,7 +54,21 @@
     <string name="roll_manage">Gestionar</string>
     <string name="roll_hide">Ocultar</string>
     <string name="roll_fraction">%1$d/%2$d</string>
-    <string name="roll_counts">%1$d presentes · %2$d ausentes · %3$d marcados</string>
+    <plurals name="roll_count_present">
+        <item quantity="one">%1$d presente</item>
+        <item quantity="many">%1$d presentes</item>
+        <item quantity="other">%1$d presentes</item>
+    </plurals>
+    <plurals name="roll_count_missing">
+        <item quantity="one">%1$d ausente</item>
+        <item quantity="many">%1$d ausentes</item>
+        <item quantity="other">%1$d ausentes</item>
+    </plurals>
+    <plurals name="roll_count_flagged">
+        <item quantity="one">%1$d marcado</item>
+        <item quantity="many">%1$d marcados</item>
+        <item quantity="other">%1$d marcados</item>
+    </plurals>
     <string name="roll_filter_all">Todos</string>
     <string name="roll_filter_missing">Ausentes</string>
     <string name="roll_filter_present">Presentes</string>
@@ -63,10 +81,17 @@
     <string name="roll_seat_present">%1$s, %2$s, presente</string>
     <string name="roll_seat_missing">%1$s, %2$s, ausente</string>
     <string name="roll_live">EN VIVO</string>
-    <string name="roll_rate">Presente en %1$d de %2$d sesiones (%3$d%%)</string>
+    <plurals name="roll_rate">
+        <item quantity="one">Presente en %1$d de %2$d sesión (%3$d%%)</item>
+        <item quantity="many">Presente en %1$d de %2$d sesiones (%3$d%%)</item>
+        <item quantity="other">Presente en %1$d de %2$d sesiones (%3$d%%)</item>
+    </plurals>
     <string name="roll_remove">Quitar de la clase</string>
     <string name="roll_remove_confirm">Toca de nuevo para quitar</string>
     <string name="roll_no_phone">aún sin teléfono</string>
+    <string name="roll_flag_manual">marcado a mano</string>
+    <string name="roll_flag_other_phone">otro teléfono</string>
+    <string name="roll_flag_new_roll">no está en la lista de clase</string>
     <string name="roll_student_intro">Introduce tu número de lista una vez y toca Buscar pase de lista cuando tu profesor inicie uno. La próxima vez que se encuentre tu clase, te registrarás automáticamente.</string>
     <string name="roll_number">Número de lista</string>
     <string name="roll_find">Buscar pase de lista</string>
@@ -206,12 +231,20 @@
         <item quantity="many">%1$d contactos importados</item>
         <item quantity="other">%1$d contactos importados</item>
     </plurals>
-    <string name="contacts_count">Personas: %1$d</string>
+    <plurals name="contacts_count">
+        <item quantity="one">%1$d persona</item>
+        <item quantity="many">%1$d personas</item>
+        <item quantity="other">%1$d personas</item>
+    </plurals>
     <string name="contacts_search_hint">Buscar contactos</string>
     <string name="contacts_no_results">Ningún contacto coincide.</string>
     <string name="action_add_to_phone">Añadir al teléfono</string>
     <string name="action_share_vcard">Compartir vCard</string>
-    <string name="contacts_export_all">Exportar %1$d como vCard</string>
+    <plurals name="contacts_export_all">
+        <item quantity="one">Exportar %1$d contacto como vCard</item>
+        <item quantity="many">Exportar %1$d contactos como vCard</item>
+        <item quantity="other">Exportar %1$d contactos como vCard</item>
+    </plurals>
     <string name="contacts_more">Más opciones</string>
     <string name="contacts_backup">Copia de seguridad (con notas)</string>
     <string name="contacts_restore">Restaurar copia de seguridad</string>

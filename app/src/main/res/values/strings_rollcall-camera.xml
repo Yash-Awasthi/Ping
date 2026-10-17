@@ -38,7 +38,10 @@
     <string name="gesture_finger_gun">finger gun</string>
     <string name="gesture_three_fingers">three fingers %1$s</string>
     <string name="gesture_four_fingers">four fingers %1$s</string>
-    <string name="gesture_fingers_out">%1$d fingers out, %2$s</string>
+    <plurals name="gesture_fingers_out">
+        <item quantity="one">%1$d finger out, %2$s</item>
+        <item quantity="other">%1$d fingers out, %2$s</item>
+    </plurals>
     <string name="gesture_vulcan">vulcan salute</string>
     <string name="gesture_spread">fingers spread</string>
     <string name="gesture_some_apart">open hand, some fingers apart</string>

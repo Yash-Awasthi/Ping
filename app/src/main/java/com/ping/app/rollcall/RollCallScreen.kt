@@ -311,7 +311,11 @@ private fun ColumnScope.SessionPane(
                 Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (live) LiveBadge()
                 Text(
-                    stringResource(R.string.roll_counts, present, total - present, flagged),
+                    listOf(
+                        pluralStringResource(R.plurals.roll_count_present, present, present),
+                        pluralStringResource(R.plurals.roll_count_missing, total - present, total - present),
+                        pluralStringResource(R.plurals.roll_count_flagged, flagged, flagged),
+                    ).joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -511,7 +515,7 @@ private fun StudentRow(
                 )
                 if (!mark?.flag.isNullOrBlank()) {
                     Text(
-                        mark!!.flag,
+                        flagText(mark!!.flag),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (mark.flagged) ErrorRed else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -564,6 +568,15 @@ private fun LiveBadge() {
 
 private val Attendance.flagged get() = flag == Attendance.FLAG_OTHER_PHONE || flag == RollCallProtocol.FLAG_NEW_ROLL
 
+/** Flags stay English in the database and CSV export; only the shown text is translated. */
+@Composable
+private fun flagText(flag: String) = when (flag) {
+    Attendance.FLAG_MANUAL -> stringResource(R.string.roll_flag_manual)
+    Attendance.FLAG_OTHER_PHONE -> stringResource(R.string.roll_flag_other_phone)
+    RollCallProtocol.FLAG_NEW_ROLL -> stringResource(R.string.roll_flag_new_roll)
+    else -> flag
+}
+
 /** Red under half, amber under three quarters, green above. */
 private fun rateColor(fraction: Float): Color = when {
     fraction < 0.5f -> ErrorRed
@@ -594,7 +607,7 @@ private fun EditStudentDialog(
                     singleLine = true,
                 )
                 if (sessions > 0) {
-                    Text(stringResource(R.string.roll_rate, present, sessions, present * 100 / sessions))
+                    Text(pluralStringResource(R.plurals.roll_rate, sessions, present, sessions, present * 100 / sessions))
                     LinearProgressIndicator(
                         progress = { present.toFloat() / sessions },
                         modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),

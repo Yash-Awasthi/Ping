@@ -11,7 +11,10 @@
     <string name="home_tagline">एक जैसा इशारा करें, संपर्कों की अदला-बदली करें।</string>
     <string name="home_greeting">नमस्ते, %1$s</string>
     <string name="home_greeting_no_profile">शुरू करने के लिए अपना कार्ड बनाएँ</string>
-    <string name="home_contact_count">%1$d संपर्क</string>
+    <plurals name="home_contact_count">
+        <item quantity="one">%1$d संपर्क</item>
+        <item quantity="other">%1$d संपर्क</item>
+    </plurals>
     <string name="home_share_button">शेयर करें</string>
     <string name="home_share_hint">एक इशारा तय करें, फिर दोनों शेयर करें दबाएँ।</string>
     <string name="home_share_needs_profile">पहले अपनी प्रोफ़ाइल भरें ताकि आपके पास शेयर करने के लिए कुछ हो।</string>
@@ -48,7 +51,18 @@
     <string name="roll_manage">प्रबंधित करें</string>
     <string name="roll_hide">छिपाएँ</string>
     <string name="roll_fraction">%1$d/%2$d</string>
-    <string name="roll_counts">%1$d हाज़िर · %2$d गैरहाज़िर · %3$d चिह्नित</string>
+    <plurals name="roll_count_present">
+        <item quantity="one">%1$d हाज़िर</item>
+        <item quantity="other">%1$d हाज़िर</item>
+    </plurals>
+    <plurals name="roll_count_missing">
+        <item quantity="one">%1$d गैरहाज़िर</item>
+        <item quantity="other">%1$d गैरहाज़िर</item>
+    </plurals>
+    <plurals name="roll_count_flagged">
+        <item quantity="one">%1$d चिह्नित</item>
+        <item quantity="other">%1$d चिह्नित</item>
+    </plurals>
     <string name="roll_filter_all">सभी</string>
     <string name="roll_filter_missing">गैरहाज़िर</string>
     <string name="roll_filter_present">हाज़िर</string>
@@ -61,10 +75,16 @@
     <string name="roll_seat_present">%1$s, %2$s, हाज़िर</string>
     <string name="roll_seat_missing">%1$s, %2$s, गैरहाज़िर</string>
     <string name="roll_live">लाइव</string>
-    <string name="roll_rate">%2$d में से %1$d सत्रों में हाज़िर (%3$d%%)</string>
+    <plurals name="roll_rate">
+        <item quantity="one">%2$d सत्र में से %1$d में हाज़िर (%3$d%%)</item>
+        <item quantity="other">%2$d सत्रों में से %1$d में हाज़िर (%3$d%%)</item>
+    </plurals>
     <string name="roll_remove">क्लास से हटाएँ</string>
     <string name="roll_remove_confirm">हटाने के लिए फिर से टैप करें</string>
     <string name="roll_no_phone">अभी कोई फ़ोन नहीं</string>
+    <string name="roll_flag_manual">हाथ से चिह्नित</string>
+    <string name="roll_flag_other_phone">दूसरा फ़ोन</string>
+    <string name="roll_flag_new_roll">क्लास सूची में नहीं</string>
     <string name="roll_student_intro">एक बार अपना रोल नंबर डालें, फिर जब आपके शिक्षक हाज़िरी शुरू करें तो हाज़िरी खोजें दबाएँ। अगली बार आपकी क्लास मिलते ही आपकी हाज़िरी अपने-आप लग जाएगी।</string>
     <string name="roll_number">रोल नंबर</string>
     <string name="roll_find">हाज़िरी खोजें</string>
@@ -201,12 +221,18 @@
         <item quantity="one">%1$d संपर्क इंपोर्ट किया गया</item>
         <item quantity="other">%1$d संपर्क इंपोर्ट किए गए</item>
     </plurals>
-    <string name="contacts_count">%1$d लोग</string>
+    <plurals name="contacts_count">
+        <item quantity="one">%1$d व्यक्ति</item>
+        <item quantity="other">%1$d लोग</item>
+    </plurals>
     <string name="contacts_search_hint">संपर्क खोजें</string>
     <string name="contacts_no_results">कोई संपर्क मेल नहीं खाता।</string>
     <string name="action_add_to_phone">फ़ोन में जोड़ें</string>
     <string name="action_share_vcard">vCard शेयर करें</string>
-    <string name="contacts_export_all">%1$d को vCard के रूप में एक्सपोर्ट करें</string>
+    <plurals name="contacts_export_all">
+        <item quantity="one">%1$d संपर्क को vCard के रूप में एक्सपोर्ट करें</item>
+        <item quantity="other">%1$d संपर्कों को vCard के रूप में एक्सपोर्ट करें</item>
+    </plurals>
     <string name="contacts_more">और विकल्प</string>
     <string name="contacts_backup">बैकअप लें (मेमो के साथ)</string>
     <string name="contacts_restore">बैकअप वापस लाएँ</string>

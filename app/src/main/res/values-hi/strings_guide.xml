@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="guide_fist">मुट्ठी (साथ ही 🤛 बाएँ, 🤜 दाएँ, 👊 नीचे)</string>
+    <string name="guide_open_palm">खुली हथेली, उँगलियाँ सटी हुई</string>
+    <string name="guide_spread">खुला हाथ, उँगलियाँ फैली हुई</string>
+    <string name="guide_vulcan">वल्कन सलाम: बीच की उँगली और अनामिका के बीच जगह</string>
+    <string name="guide_back">हाथ का पिछला हिस्सा</string>
+    <string name="guide_push">बाएँ / दाएँ धकेलें</string>
+    <string name="guide_side">हाथ बगल की ओर बढ़ा हुआ</string>
+    <string name="guide_palm_down">हथेली नीचे की ओर</string>
+    <string name="guide_one_finger">एक उँगली ऊपर, नीचे, बाएँ, दाएँ</string>
+    <string name="guide_peace">पीस: तर्जनी और बीच की उँगली</string>
+    <string name="guide_crossed">उँगलियाँ क्रॉस की हुई</string>
+    <string name="guide_rock_on">रॉक ऑन</string>
+    <string name="guide_love_you">लव यू</string>
+    <string name="guide_call_me">कॉल मी</string>
+    <string name="guide_thumbs">अंगूठा ऊपर / नीचे</string>
+    <string name="guide_thumb_index">अंगूठा और तर्जनी बाहर</string>
+    <string name="guide_ok">OK: अंगूठा और तर्जनी छूते हुए, बाकी बाहर</string>
+    <string name="guide_pinch">चुटकी</string>
+    <string name="guide_three_four">तीन या चार उँगलियाँ</string>
+    <string name="guide_wave">हाथ हिलाना: खुला हाथ इधर-उधर</string>
+    <string name="guide_circle">हवा में गोला बनाएँ, किसी भी दिशा में</string>
+    <string name="guide_swipe">स्वाइप: बाएँ, दाएँ, ऊपर या नीचे एक बार, फिर रुकें</string>
+    <string name="guide_both_hands">दोनों हाथ साथ में, ऊपर की किसी भी मुद्रा के साथ</string>
+</resources>

@@ -38,7 +38,10 @@
     <string name="gesture_finger_gun">उँगली की बंदूक</string>
     <string name="gesture_three_fingers">तीन उँगलियाँ %1$s</string>
     <string name="gesture_four_fingers">चार उँगलियाँ %1$s</string>
-    <string name="gesture_fingers_out">%1$d उँगलियाँ खुली, %2$s</string>
+    <plurals name="gesture_fingers_out">
+        <item quantity="one">%1$d उँगली खुली, %2$s</item>
+        <item quantity="other">%1$d उँगलियाँ खुली, %2$s</item>
+    </plurals>
     <string name="gesture_vulcan">वल्कन सलाम</string>
     <string name="gesture_spread">फैली हुई उँगलियाँ</string>
     <string name="gesture_some_apart">खुला हाथ, कुछ उँगलियाँ अलग</string>

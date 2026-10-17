@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="guide_fist">Fist (also 🤛 left, 🤜 right, 👊 down)</string>
+    <string name="guide_open_palm">Open palm, fingers together</string>
+    <string name="guide_spread">Open hand, fingers spread</string>
+    <string name="guide_vulcan">Vulcan salute: gap between middle and ring</string>
+    <string name="guide_back">Back of the hand</string>
+    <string name="guide_push">Push left / push right</string>
+    <string name="guide_side">Hand out to the side</string>
+    <string name="guide_palm_down">Palm down</string>
+    <string name="guide_one_finger">One finger up, down, left, right</string>
+    <string name="guide_peace">Peace: index and middle</string>
+    <string name="guide_crossed">Fingers crossed</string>
+    <string name="guide_rock_on">Rock on</string>
+    <string name="guide_love_you">Love you</string>
+    <string name="guide_call_me">Call me</string>
+    <string name="guide_thumbs">Thumbs up / down</string>
+    <string name="guide_thumb_index">Thumb and index out</string>
+    <string name="guide_ok">OK: thumb and index touching, others out</string>
+    <string name="guide_pinch">Pinch</string>
+    <string name="guide_three_four">Three or four fingers</string>
+    <string name="guide_wave">Wave: open hand side to side</string>
+    <string name="guide_circle">Draw a circle in the air, either way round</string>
+    <string name="guide_swipe">Swipe: one sweep left, right, up or down, then stop</string>
+    <string name="guide_both_hands">Both hands together, with any of the poses above</string>
+</resources>

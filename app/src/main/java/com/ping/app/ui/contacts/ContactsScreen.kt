@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -127,7 +128,7 @@ fun ContactsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(R.string.contacts_count, contacts.size),
+                text = pluralStringResource(R.plurals.contacts_count, contacts.size, contacts.size),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -137,7 +138,7 @@ fun ContactsScreen(
             }
             if (contacts.isNotEmpty()) {
                 TextButton(onClick = { shareVCards(context, contacts) }) {
-                    Text(stringResource(R.string.contacts_export_all, contacts.size), color = PingCyan)
+                    Text(pluralStringResource(R.plurals.contacts_export_all, contacts.size, contacts.size), color = PingCyan)
                 }
             }
             Box {

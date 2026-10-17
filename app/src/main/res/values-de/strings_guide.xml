@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="guide_fist">Faust (auch 🤛 links, 🤜 rechts, 👊 nach unten)</string>
+    <string name="guide_open_palm">Offene Handfläche, Finger geschlossen</string>
+    <string name="guide_spread">Offene Hand, Finger gespreizt</string>
+    <string name="guide_vulcan">Vulkanischer Gruß: Lücke zwischen Mittel- und Ringfinger</string>
+    <string name="guide_back">Handrücken</string>
+    <string name="guide_push">Nach links / nach rechts drücken</string>
+    <string name="guide_side">Hand zur Seite ausgestreckt</string>
+    <string name="guide_palm_down">Handfläche nach unten</string>
+    <string name="guide_one_finger">Ein Finger nach oben, unten, links, rechts</string>
+    <string name="guide_peace">Peace: Zeige- und Mittelfinger</string>
+    <string name="guide_crossed">Finger gekreuzt</string>
+    <string name="guide_rock_on">Rock on</string>
+    <string name="guide_love_you">Ich liebe dich</string>
+    <string name="guide_call_me">Ruf mich an</string>
+    <string name="guide_thumbs">Daumen hoch / runter</string>
+    <string name="guide_thumb_index">Daumen und Zeigefinger ausgestreckt</string>
+    <string name="guide_ok">OK: Daumen und Zeigefinger berühren sich, die anderen ausgestreckt</string>
+    <string name="guide_pinch">Kneifgeste</string>
+    <string name="guide_three_four">Drei oder vier Finger</string>
+    <string name="guide_wave">Winken: offene Hand hin und her</string>
+    <string name="guide_circle">Einen Kreis in die Luft zeichnen, in beide Richtungen</string>
+    <string name="guide_swipe">Wischen: einmal nach links, rechts, oben oder unten, dann anhalten</string>
+    <string name="guide_both_hands">Beide Hände zusammen, mit jeder der Posen oben</string>
+</resources>

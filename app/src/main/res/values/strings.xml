@@ -11,7 +11,10 @@
     <string name="home_tagline">Do the same gesture, swap contacts.</string>
     <string name="home_greeting">Hey, %1$s</string>
     <string name="home_greeting_no_profile">Set up your card to get started</string>
-    <string name="home_contact_count">%1$d contacts</string>
+    <plurals name="home_contact_count">
+        <item quantity="one">%1$d contact</item>
+        <item quantity="other">%1$d contacts</item>
+    </plurals>
     <string name="home_share_button">Share</string>
     <string name="home_share_hint">Agree on a gesture, then both tap Share.</string>
     <string name="home_share_needs_profile">Fill in your Profile first so you have something to share.</string>
@@ -48,7 +51,18 @@
     <string name="roll_manage">Manage</string>
     <string name="roll_hide">Hide</string>
     <string name="roll_fraction">%1$d/%2$d</string>
-    <string name="roll_counts">%1$d present · %2$d missing · %3$d flagged</string>
+    <plurals name="roll_count_present">
+        <item quantity="one">%1$d present</item>
+        <item quantity="other">%1$d present</item>
+    </plurals>
+    <plurals name="roll_count_missing">
+        <item quantity="one">%1$d missing</item>
+        <item quantity="other">%1$d missing</item>
+    </plurals>
+    <plurals name="roll_count_flagged">
+        <item quantity="one">%1$d flagged</item>
+        <item quantity="other">%1$d flagged</item>
+    </plurals>
     <string name="roll_filter_all">All</string>
     <string name="roll_filter_missing">Missing</string>
     <string name="roll_filter_present">Present</string>
@@ -61,10 +75,16 @@
     <string name="roll_seat_present">%1$s, %2$s, present</string>
     <string name="roll_seat_missing">%1$s, %2$s, missing</string>
     <string name="roll_live">LIVE</string>
-    <string name="roll_rate">Present %1$d of %2$d sessions (%3$d%%)</string>
+    <plurals name="roll_rate">
+        <item quantity="one">Present %1$d of %2$d session (%3$d%%)</item>
+        <item quantity="other">Present %1$d of %2$d sessions (%3$d%%)</item>
+    </plurals>
     <string name="roll_remove">Remove from class</string>
     <string name="roll_remove_confirm">Tap again to remove</string>
     <string name="roll_no_phone">no phone yet</string>
+    <string name="roll_flag_manual">marked by hand</string>
+    <string name="roll_flag_other_phone">different phone</string>
+    <string name="roll_flag_new_roll">not on the class list</string>
     <string name="roll_student_intro">Enter your roll number once, then tap Find roll call when your teacher starts one. Next time your class is found, you are checked in automatically.</string>
     <string name="roll_number">Roll number</string>
     <string name="roll_find">Find roll call</string>
@@ -201,12 +221,18 @@
         <item quantity="one">Imported %1$d contact</item>
         <item quantity="other">Imported %1$d contacts</item>
     </plurals>
-    <string name="contacts_count">%1$d people</string>
+    <plurals name="contacts_count">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_no_results">No contacts match.</string>
     <string name="action_add_to_phone">Add to phone</string>
     <string name="action_share_vcard">Share vCard</string>
-    <string name="contacts_export_all">Export %1$d as vCard</string>
+    <plurals name="contacts_export_all">
+        <item quantity="one">Export %1$d contact as vCard</item>
+        <item quantity="other">Export %1$d contacts as vCard</item>
+    </plurals>
     <string name="contacts_more">More options</string>
     <string name="contacts_backup">Back up (with memos)</string>
     <string name="contacts_restore">Restore backup</string>

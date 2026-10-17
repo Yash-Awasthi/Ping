@@ -1,6 +1,8 @@
 package com.ping.app.auth
 
 import android.content.res.Resources
+import androidx.annotation.StringRes
+import com.ping.app.R.plurals as PL
 import com.ping.app.R.string as S
 import com.ping.app.auth.GestureFingerprint.Motion
 import com.ping.app.auth.GestureFingerprint.Palm
@@ -24,15 +26,20 @@ object GestureNames {
     fun interface Text {
         fun get(id: Int, args: Array<out Any>): String
         operator fun invoke(id: Int, vararg args: Any) = get(id, args)
+        /** Test fakes may resolve plurals like plain strings; [label] with Resources overrides it. */
+        fun plural(id: Int, count: Int, vararg args: Any): String = get(id, args)
     }
 
-    /** Set from the application context so [GestureFingerprint.label] can read localized names. */
-    @Volatile var appResources: Resources? = null
-
     /** One entry of the in-app gesture guide. */
-    data class Entry(val emoji: String, val name: String)
+    data class Entry(val emoji: String, @StringRes val name: Int)
 
-    fun label(fp: GestureFingerprint, res: Resources): String = label(fp) { id, args -> res.getString(id, *args) }
+    fun label(fp: GestureFingerprint, res: Resources): String = label(
+        fp,
+        object : Text {
+            override fun get(id: Int, args: Array<out Any>) = res.getString(id, *args)
+            override fun plural(id: Int, count: Int, vararg args: Any) = res.getQuantityString(id, count, *args)
+        },
+    )
 
     fun label(fp: GestureFingerprint, t: Text): String {
         val motion = fp.motion
@@ -95,7 +102,7 @@ object GestureNames {
             I or M or R -> "3️⃣ " + t(S.gesture_three_fingers, toward)
             NON_THUMB_ALL -> "4️⃣ " + t(S.gesture_four_fingers, toward)
             ALL -> openHand(fp, dir, t)
-            else -> "🖐️ " + t(S.gesture_fingers_out, fp.openFingers, toward)
+            else -> "🖐️ " + t.plural(PL.gesture_fingers_out, fp.openFingers, fp.openFingers, toward)
         }
     }
 
@@ -117,28 +124,28 @@ object GestureNames {
 
     /** What the gesture guide lists: the poses and motions Ping tells apart. */
     val guide: List<Entry> = listOf(
-        Entry("✊", "Fist (also 🤛 left, 🤜 right, 👊 down)"),
-        Entry("✋", "Open palm, fingers together"),
-        Entry("🖐️", "Open hand, fingers spread"),
-        Entry("🖖", "Vulcan salute: gap between middle and ring"),
-        Entry("🤚", "Back of the hand"),
-        Entry("🫷 🫸", "Push left / push right"),
-        Entry("🫱 🫲", "Hand out to the side"),
-        Entry("🫳", "Palm down"),
-        Entry("☝️ 👇 👈 👉", "One finger up, down, left, right"),
-        Entry("✌️", "Peace: index and middle"),
-        Entry("🤞", "Fingers crossed"),
-        Entry("🤘", "Rock on"),
-        Entry("🤟", "Love you"),
-        Entry("🤙", "Call me"),
-        Entry("👍 👎", "Thumbs up / down"),
-        Entry("🫰", "Thumb and index out"),
-        Entry("👌", "OK: thumb and index touching, others out"),
-        Entry("🤏 🤌", "Pinch"),
-        Entry("3️⃣ 4️⃣", "Three or four fingers"),
-        Entry("👋", "Wave: open hand side to side"),
-        Entry("↻ ↺", "Draw a circle in the air, either way round"),
-        Entry("← → ↑ ↓", "Swipe: one sweep left, right, up or down, then stop"),
-        Entry("👏 🙏 🤝 🫶", "Both hands together, with any of the poses above"),
+        Entry("✊", S.guide_fist),
+        Entry("✋", S.guide_open_palm),
+        Entry("🖐️", S.guide_spread),
+        Entry("🖖", S.guide_vulcan),
+        Entry("🤚", S.guide_back),
+        Entry("🫷 🫸", S.guide_push),
+        Entry("🫱 🫲", S.guide_side),
+        Entry("🫳", S.guide_palm_down),
+        Entry("☝️ 👇 👈 👉", S.guide_one_finger),
+        Entry("✌️", S.guide_peace),
+        Entry("🤞", S.guide_crossed),
+        Entry("🤘", S.guide_rock_on),
+        Entry("🤟", S.guide_love_you),
+        Entry("🤙", S.guide_call_me),
+        Entry("👍 👎", S.guide_thumbs),
+        Entry("🫰", S.guide_thumb_index),
+        Entry("👌", S.guide_ok),
+        Entry("🤏 🤌", S.guide_pinch),
+        Entry("3️⃣ 4️⃣", S.guide_three_four),
+        Entry("👋", S.guide_wave),
+        Entry("↻ ↺", S.guide_circle),
+        Entry("← → ↑ ↓", S.guide_swipe),
+        Entry("👏 🙏 🤝 🫶", S.guide_both_hands),
     )
 }

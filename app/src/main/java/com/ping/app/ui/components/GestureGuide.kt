@@ -67,7 +67,7 @@ fun GestureGuideButton(modifier: Modifier = Modifier) {
                         ) {
                             Text(entry.emoji, style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(96.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(entry.name, style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(entry.name), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }

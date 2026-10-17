@@ -38,7 +38,11 @@
     <string name="gesture_finger_gun">pistolet avec les doigts</string>
     <string name="gesture_three_fingers">trois doigts %1$s</string>
     <string name="gesture_four_fingers">quatre doigts %1$s</string>
-    <string name="gesture_fingers_out">%1$d doigts tendus, %2$s</string>
+    <plurals name="gesture_fingers_out">
+        <item quantity="one">%1$d doigt tendu, %2$s</item>
+        <item quantity="many">%1$d doigts tendus, %2$s</item>
+        <item quantity="other">%1$d doigts tendus, %2$s</item>
+    </plurals>
     <string name="gesture_vulcan">salut vulcain</string>
     <string name="gesture_spread">doigts écartés</string>
     <string name="gesture_some_apart">main ouverte, quelques doigts écartés</string>

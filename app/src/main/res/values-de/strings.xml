@@ -11,7 +11,10 @@
     <string name="home_tagline">Macht dieselbe Geste und tauscht Kontakte.</string>
     <string name="home_greeting">Hey, %1$s</string>
     <string name="home_greeting_no_profile">Richte deine Karte ein, um loszulegen</string>
-    <string name="home_contact_count">%1$d Kontakte</string>
+    <plurals name="home_contact_count">
+        <item quantity="one">%1$d Kontakt</item>
+        <item quantity="other">%1$d Kontakte</item>
+    </plurals>
     <string name="home_share_button">Teilen</string>
     <string name="home_share_hint">Einigt euch auf eine Geste und tippt dann beide auf Teilen.</string>
     <string name="home_share_needs_profile">Fülle zuerst dein Profil aus, damit du etwas zum Teilen hast.</string>
@@ -48,7 +51,18 @@
     <string name="roll_manage">Verwalten</string>
     <string name="roll_hide">Ausblenden</string>
     <string name="roll_fraction">%1$d/%2$d</string>
-    <string name="roll_counts">%1$d anwesend · %2$d fehlen · %3$d markiert</string>
+    <plurals name="roll_count_present">
+        <item quantity="one">%1$d anwesend</item>
+        <item quantity="other">%1$d anwesend</item>
+    </plurals>
+    <plurals name="roll_count_missing">
+        <item quantity="one">%1$d fehlt</item>
+        <item quantity="other">%1$d fehlen</item>
+    </plurals>
+    <plurals name="roll_count_flagged">
+        <item quantity="one">%1$d markiert</item>
+        <item quantity="other">%1$d markiert</item>
+    </plurals>
     <string name="roll_filter_all">Alle</string>
     <string name="roll_filter_missing">Fehlend</string>
     <string name="roll_filter_present">Anwesend</string>
@@ -61,10 +75,16 @@
     <string name="roll_seat_present">%1$s, %2$s, anwesend</string>
     <string name="roll_seat_missing">%1$s, %2$s, fehlt</string>
     <string name="roll_live">LIVE</string>
-    <string name="roll_rate">Anwesend in %1$d von %2$d Sitzungen (%3$d %%)</string>
+    <plurals name="roll_rate">
+        <item quantity="one">Anwesend in %1$d von %2$d Sitzung (%3$d %%)</item>
+        <item quantity="other">Anwesend in %1$d von %2$d Sitzungen (%3$d %%)</item>
+    </plurals>
     <string name="roll_remove">Aus der Klasse entfernen</string>
     <string name="roll_remove_confirm">Zum Entfernen erneut tippen</string>
     <string name="roll_no_phone">noch kein Handy</string>
+    <string name="roll_flag_manual">von Hand markiert</string>
+    <string name="roll_flag_other_phone">anderes Handy</string>
+    <string name="roll_flag_new_roll">nicht auf der Klassenliste</string>
     <string name="roll_student_intro">Gib einmal deine Schülernummer ein und tippe dann auf Anwesenheit suchen, wenn deine Lehrkraft eine startet. Wenn deine Klasse das nächste Mal gefunden wird, wirst du automatisch eingecheckt.</string>
     <string name="roll_number">Schülernummer</string>
     <string name="roll_find">Anwesenheit suchen</string>
@@ -201,12 +221,18 @@
         <item quantity="one">%1$d Kontakt importiert</item>
         <item quantity="other">%1$d Kontakte importiert</item>
     </plurals>
-    <string name="contacts_count">%1$d Personen</string>
+    <plurals name="contacts_count">
+        <item quantity="one">%1$d Person</item>
+        <item quantity="other">%1$d Personen</item>
+    </plurals>
     <string name="contacts_search_hint">Kontakte suchen</string>
     <string name="contacts_no_results">Keine passenden Kontakte.</string>
     <string name="action_add_to_phone">Zum Telefon hinzufügen</string>
     <string name="action_share_vcard">vCard teilen</string>
-    <string name="contacts_export_all">%1$d als vCard exportieren</string>
+    <plurals name="contacts_export_all">
+        <item quantity="one">%1$d Kontakt als vCard exportieren</item>
+        <item quantity="other">%1$d Kontakte als vCard exportieren</item>
+    </plurals>
     <string name="contacts_more">Weitere Optionen</string>
     <string name="contacts_backup">Sichern (mit Notizen)</string>
     <string name="contacts_restore">Sicherung wiederherstellen</string>
