@@ -11,7 +11,10 @@
     <string name="home_tagline">Do the same gesture, swap contacts.</string>
     <string name="home_greeting">Hey, %1$s</string>
     <string name="home_greeting_no_profile">Set up your card to get started</string>
-    <string name="home_contact_count">%1$d contacts</string>
+    <plurals name="home_contact_count">
+        <item quantity="one">%1$d contact</item>
+        <item quantity="other">%1$d contacts</item>
+    </plurals>
     <string name="home_share_button">Share</string>
     <string name="home_share_hint">Agree on a gesture, then both tap Share.</string>
     <string name="home_share_needs_profile">Fill in your Profile first so you have something to share.</string>
@@ -48,7 +51,18 @@
     <string name="roll_manage">Manage</string>
     <string name="roll_hide">Hide</string>
     <string name="roll_fraction">%1$d/%2$d</string>
-    <string name="roll_counts">%1$d present · %2$d missing · %3$d flagged</string>
+    <plurals name="roll_count_present">
+        <item quantity="one">%1$d present</item>
+        <item quantity="other">%1$d present</item>
+    </plurals>
+    <plurals name="roll_count_missing">
+        <item quantity="one">%1$d missing</item>
+        <item quantity="other">%1$d missing</item>
+    </plurals>
+    <plurals name="roll_count_flagged">
+        <item quantity="one">%1$d flagged</item>
+        <item quantity="other">%1$d flagged</item>
+    </plurals>
     <string name="roll_filter_all">All</string>
     <string name="roll_filter_missing">Missing</string>
     <string name="roll_filter_present">Present</string>
@@ -61,10 +75,16 @@
     <string name="roll_seat_present">%1$s, %2$s, present</string>
     <string name="roll_seat_missing">%1$s, %2$s, missing</string>
     <string name="roll_live">LIVE</string>
-    <string name="roll_rate">Present %1$d of %2$d sessions (%3$d%%)</string>
+    <plurals name="roll_rate">
+        <item quantity="one">Present %1$d of %2$d session (%3$d%%)</item>
+        <item quantity="other">Present %1$d of %2$d sessions (%3$d%%)</item>
+    </plurals>
     <string name="roll_remove">Remove from class</string>
     <string name="roll_remove_confirm">Tap again to remove</string>
     <string name="roll_no_phone">no phone yet</string>
+    <string name="roll_flag_manual">marked by hand</string>
+    <string name="roll_flag_other_phone">different phone</string>
+    <string name="roll_flag_new_roll">not on the class list</string>
     <string name="roll_student_intro">Enter your roll number once, then tap Find roll call when your teacher starts one. Next time your class is found, you are checked in automatically.</string>
     <string name="roll_number">Roll number</string>
     <string name="roll_find">Find roll call</string>
@@ -89,7 +109,6 @@
     <string name="room_none">No room found nearby. Check the gesture and try again.</string>
     <string name="room_closed">The room closed.</string>
     <string name="room_wants_in">%1$s wants to join</string>
-    <string name="room_wants_in_code"> — code %1$s</string>
     <string name="room_allow">Allow</string>
     <string name="room_deny">Deny</string>
     <string name="room_add_files">Add files</string>
@@ -98,7 +117,6 @@
     <string name="room_join_hint">Find a room by doing its gesture</string>
     <string name="room_you_host">You are hosting</string>
     <string name="room_you_guest">File room</string>
-    <string name="room_link_code_label">Read this code to the host</string>
     <plurals name="room_member_count">
         <item quantity="one">%1$d person</item>
         <item quantity="other">%1$d people</item>
@@ -114,6 +132,7 @@
     <string name="room_file_meta">%1$s · from %2$s</string>
     <string name="room_download">Download</string>
     <string name="room_retry">Retry</string>
+    <string name="room_resume">Resume</string>
     <string name="room_receiving">Receiving…</string>
     <string name="room_open_file">Open</string>
     <string name="notif_room">File room is open</string>
@@ -122,14 +141,10 @@
     <string name="someone">someone</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_done">Done</string>
-    <string name="exchange_show_gesture">Hold your gesture up to the camera</string>
     <string name="exchange_gesture_locked">Gesture locked: %1$s</string>
-    <string name="exchange_waiting_peer">Waiting for someone doing the same gesture…</string>
     <string name="status_connecting">Found a match! Connecting…</string>
     <string name="status_exchanging">Swapping cards…</string>
     <string name="exchange_completed">Swapped with %1$s!</string>
-    <string name="exchange_confirm_title">Check the code</string>
-    <string name="exchange_confirm_hint">The other phone must show the same six digits. Tap “It matches” only if it does.</string>
     <string name="stage_gesture">Gesture</string>
     <string name="stage_find">Find</string>
     <string name="stage_check">Check</string>
@@ -138,8 +153,6 @@
         <item quantity="one">%1$d phone nearby is holding a different gesture. Agree on one and try again.</item>
         <item quantity="other">%1$d phones nearby are holding a different gesture. Agree on one and try again.</item>
     </plurals>
-    <string name="exchange_confirm_match">It matches</string>
-    <string name="exchange_confirm_mismatch">It differs</string>
     <string name="exchange_cancelled">Cancelled</string>
     <string name="exchange_error_generic">Something went wrong. Try again.</string>
     <string name="exchange_no_match">No match found nearby. Both do the same gesture and try again.</string>
@@ -147,17 +160,20 @@
     <string name="exchange_two_gestures">Two-gesture password</string>
     <string name="exchange_second_gesture">First gesture locked. Now switch to a different one.</string>
     <string name="gesture_guide_button">Gesture guide</string>
+    <string name="custom_gestures_title">Your gestures</string>
+    <string name="custom_gestures_intro">Hold a pose until it locks, then add it. Add a second pose to chain them. Anyone making the same poses in the same order matches, saved or not.</string>
+    <string name="custom_gesture_add_step">Add this pose</string>
+    <string name="custom_gesture_clear">Start over</string>
+    <string name="custom_gesture_name">Name</string>
+    <string name="custom_gestures_pick">Or use a saved gesture</string>
     <string name="gesture_guide_title">Gestures Ping knows</string>
     <string name="gesture_guide_intro">Both phones must make the same gesture. Names are a best guess; what counts is the shape, direction and motion. Keep a pose still for a moment, or keep a motion going.</string>
     <string name="exchange_retry">Try again</string>
-    <string name="exchange_permission_denied">Ping needs camera and nearby-device permissions to swap cards. Grant them in Settings to continue.</string>
 
     <!-- Gesture camera states -->
     <string name="gesture_no_hand">No hand detected — point the camera at your hand</string>
     <string name="gesture_detecting">%1$s — %2$d%% steady</string>
-    <string name="gesture_stable">%1$s — hold steady…</string>
     <string name="gesture_model_error">Camera model failed to load — restart the app.</string>
-    <string name="gesture_stability_desc">Gesture steadiness</string>
     <string name="gesture_camera_preview_desc">Camera preview for gesture detection</string>
 
     <!-- Profile -->
@@ -169,7 +185,7 @@
     <string name="hint_social">Social / handle</string>
     <string name="hint_note">Note (2 lines)</string>
     <string name="profile_preview_label">Your card</string>
-    <string name="profile_privacy">Only what you fill in is sent, and only after both phones confirm the six-digit code.</string>
+    <string name="profile_privacy">Only what you fill in is sent, and only after the other phone proves it holds the same gesture.</string>
     <string name="profile_save">Save card</string>
     <string name="profile_saved">Card saved</string>
     <string name="profile_name_required">Enter a name first.</string>
@@ -190,7 +206,7 @@
     <string name="contact_label_name">Name</string>
     <string name="contact_label_memo">Where we met</string>
     <string name="exchange_memo_hint">Meetup, conference, café…</string>
-    <string name="contact_memo_hint">Your memo stays on this phone. It is never swapped or exported.</string>
+    <string name="contact_memo_hint">Your memo stays on this phone. It is never swapped or shared; only your own backup keeps it.</string>
     <string name="contact_edit_title">Edit contact</string>
     <string name="contact_swapped_on">Swapped %1$s</string>
     <string name="action_edit">Edit</string>
@@ -205,17 +221,28 @@
         <item quantity="one">Imported %1$d contact</item>
         <item quantity="other">Imported %1$d contacts</item>
     </plurals>
-    <string name="contacts_count">%1$d people</string>
+    <plurals name="contacts_count">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
     <string name="contacts_search_hint">Search contacts</string>
     <string name="contacts_no_results">No contacts match.</string>
     <string name="action_add_to_phone">Add to phone</string>
     <string name="action_share_vcard">Share vCard</string>
-    <string name="contacts_export_all">Export %1$d as vCard</string>
-    <string name="contact_toggle_favourite_initial">Toggle favourite</string>
-
-    <!-- Exchange success sheet -->
-    <string name="exchange_success_title">New contact</string>
-    <string name="exchange_success_subtitle">Tap to view the full card.</string>
+    <plurals name="contacts_export_all">
+        <item quantity="one">Export %1$d contact as vCard</item>
+        <item quantity="other">Export %1$d contacts as vCard</item>
+    </plurals>
+    <string name="contacts_more">More options</string>
+    <string name="contacts_backup">Back up (with memos)</string>
+    <string name="contacts_restore">Restore backup</string>
+    <string name="contacts_backup_saved">Backup saved. It includes your private memos, so keep it safe.</string>
+    <string name="contacts_backup_failed">Could not save the backup.</string>
+    <string name="contacts_restore_failed">That is not a Ping backup this version can read, or it is too large.</string>
+    <plurals name="contacts_restored">
+        <item quantity="one">Restored %1$d contact</item>
+        <item quantity="other">Restored %1$d contacts</item>
+    </plurals>
 
     <!-- Permissions -->
     <string name="perm_rationale_title">Ping needs a few permissions</string>
@@ -224,8 +251,6 @@
     <string name="perm_rationale_not_now">Not now</string>
 
     <!-- Foreground service notification -->
-    <string name="notif_channel_name">Ping Exchange</string>
-    <string name="notif_channel_desc">Active contact swap in progress</string>
     <string name="notif_title">Ping</string>
     <string name="notif_starting">Looking for a match…</string>
 </resources>

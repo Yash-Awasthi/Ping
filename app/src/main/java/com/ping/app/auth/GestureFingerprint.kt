@@ -1,8 +1,12 @@
 package com.ping.app.auth
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
+import com.ping.app.R
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
+import kotlin.math.sqrt
 
 /**
  * Turns a MediaPipe 21-point hand into a short code that two phones can compare to decide
@@ -17,7 +21,7 @@ import kotlin.math.hypot
  *  - **Pinch** — thumb and index tips touching (👌 🤏 🤌); the thumb and index bits are dropped.
  *  - **Crossed** — index and middle crossed (🤞).
  *  - **Palm** — facing the camera, turned away, or edge-on; only on open hands.
- *  - **Motion** — a circle or a wave, see [MotionTracker]. A motion code keeps only the finger
+ *  - **Motion** — a circle, a wave or a swipe, see [MotionTracker]. A motion code keeps only the finger
  *    mask, because direction and flags wobble while the hand moves.
  *  - **Partner** — with two hands together (👏 🙏 🤝 🫶) the other hand's mask is added.
  *
@@ -41,14 +45,21 @@ data class GestureFingerprint(
     /** Finger mask of the second hand when both hands are held together. */
     val partner: Int? = null,
 ) {
-    enum class Hand(val tag: String, val text: String) { LEFT("L", "left hand"), RIGHT("R", "right hand") }
+    /** [tag] goes into the code and must never change; [text] is only the shown name. */
+    enum class Hand(val tag: String, @StringRes val text: Int) {
+        LEFT("L", R.string.gesture_hand_left), RIGHT("R", R.string.gesture_hand_right),
+    }
 
     enum class Palm(val tag: String) { UNKNOWN(""), FACING("f"), AWAY("b"), EDGE("e") }
 
-    enum class Motion(val tag: String, val text: String) {
-        CIRCLE_CW("CW", "circle clockwise"),
-        CIRCLE_CCW("CCW", "circle counter-clockwise"),
-        WAVE("WAVE", "wave"),
+    enum class Motion(val tag: String, @StringRes val text: Int) {
+        CIRCLE_CW("CW", R.string.gesture_circle_cw),
+        CIRCLE_CCW("CCW", R.string.gesture_circle_ccw),
+        WAVE("WAVE", R.string.gesture_wave),
+        SWIPE_LEFT("SL", R.string.gesture_swipe_left),
+        SWIPE_RIGHT("SR", R.string.gesture_swipe_right),
+        SWIPE_UP("SU", R.string.gesture_swipe_up),
+        SWIPE_DOWN("SD", R.string.gesture_swipe_down),
     }
 
     /** Compact wire code, e.g. "F31A0", "F2A1P" or "F31~WAVE". This is what gets advertised + compared. */
@@ -73,8 +84,8 @@ data class GestureFingerprint(
 
     val closedFingers: Int get() = 5 - openFingers
 
-    /** Friendly one-liner for the UI, e.g. "✌️ pointing up". */
-    val label: String get() = GestureNames.label(this)
+    /** Friendly one-liner for the UI in the user's language, e.g. "✌️ peace up". */
+    fun label(res: Resources): String = GestureNames.label(this, res)
 
     /** The same hand with only what stays stable while it moves, plus the [motion]. */
     fun withMotion(motion: Motion) =
@@ -109,6 +120,8 @@ data class GestureFingerprint(
         private const val EDGE_SIN = 0.3
         /** Tips must swap order by at least this share of the knuckle spacing to count as crossed. */
         private const val CROSS_MARGIN = 0.3
+        /** Mean finger lean out of the palm plane, over palm width, below which the shape gives no hand side. */
+        private const val SHAPE_MIN = 0.15
         /** Two hands whose palm centres are within this many hand sizes count as together. */
         private const val TOGETHER_RATIO = 1.6
 
@@ -195,13 +208,32 @@ data class GestureFingerprint(
             val v2x = (xyz[PINKY_MCP * 3] - xyz[0]).toDouble(); val v2y = (xyz[PINKY_MCP * 3 + 1] - xyz[1]).toDouble()
             val sin = abs(v1x * v2y - v1y * v2x) / (hypot(v1x, v1y) * hypot(v2x, v2y)).coerceAtLeast(1e-9)
             val chain = d(THUMB_MCP, 3) + d(3, THUMB_TIP)
-            return "gaps %.2f %.2f %.2f · pinch %.2f · sin %.2f · thumb straight %.2f away %.2f · side %s".format(
+            return "gaps %.2f %.2f %.2f · pinch %.2f · sin %.2f · thumb straight %.2f away %.2f · side %s · shape %.2f".format(
                 d(INDEX_TIP, MIDDLE_TIP) / w, d(MIDDLE_TIP, RING_TIP) / w, d(RING_TIP, PINKY_TIP) / w,
                 d(THUMB_TIP, INDEX_TIP) / w, sin,
                 if (chain > 0) d(THUMB_MCP, THUMB_TIP) / chain else 0.0, d(THUMB_TIP, INDEX_MCP) / w,
-                if (v1x * v2y - v1y * v2x > 0) "left" else "right",
+                if (v1x * v2y - v1y * v2x > 0) "left" else "right", handShape(xyz),
             )
         }
+
+        /**
+         * Which side of the wrist-index-pinky plane the finger joints lean to, over palm width. Fingers
+         * bend toward the palm, so the sign is the hand's chirality: negative is a right hand here.
+         */
+        fun handShape(xyz: FloatArray): Double {
+            if (xyz.size < 63) return 0.0
+            fun v(i: Int) = DoubleArray(3) { xyz[i * 3 + it].toDouble() - xyz[WRIST * 3 + it] }
+            val a = v(INDEX_MCP); val b = v(PINKY_MCP)
+            val n = doubleArrayOf(a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+            val nLen = sqrt(n.sumOf { it * it })
+            val width = sqrt((0 until 3).sumOf { (a[it] - b[it]) * (a[it] - b[it]) })
+            if (nLen <= 0.0 || width <= 0.0) return 0.0
+            val joints = intArrayOf(6, 7, 8, 10, 11, 12, 14, 15, 16, 18, 19, 20)
+            return joints.map { j -> v(j).let { p -> (p[0] * n[0] + p[1] * n[1] + p[2] * n[2]) / nLen } }.average() / width
+        }
+
+        /** The user's hand from [handShape] in the mirrored frame: true for right, null when too flat to tell. */
+        fun shapeIsRight(xyz: FloatArray): Boolean? = handShape(xyz).takeIf { abs(it) >= SHAPE_MIN }?.let { it < 0 }
 
         /**
          * A thumb counts as out when it is straight (its joints line up) and its tip is well away

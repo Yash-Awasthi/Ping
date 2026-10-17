@@ -15,7 +15,7 @@ import com.ping.app.rollcall.Student
 @Database(
     entities = [Contact::class, Profile::class, Student::class, RollSession::class, Attendance::class],
     version = 3,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun contactDao(): ContactDao

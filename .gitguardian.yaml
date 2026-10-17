@@ -1,0 +1,5 @@
+version: 2
+secret:
+  # UI labels for the backup passphrase, not credentials.
+  ignored_paths:
+    - "app/src/main/res/values*/strings*.xml"

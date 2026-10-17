@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="room_guessing_warning">Jemand probiert ständig falsche Gesten. Der Raum nimmt keine neuen Gäste mehr auf; starte einen neuen Raum mit einer anderen Geste, um weitere Personen hereinzulassen.</string>
+    <string name="room_gesture_mismatch">Ein Raum ist in der Nähe, aber seine Geste hat nicht übereingestimmt. Prüfe die Geste und versuche es erneut.</string>
+    <string name="room_notes">Notizen</string>
+    <string name="room_note_paste">Zwischenablage einfügen</string>
+    <string name="room_note_unusable">Die Zwischenablage ist leer oder zu lang für eine Notiz.</string>
+</resources>

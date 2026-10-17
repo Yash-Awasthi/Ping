@@ -32,13 +32,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.edit
+import android.content.Context
+import com.ping.app.ui.components.PingCard
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -96,13 +104,15 @@ fun HomeScreen(
                 .padding(top = 4.dp),
         )
         Text(
-            text = stringResource(R.string.home_contact_count, contactCount),
+            text = pluralStringResource(R.plurals.home_contact_count, contactCount, contactCount),
             style = MaterialTheme.typography.labelMedium,
             color = PingCyan,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp),
         )
+
+        OnboardingCard(onPracticeClick)
 
         Box(
             modifier = Modifier.fillMaxWidth(),
@@ -152,31 +162,75 @@ fun HomeScreen(
     }
 }
 
-/** The big Share button, with sonar rings that pulse outward while it is available. */
+private const val ONBOARDING_PREFS = "onboarding"
+private const val KEY_SEEN = "home_card_seen"
+
+/** First-run how-to, shown until dismissed once. */
 @Composable
-private fun ShareOrb(enabled: Boolean, onClick: () -> Unit) {
-    val transition = rememberInfiniteTransition(label = "sonar")
-    val phase by transition.animateFloat(
+private fun OnboardingCard(onPracticeClick: () -> Unit) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences(ONBOARDING_PREFS, Context.MODE_PRIVATE) }
+    var seen by remember { mutableStateOf(prefs.getBoolean(KEY_SEEN, false)) }
+    if (seen) return
+    fun dismiss() {
+        prefs.edit { putBoolean(KEY_SEEN, true) }
+        seen = true
+    }
+    PingCard(modifier = Modifier.padding(top = 16.dp)) {
+        Text(
+            text = stringResource(R.string.onboarding_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        listOf(R.string.onboarding_step_profile, R.string.onboarding_step_gesture, R.string.onboarding_step_hold)
+            .forEachIndexed { i, step ->
+                Text(
+                    text = "${i + 1}. " + stringResource(step),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = { dismiss(); onPracticeClick() }) {
+                Text(stringResource(R.string.onboarding_practice), color = PingCyan)
+            }
+            TextButton(onClick = ::dismiss) { Text(stringResource(R.string.onboarding_dismiss)) }
+        }
+    }
+}
+
+/** Three rings pulsing outward; the phase is read only while drawing, so they never recompose. */
+@Composable
+private fun SonarRings() {
+    val phase = rememberInfiniteTransition(label = "sonar").animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(2800, easing = LinearEasing), RepeatMode.Restart),
         label = "phase",
     )
+    repeat(3) { i ->
+        Box(
+            modifier = Modifier
+                .size(210.dp)
+                .graphicsLayer {
+                    val p = (phase.value + i / 3f) % 1f
+                    scaleX = 1f + p * 0.45f
+                    scaleY = scaleX
+                    alpha = (1f - p) * 0.55f
+                }
+                .border(2.dp, PingCyan, CircleShape),
+        )
+    }
+}
+
+/** The big Share button, with sonar rings that pulse outward while it is available. */
+@Composable
+private fun ShareOrb(enabled: Boolean, onClick: () -> Unit) {
     val disabledFill = MaterialTheme.colorScheme.surfaceVariant
     val onFill = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(300.dp)) {
-        if (enabled) {
-            repeat(3) { i ->
-                val p = (phase + i / 3f) % 1f
-                Box(
-                    modifier = Modifier
-                        .size(210.dp)
-                        .scale(1f + p * 0.45f)
-                        .alpha((1f - p) * 0.55f)
-                        .border(2.dp, PingCyan, CircleShape),
-                )
-            }
-        }
+        if (enabled) SonarRings()
         Box(
             modifier = Modifier
                 .size(210.dp)

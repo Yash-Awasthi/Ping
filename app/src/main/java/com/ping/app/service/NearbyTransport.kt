@@ -5,11 +5,10 @@ package com.ping.app.service
  * from the wire-protocol logic.
  *
  * Motivations:
- *  1. [NearbyExchangeService] depends directly on [com.google.android.gms.nearby.connection.ConnectionsClient].
- *     That class is a Play Services singleton — impossible to instantiate in JVM unit tests.
- *  2. Extracting send/receive to this interface lets a [FakeNearbyTransport] wire two
- *     in-process "endpoints" together, enabling full wire-protocol JVM tests without
- *     real BLE/Wi-Fi or an Android device.
+ *  1. [com.google.android.gms.nearby.connection.ConnectionsClient] is a Play Services
+ *     singleton — impossible to instantiate in JVM unit tests.
+ *  2. Behind this interface the tests' `FakeAir` wires in-process endpoints together, so
+ *     [ExchangeEngine] and the room run whole sessions in JVM tests without a radio.
  *
  * Scope: BYTES payloads plus optional byte streams for file transfer ([sendStream]).
  *
@@ -58,20 +57,19 @@ interface NearbyTransport {
      * Register a callback invoked when an incoming connection is initiated
      * but before it has been accepted or rejected.
      *
-     * [NearbyExchangeService] uses this to run the async blocklist check
-     * before deciding whether to call [acceptConnection] or [rejectConnection].
+     * [ExchangeEngine] uses this to check the remote advertisement before deciding
+     * whether to call [acceptConnection] or [rejectConnection].
      *
      * For Nearby Connections: fires from [ConnectionLifecycleCallback.onConnectionInitiated].
-     * For Wi-Fi Direct: fires from [WifiDirectTransport.onPeerSocketReady] (OS already
-     * established the connection; rejecting calls removeGroup()).
+     * For BLE L2CAP: fires after the link handshake; rejecting closes the channel.
      */
     var onConnectionInitiated: ((endpointId: String, remoteName: String) -> Unit)?
 
     /**
-     * Callback with the short code both phones derive for a pending connection, so users can
-     * compare it out loud. Transports that cannot provide one never invoke it.
+     * Raw link token both phones derive for a pending connection; the app binds its PAKE to it
+     * so a relay fails. Fired before [onConnectionInitiated]; transports without one never invoke it.
      */
-    var onAuthDigits: ((endpointId: String, digits: String) -> Unit)?
+    var onAuthToken: ((endpointId: String, token: ByteArray) -> Unit)?
         get() = null
         @Suppress("UNUSED_PARAMETER") set(value) {}
 
@@ -108,7 +106,7 @@ interface NearbyTransport {
      * Send a raw byte stream (file transfer).
      *
      * The concrete transport wraps it in whatever mechanism it supports
-     * (Nearby Connections STREAM payload for gms; WifiDirect is bytes-only).
+     * (Nearby Connections STREAM payload for gms; chunked frames on BLE L2CAP).
      *
      * Returns true if the stream transfer was initiated; false if the transport
      * does not support streaming (FOSS / test doubles). Callers skip the send

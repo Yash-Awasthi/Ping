@@ -1,26 +1,23 @@
-# Contributing to Aura (Ping)
+# Contributing to Ping
 
-Cross-platform file sharing with BLE discovery and NearbyExchange.
+Offline contact swaps and file rooms, paired by a shared hand gesture.
 
 ## Quick Start
 
 ```bash
-# Clone and setup
 git clone https://github.com/Yash-Awasthi/Ping.git
-cd Aura
+cd Ping
 
-# Open in Android Studio
-# File → Open → Select Aura directory
-
-# Sync Gradle
-# File → Sync Project with Gradle Files
-
-# Run tests
-./gradlew test
-
-# Build APK
-./gradlew assembleDebug
+./gradlew :app:testDebugUnitTest   # JVM unit tests
+./gradlew :app:lintDebug
+./gradlew :app:assembleDebug
 ```
+
+Benchmarks such as `PakeBench` are tagged `bench` and skipped by default. Run them with
+`./gradlew :app:testDebugUnitTest -Pbench --tests '*PakeBench'`.
+
+`MigrationTest` and the DAO tests are instrumented and need a device or emulator:
+`./gradlew :app:connectedDebugAndroidTest`.
 
 ## Tech Stack
 
@@ -31,200 +28,128 @@ cd Aura
 | DI | Hilt | 2.60 |
 | Async | Coroutines | 1.11 |
 | UI | Jetpack Compose | BOM 2026.10 (alpha) |
-| BLE | Android BLE | API 21+ |
-| Nearby | Google Nearby | 19.5 |
+| Database | Room 3 | 3.1 (alpha) |
+| Nearby | Google Nearby Connections | 19.5 |
+| BLE fallback | Android BLE L2CAP | API 29+ |
 | Testing | JUnit | 6.1 |
+
+minSdk is 26, but the BLE L2CAP transport (`BleL2capTransport`, used when Play Services is
+missing) needs API 29 (Android 10). Below 29 the app always uses Nearby Connections; see
+`di/TransportModule.kt`. Guard any new L2CAP code with `@RequiresApi(Build.VERSION_CODES.Q)`.
 
 ## Project Structure
 
 ```
 app/src/main/java/com/ping/app/
-├── di/                    # Hilt dependency injection
-│   └── AppModule.kt
-├── data/                  # Data layer
-│   ├── SessionRepository.kt
-│   └── QRPairingManager.kt
-├── viewmodel/             # MVVM ViewModels
-│   └── SessionViewModel.kt
-├── ui/                    # UI components
+├── auth/
+│   ├── CustomGesture.kt
+│   ├── GestureCamera.kt
+│   ├── GestureFingerprint.kt
+│   ├── GestureLock.kt
+│   ├── GestureNames.kt
+│   ├── Handedness.kt
+│   └── MotionTracker.kt
+├── data/
+│   ├── local/
+│   │   ├── AppDatabase.kt
+│   │   ├── ContactDao.kt
+│   │   └── ProfileDao.kt
+│   ├── ContactBackup.kt
+│   ├── ContactRepository.kt
+│   ├── ProfileRepository.kt
+│   └── Result.kt
+├── di/
+│   ├── AppModule.kt
+│   ├── DatabaseModule.kt
+│   ├── Dispatchers.kt
+│   └── TransportModule.kt
+├── model/
+│   ├── Contact.kt
+│   ├── ExchangeSession.kt
+│   └── Profile.kt
+├── rollcall/
+│   ├── RollCall.kt
+│   ├── RollCallData.kt
+│   ├── RollCallProtocol.kt
+│   ├── RollCallScreen.kt
+│   └── RollCallViewModel.kt
+├── room/
+│   ├── RoomHub.kt
+│   ├── RoomHubService.kt
+│   ├── RoomProtocol.kt
+│   ├── RoomScreen.kt
+│   └── RoomViewModel.kt
+├── service/
+│   ├── BleL2capTransport.kt
+│   ├── BleLink.kt
+│   ├── BleWire.kt
+│   ├── ExchangeEngine.kt
+│   ├── NearbyConnectionsTransport.kt
+│   ├── NearbyExchangeService.kt
+│   ├── NearbyTransport.kt
+│   ├── NotificationChannels.kt
+│   └── Pairing.kt
+├── ui/
+│   ├── components/
+│   │   ├── Brand.kt
+│   │   └── GestureGuide.kt
+│   ├── contacts/
+│   │   ├── ContactDetailScreen.kt
+│   │   ├── ContactDetailViewModel.kt
+│   │   ├── ContactExport.kt
+│   │   ├── ContactFilter.kt
+│   │   ├── ContactsScreen.kt
+│   │   └── ContactsViewModel.kt
+│   ├── exchange/
+│   │   ├── ExchangeScreen.kt
+│   │   └── ExchangeViewModel.kt
+│   ├── home/
+│   │   ├── HomeScreen.kt
+│   │   └── HomeViewModel.kt
+│   ├── navigation/
+│   │   ├── AppNavHost.kt
+│   │   └── AppNavigation.kt
+│   ├── practice/
+│   │   └── PracticeScreen.kt
+│   ├── profile/
+│   │   ├── ProfileScreen.kt
+│   │   └── ProfileViewModel.kt
+│   ├── theme/
+│   │   └── Theme.kt
+│   ├── ConnectionStatusIndicator.kt
 │   ├── MainActivity.kt
-│   ├── QRScannerScreen.kt
-│   ├── QRDisplayScreen.kt
-│   └── ConnectionStatusIndicator.kt
-├── protocol/              # Transfer protocols
-│   ├── LocalSendProtocol.kt
-│   └── FileChunker.kt
-└── security/              # Encryption
-    └── EndToEndEncryption.kt
+│   ├── QuickLaunch.kt
+│   └── SwapTileService.kt
+├── utils/
+│   ├── CryptoUtils.kt
+│   ├── Extensions.kt
+│   ├── Pake.kt
+│   └── RequiredPermissions.kt
+└── PingApplication.kt
 ```
 
 ## Development Guidelines
 
-### Service Development
-
-Services use **dependency injection** with Hilt:
-
-```kotlin
-// Good: Injected service
-@Singleton
-class TransferService @Inject constructor(
-    private val sessionRepository: SessionRepository,
-    private val encryption: EndToEndEncryption
-) {
-    suspend fun transferFile(file: File, peerId: String): Result<Unit> {
-        val session = sessionRepository.getSession(peerId)
-            ?: return Result.failure(Exception("No session"))
-        
-        val chunks = encryption.encryptFile(
-            file.readBytes(),
-            session.sharedSecret
-        )
-        
-        return sendChunks(chunks, peerId)
-    }
-}
-
-// Bad: Service with static methods
-class TransferService {
-    companion object {
-        fun transferFile(file: File, peerId: String) { ... }
-    }
-}
-```
-
-### ViewModel Development
-
-```kotlin
-// Good: ViewModel with StateFlow
-@HiltViewModel
-class SessionViewModel @Inject constructor(
-    private val repository: SessionRepository
-) : ViewModel() {
-    
-    private val _uiState = MutableStateFlow(SessionUiState())
-    val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
-    
-    fun connectToDevice(device: BluetoothDevice) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isConnecting = true) }
-            
-            repository.connect(device)
-                .onSuccess { session ->
-                    _uiState.update { 
-                        it.copy(
-                            isConnected = true,
-                            session = session,
-                            isConnecting = false
-                        )
-                    }
-                }
-                .onFailure { error ->
-                    _uiState.update { 
-                        it.copy(
-                            error = error.message,
-                            isConnecting = false
-                        )
-                    }
-                }
-        }
-    }
-}
-
-// Bad: ViewModel with LiveData
-class SessionViewModel : ViewModel() {
-    val isConnected = MutableLiveData<Boolean>()
-    val error = MutableLiveData<String>()
-}
-```
-
-### BLE Operations
-
-```kotlin
-// Use coroutines for BLE operations
-suspend fun scanForDevices(): Flow<BluetoothDevice> = callbackFlow {
-    val scanner = BluetoothAdapter.getDefaultAdapter().bluetoothLeScanner
-    
-    val callback = object : ScanCallback() {
-        override fun onScanResult(callbackType: Int, result: ScanResult) {
-            trySend(result.device)
-        }
-    }
-    
-    scanner.startScan(callback)
-    
-    awaitClose {
-        scanner.stopScan(callback)
-    }
-}
-```
+- Inject dependencies with Hilt; expose screen state from ViewModels as `StateFlow`.
+- Keep radio and file work off the main thread on the injected `@IO` and `@Default` dispatchers.
+- Add user-facing text to `res/values/strings.xml`; translators fill the `values-xx` files.
+- Changing an entity means bumping the `AppDatabase` version, adding a `Migration`, and
+  committing the schema KSP writes to `app/schemas/`.
+- The manifest removes `INTERNET` on purpose. Do not add networking code.
 
 ### Security
 
-```kotlin
-// Always use SecureRandom for keys
-val keyGenerator = KeyGenerator.getInstance("AES")
-keyGenerator.init(256, SecureRandom())
-val secretKey = keyGenerator.generateKey()
-
-// Use X25519 for key exchange
-val keyPairGenerator = KeyPairGenerator.getInstance("X25519")
-val keyPair = keyPairGenerator.generateKeyPair()
-
-// Constant-time comparison
-fun secureCompare(a: ByteArray, b: ByteArray): Boolean {
-    if (a.size != b.size) return false
-    var result = 0
-    for (i in a.indices) {
-        result = result or (a[i].toInt() xor b[i].toInt())
-    }
-    return result == 0
-}
-```
-
-### Testing
-
-```kotlin
-// Unit tests
-class TransferServiceTest {
-    @Test
-    fun `encrypt then decrypt preserves data`() {
-        val encryption = EndToEndEncryption()
-        val keyPair = encryption.generateKeyPair()
-        val sharedSecret = encryption.deriveSharedSecret(keyPair.privateKey)
-        
-        val original = "Hello, World!".toByteArray()
-        val encrypted = encryption.encrypt(original, sharedSecret)
-        val decrypted = encryption.decrypt(encrypted, sharedSecret)
-        
-        assertArrayEquals(original, decrypted)
-    }
-}
-
-// Run tests
-./gradlew test
-
-// Run specific test class
-./gradlew test --tests "com.ping.app.security.EndToEndEncryptionTest"
-```
+Pairing is a gesture-keyed PAKE. Do not hand-roll key exchange or compare secrets with `==`;
+use `utils/Pake.kt` for the exchange and key confirmation, and `utils/CryptoUtils.kt` for
+HKDF, passphrase keys and AES-GCM. Their tests in `app/src/test/java/com/ping/app/utils/`
+show the intended use.
 
 ## Pull Request Checklist
 
-- [ ] Tests pass (`./gradlew test`)
-- [ ] No memory leaks (check with LeakCanary)
-- [ ] BLE operations in background thread
-- [ ] UI updates on main thread
+- [ ] `./gradlew :app:testDebugUnitTest` and `./gradlew :app:lintDebug` pass
+- [ ] New schema JSON committed if the database changed
 - [ ] Proguard rules updated if needed
-- [ ] README updated if new feature
-
-## Commit Messages
-
-```
-feat: add QR code pairing screen
-fix: handle BLE permission denial gracefully
-security: add end-to-end encryption layer
-ui: improve connection status indicator
-test: add encryption unit tests
-```
+- [ ] README and CHANGELOG updated for user-visible changes
 
 ## Release signing
 
@@ -240,5 +165,11 @@ keyPassword=...
 Without it, `assembleRelease` still builds but leaves the APK unsigned. To generate a key:
 
 ```bash
-keytool -genkeypair -v -keystore keystore/ping-release.jks -alias ping \n  -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkeypair -v -keystore keystore/ping-release.jks -alias ping \
+  -keyalg RSA -keysize 2048 -validity 10000
 ```
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds the release APKs and
+attaches them to the GitHub release. It signs them when the repository secrets
+`KEYSTORE_BASE64` (the base64 `.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD` are
+set, and uploads unsigned APKs otherwise.

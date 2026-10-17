@@ -16,6 +16,8 @@ object RollCallProtocol {
     const val ACK_LEN = 6
     /** Keeps the admin advertisement inside the Nearby endpoint-info limit. */
     const val MAX_ACKS = 12
+    /** Attendance flag for a roll that answered but is not on the imported class list. */
+    const val FLAG_NEW_ROLL = "new roll"
 
     data class AdminAdvert(val session: String, val label: String, val acks: Set<String> = emptySet())
 
@@ -59,6 +61,10 @@ object RollCallProtocol {
     fun studentAdvert(session: String, roll: String, device: String, name: String) =
         "S|$session|${cleanRoll(roll)}|$device|${cleanName(name)}"
 
+    /**
+     * Trust-the-room: anyone in radio range can claim any roll, and nothing proves who holds the
+     * phone. The admin's only checks are the headcount, [FLAG_NEW_ROLL] and the other-phone flag.
+     */
     fun parseStudent(name: String): StudentAdvert? {
         val parts = name.split('|')
         if (parts.size != 5 || parts[0] != "S" || !hex.matches(parts[1]) || !hex.matches(parts[3])) return null

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="room_guessing_warning">Quelqu\'un essaie sans cesse de mauvais gestes. Le salon n\'accepte plus de nouveaux invités ; créez un nouveau salon avec un autre geste pour laisser entrer plus de personnes.</string>
+    <string name="room_gesture_mismatch">Un salon est à proximité, mais son geste ne correspondait pas. Vérifiez le geste et réessayez.</string>
+    <string name="room_notes">Notes</string>
+    <string name="room_note_paste">Coller le presse-papiers</string>
+    <string name="room_note_unusable">Le presse-papiers est vide ou trop long pour une note.</string>
+</resources>

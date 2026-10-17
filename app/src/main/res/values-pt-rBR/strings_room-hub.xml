@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="room_guessing_warning">Alguém continua tentando gestos errados. A sala parou de aceitar novos convidados; abra uma nova sala com um gesto diferente para deixar mais pessoas entrarem.</string>
+    <string name="room_gesture_mismatch">Há uma sala por perto, mas o gesto dela não correspondeu. Confira o gesto e tente de novo.</string>
+    <string name="room_notes">Notas</string>
+    <string name="room_note_paste">Colar da área de transferência</string>
+    <string name="room_note_unusable">A área de transferência está vazia ou é longa demais para uma nota.</string>
+</resources>

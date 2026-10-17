@@ -1,25 +1,20 @@
 package com.ping.app.utils
 
 import org.junit.jupiter.api.Assertions.assertArrayEquals
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import java.security.GeneralSecurityException
+import javax.crypto.spec.SecretKeySpec
 
 /**
- * Covers the swap's crypto contract: both sides agree on a key, nobody else does,
- * and a tampered card is rejected rather than silently accepted.
+ * Covers the card seal: HKDF matches the RFC, and a tampered card is rejected rather than
+ * silently accepted. Key agreement is covered by [PakeTest].
  */
 class CryptoUtilsTest {
 
     private val card = """{"name":"Yash","phone":"+10000000000"}""".toByteArray()
 
-    private fun sharedKeys(): Pair<javax.crypto.SecretKey, javax.crypto.SecretKey> {
-        val alice = CryptoUtils.generateEphemeralKeyPair()
-        val bob = CryptoUtils.generateEphemeralKeyPair()
-        return CryptoUtils.deriveSharedKey(alice.private, bob.public) to
-            CryptoUtils.deriveSharedKey(bob.private, alice.public)
-    }
+    private val key = SecretKeySpec(ByteArray(32) { it.toByte() }, "AES")
 
     private fun hex(s: String) = s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
     private fun range(from: Int, to: Int) = (from..to).map { it.toByte() }.toByteArray()
@@ -38,63 +33,21 @@ class CryptoUtilsTest {
     }
 
     @Test
-    fun `both sides derive the same 256-bit key`() {
-        val (aliceKey, bobKey) = sharedKeys()
-        assertArrayEquals(aliceKey.encoded, bobKey.encoded)
-        assertEquals(32, aliceKey.encoded.size)
-    }
-
-    @Test
-    fun `an unpaired third party derives a different key`() {
-        val (aliceKey, _) = sharedKeys()
-        val mallory = CryptoUtils.generateEphemeralKeyPair()
-        val intruderKey = CryptoUtils.deriveSharedKey(mallory.private, mallory.public)
-        assert(!aliceKey.encoded.contentEquals(intruderKey.encoded))
-    }
-
-    @Test
-    fun `a public key survives its wire encoding`() {
-        val keyPair = CryptoUtils.generateEphemeralKeyPair()
-        val encoded = CryptoUtils.encodePublicKey(keyPair.public)
-        assertEquals(keyPair.public, CryptoUtils.decodePublicKey(encoded))
-    }
-
-    @Test
     fun `a card round-trips through the sealed blob`() {
-        val (aliceKey, _) = sharedKeys()
-        assertArrayEquals(card, CryptoUtils.decrypt(aliceKey, CryptoUtils.encrypt(aliceKey, card)))
+        assertArrayEquals(card, CryptoUtils.decrypt(key, CryptoUtils.encrypt(key, card)))
     }
 
     @Test
     fun `a flipped ciphertext bit is rejected`() {
-        val (aliceKey, _) = sharedKeys()
-        val blob = CryptoUtils.encrypt(aliceKey, card)
+        val blob = CryptoUtils.encrypt(key, card)
         blob[blob.size - 1] = (blob[blob.size - 1].toInt() xor 0x01).toByte()
-        assertThrows(GeneralSecurityException::class.java) { CryptoUtils.decrypt(aliceKey, blob) }
+        assertThrows(GeneralSecurityException::class.java) { CryptoUtils.decrypt(key, blob) }
     }
 
     @Test
     fun `a blob shorter than the iv is rejected`() {
-        val (aliceKey, _) = sharedKeys()
         assertThrows(IllegalArgumentException::class.java) {
-            CryptoUtils.decrypt(aliceKey, ByteArray(4))
+            CryptoUtils.decrypt(key, ByteArray(4))
         }
-    }
-
-    @Test
-    fun `both phones compute the same short authentication string`() {
-        val a = CryptoUtils.encodePublicKey(CryptoUtils.generateEphemeralKeyPair().public)
-        val b = CryptoUtils.encodePublicKey(CryptoUtils.generateEphemeralKeyPair().public)
-        val sas = CryptoUtils.shortAuthString(a, b)
-        assertEquals(sas, CryptoUtils.shortAuthString(b, a))
-        assertEquals(6, sas.length)
-    }
-
-    @Test
-    fun `a substituted key changes the short authentication string`() {
-        val a = CryptoUtils.encodePublicKey(CryptoUtils.generateEphemeralKeyPair().public)
-        val b = CryptoUtils.encodePublicKey(CryptoUtils.generateEphemeralKeyPair().public)
-        val mitm = CryptoUtils.encodePublicKey(CryptoUtils.generateEphemeralKeyPair().public)
-        assert(CryptoUtils.shortAuthString(a, b) != CryptoUtils.shortAuthString(a, mitm))
     }
 }

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_passphrase_title">Protect backup</string>
+    <string name="backup_passphrase_message">Optional passphrase. Leave blank to save a plain file anyone can read.</string>
+    <string name="restore_passphrase_title">Locked backup</string>
+    <string name="restore_passphrase_message">Enter the passphrase this backup was saved with.</string>
+    <string name="restore_passphrase_wrong">Wrong passphrase, or the file is damaged.</string>
+    <string name="backup_passphrase_hint">Passphrase</string>
+    <string name="action_continue">Continue</string>
+    <string name="profile_share_card">Share my card (.vcf)</string>
+    <string name="profile_share_empty">Save your card first.</string>
+    <string name="shortcut_my_card">Send my card</string>
+    <string name="favourite_add">Add to favourites</string>
+    <string name="favourite_remove">Remove from favourites</string>
+    <string name="favourite_on">Favourite</string>
+    <string name="favourite_off">Not a favourite</string>
+    <string name="action_back">Back</string>
+    <string name="indicator_scanning">Scanning…</string>
+    <string name="indicator_connecting">Connecting…</string>
+    <string name="indicator_paired">Paired</string>
+    <string name="indicator_error">Error</string>
+    <string name="indicator_idle">Idle</string>
+    <string name="onboarding_title">How a swap works</string>
+    <string name="onboarding_step_profile">Set up your card in Profile.</string>
+    <string name="onboarding_step_gesture">You and your friend both show the same hand gesture.</string>
+    <string name="onboarding_step_hold">Hold it steady until the phones find each other.</string>
+    <string name="onboarding_practice">Practice</string>
+    <string name="onboarding_dismiss">Got it</string>
+</resources>

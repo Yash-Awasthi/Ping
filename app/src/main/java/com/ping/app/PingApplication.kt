@@ -1,6 +1,7 @@
 package com.ping.app
 
 import android.app.Application
+import android.os.Process
 import com.ping.app.auth.GestureCamera
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
@@ -18,6 +19,10 @@ class PingApplication : Application() {
             Timber.plant(Timber.DebugTree())
         }
         Timber.i("Ping starting — v%s", BuildConfig.VERSION_NAME)
-        thread(name = "hand-model") { gestureCamera.warmUp() }
+        thread(name = "hand-model") {
+            // Background priority keeps the model load from competing with the first frame.
+            Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
+            gestureCamera.warmUp()
+        }
     }
 }

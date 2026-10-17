@@ -4,12 +4,14 @@ import androidx.room3.ColumnInfo
 import androidx.room3.Entity
 import androidx.room3.Ignore
 import androidx.room3.PrimaryKey
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
 /**
  * A contact received via a Ping swap. Mirrors the shareable card fields in
  * [Profile]: name, phone, email, social handle, and a short free-text note.
  */
+@Serializable
 @Entity(tableName = "contacts")
 data class Contact(
     @PrimaryKey val id: String = UUID.randomUUID().toString(),
@@ -20,7 +22,7 @@ data class Contact(
     val note: String = "",
     val receivedAt: Long = System.currentTimeMillis(),
     val isFavorite: Boolean = false,
-    /** The owner's private memo, such as where they met; never sent or exported. */
+    /** The owner's private memo, such as where they met; never sent or exported, only backed up. */
     @ColumnInfo(defaultValue = "") val memo: String = "",
 ) {
     /** True when the sender had not filled in any field; such a card is not worth saving. */
@@ -35,6 +37,10 @@ data class Contact(
         val emailMatch = email.isNotBlank() && email.trim().equals(other.email.trim(), ignoreCase = true)
         return phoneMatch || emailMatch
     }
+
+    /** [isSamePerson] with the same name too, so two people sharing a phone stay apart. */
+    fun isSameNamedPerson(other: Contact): Boolean =
+        isSamePerson(other) && displayName.trim().equals(other.displayName.trim(), ignoreCase = true)
 
     /** vCard 3.0 text for sharing; values are escaped per RFC 2426 so a card cannot inject fields. */
     fun toVCard(): String {
@@ -137,13 +143,18 @@ data class Contact(
         /** One .vcf body holding every card in [contacts]. */
         fun toVCards(contacts: List<Contact>): String = contacts.joinToString("") { it.toVCard() }
 
-        /** Field keys used on the wire (see [Profile.toShareableMap]). */
-        fun fromMap(map: Map<String, String>): Contact = Contact(
-            displayName = map["name"].orEmpty(),
-            phone = map["phone"].orEmpty(),
-            email = map["email"].orEmpty(),
-            social = map["social"].orEmpty(),
-            note = map["note"].orEmpty(),
-        )
+        private const val MAX_FIELD = 200
+
+        /** Field keys used on the wire (see [Profile.toShareableMap]); each value is clamped to [MAX_FIELD]. */
+        fun fromMap(map: Map<String, String>): Contact {
+            fun field(key: String) = map[key].orEmpty().take(MAX_FIELD)
+            return Contact(
+                displayName = field("name"),
+                phone = field("phone"),
+                email = field("email"),
+                social = field("social"),
+                note = field("note"),
+            )
+        }
     }
 }

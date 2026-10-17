@@ -10,28 +10,40 @@ import com.ping.app.room.RoomProtocol.FileMeta
 import com.ping.app.room.RoomProtocol.GuestShare
 import com.ping.app.room.RoomProtocol.HOST_KEY
 import com.ping.app.room.RoomProtocol.Manifest
+import com.ping.app.room.RoomProtocol.Note
+import com.ping.app.room.RoomProtocol.RoomFile
 import com.ping.app.service.NearbyTransport
 import com.ping.app.service.Pairing
+import com.ping.app.utils.Pake
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
 import java.io.InputStream
+import java.io.RandomAccessFile
 import java.io.SequenceInputStream
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -56,8 +68,8 @@ enum class RoomPhase {
     CLOSED,
 }
 
-/** [digits] is the code both phones show for this link; the host compares it with the guest. */
-data class PendingGuest(val endpointId: String, val name: String, val digits: String = "")
+/** A guest that proved the room's gesture and waits for the host's decision. */
+data class PendingGuest(val endpointId: String, val name: String)
 
 data class Transfer(
     val status: Status,
@@ -66,6 +78,8 @@ data class Transfer(
     val path: String? = null,
     /** When bytes started arriving, for speed and time left. */
     val startedAt: Long = 0,
+    /** Bytes already on disk when this attempt started; a failed transfer with bytes can resume. */
+    val from: Long = 0,
 ) {
     enum class Status { QUEUED, RECEIVING, DONE, FAILED }
 }
@@ -73,8 +87,6 @@ data class Transfer(
 data class RoomState(
     val role: RoomRole? = null,
     val phase: RoomPhase = RoomPhase.IDLE,
-    /** Guest only: the link code to read out to the host while waiting to be let in. */
-    val linkDigits: String = "",
     /** Our owner key in the manifest: [HOST_KEY] for the host, the endpoint id the host gave us otherwise. */
     val myKey: String = "",
     /** Host only: guests that connected and wait for a decision. */
@@ -83,15 +95,20 @@ data class RoomState(
     /** Files this phone offers to the room. */
     val shared: List<FileMeta> = emptyList(),
     val transfers: Map<String, Transfer> = emptyMap(),
+    /** Guest, with [RoomPhase.NO_ROOM]: a room was reached but its gesture check failed. */
+    val gestureMismatch: Boolean = false,
+    /** Host: too many failed gesture checks, so the room stopped advertising. */
+    val guessing: Boolean = false,
+    val notes: List<Note> = emptyList(),
 )
 
 /**
  * The file room: one host phone at the centre of a star, guests as spokes.
  *
  * Everyone shares only file names and sizes; bytes move on request. Guests join by holding
- * the host's gesture (the same token match as a swap) and the host must then let each guest
- * in, so a stranger who guesses the gesture still sees nothing. A guest's file goes to the
- * host first and is relayed onward, because guests only ever connect to the host.
+ * the host's gesture, proved by the same [Pake] exchange as a swap, and the host must then let
+ * each guest in, so a stranger who guesses the gesture still sees nothing. A guest's file goes
+ * to the host first and is relayed onward, because guests only ever connect to the host.
  */
 @Singleton
 class RoomHub @Inject constructor(
@@ -99,7 +116,16 @@ class RoomHub @Inject constructor(
     private val transport: NearbyTransport,
     private val profileRepo: ProfileRepository,
 ) {
-    private class GuestInfo(var name: String, var approved: Boolean = false, var files: List<FileMeta> = emptyList())
+    private class GuestInfo(var name: String, var approved: Boolean = false, var files: List<FileMeta> = emptyList()) {
+        var named = false
+        val pages = RoomProtocol.PageSet<FileMeta>()
+    }
+
+    /** One gesture check per connection; [verified] once the peer's tag checked out. */
+    private class Link(val session: Pake.Session, val context: ByteArray) {
+        var keys: Pake.Keys? = null
+        var verified = false
+    }
 
     // Control state is mutated on this one thread; the maps are concurrent so stream readers can peek.
     private val controlThread = Executors.newSingleThreadExecutor { Thread(it, "room-hub").apply { isDaemon = true } }
@@ -112,11 +138,40 @@ class RoomHub @Inject constructor(
     private val guests = ConcurrentHashMap<String, GuestInfo>()
     private val sharedOpeners = ConcurrentHashMap<String, () -> InputStream?>()
     private val wanted: MutableSet<String> = ConcurrentHashMap.newKeySet()
-    private val relay = ConcurrentHashMap<String, MutableSet<String>>()
+    /** Files asked for while [MAX_PARALLEL] were already on their way, in the order asked; control thread only. */
+    private val backlog = ArrayDeque<String>()
+    /** Host: guest files on their way into the cache, and who waits for them from which offset. */
+    private val relay = ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>()
+    /** Host: the size each relay passed the disk check at; the owner cannot grow it after. */
+    private val admitted = ConcurrentHashMap<String, Long>()
     private val cache = ConcurrentHashMap<String, File>()
-    private val digits = ConcurrentHashMap<String, String>()
+    /** Host: relayed files still landing in the cache, which requesters already read as they grow. */
+    private val landing = ConcurrentHashMap<String, Landing>()
+    private val linkTokens = ConcurrentHashMap<String, ByteArray>()
+    private val links = ConcurrentHashMap<String, Link>()
+    private val earlyShares = ConcurrentHashMap<String, ByteArray>()
+    /** Guest: where each requested file lands; its `.part` survives a failed attempt for a resume. */
+    private val partials = ConcurrentHashMap<String, File>()
+    /** Files that already fell back from a resume to a full download this attempt. */
+    private val restarted: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Guest: rooms whose gesture check failed, never retried this search. */
+    private val tried: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Guest: rooms that went quiet or dropped once without a gesture check, which get one more knock. */
+    private val missed: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Guest: bumped per knock and per connect, so only the latest timer may hang up. */
+    private var knock = 0
+    /** When each wanted or relayed file last made progress, for the idle timeout. */
+    private val lastBytes = ConcurrentHashMap<String, Long>()
+    /** Streams being read per file; a result only counts while its stream is still the one listed. */
+    private val inflight = ConcurrentHashMap<String, InputStream>()
+    /** Bumped on every reset so work from an earlier room drops its results. */
+    @Volatile private var epoch = 0
+    private var session = SupervisorJob()
     private val downloadLock = Any()
     private var nextLocalId = 1
+    /** Revision of the listing this phone last sent, so receivers can tell its pages apart. */
+    private var listingRev = 0
+    private var manifestPages = RoomProtocol.PageSet<RoomFile>()
 
     @Volatile private var code = ""
     @Volatile private var myName = ""
@@ -125,6 +180,26 @@ class RoomHub @Inject constructor(
     private var searchJob: Job? = null
     /** Rooms already heard while the guest was still making the gesture; endpointId to advertisement. */
     private val seen = ConcurrentHashMap<String, String>()
+    /** Host: links accepted but not yet connected, which count toward [RoomProtocol.MAX_GUESTS]. */
+    private val accepting: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Host: gesture checks failed in this room. */
+    private var guesses = 0
+    /** Guest: some room this search reached held a different gesture. */
+    private var mismatched = false
+
+    internal var idleMs = IDLE_MS
+    internal var relayCap = RELAY_CAP
+    internal var verifyMs = VERIFY_MS
+    internal var searchMs = SEARCH_MS
+
+    /** Runs everything already queued on the control thread, so tests can assert on what did not happen. */
+    internal fun flush() = runBlocking { scope.launch {}.join() }
+
+    /** [flush], after every stream being read has finished. */
+    internal fun drain() = runBlocking {
+        io.coroutineContext.job.children.toList().forEach { it.join() }
+        scope.launch {}.join()
+    }
 
     fun host(gestureCode: String) = begin(RoomRole.HOST, gestureCode)
 
@@ -135,22 +210,21 @@ class RoomHub @Inject constructor(
         scope.launch {
             if (_state.value.role != null) return@launch
             seen.clear()
-            transport.onEndpointFound = { id, name -> seen[id] = name }
-            transport.onEndpointLost = { id -> seen.remove(id) }
+            transport.onEndpointFound = onFound
+            transport.onEndpointLost = onLost
             transport.startDiscovery(SERVICE_ID, star = true)
         }
     }
 
     fun cancelPrewarm() {
-        scope.launch {
-            if (_state.value.role != null) return@launch
-            seen.clear()
-            runCatching {
-                transport.onEndpointFound = null
-                transport.onEndpointLost = null
-                transport.stopDiscovery()
-            }
-        }
+        scope.launch { if (_state.value.role == null) dropPrewarm() }
+    }
+
+    private fun dropPrewarm() {
+        seen.clear()
+        if (transport.onEndpointFound !== onFound) return
+        unwireCallbacks()
+        runCatching { transport.stopDiscovery() }
     }
 
     private fun begin(role: RoomRole, gestureCode: String) {
@@ -161,32 +235,37 @@ class RoomHub @Inject constructor(
                 .ifBlank { if (role == RoomRole.HOST) "Host" else "Guest" }
             localAdvert = Pairing.advertisement(gestureCode, UUID.randomUUID().toString().take(8))
             wireCallbacks()
+            launch(session) {
+                while (true) {
+                    delay(IDLE_TICK_MS)
+                    checkIdle()
+                }
+            }
             if (role == RoomRole.HOST) {
                 _state.value = RoomState(role = role, phase = RoomPhase.OPEN, myKey = HOST_KEY)
                 transport.startAdvertising(localAdvert, SERVICE_ID, star = true)
             } else {
                 _state.value = RoomState(role = role, phase = RoomPhase.SEARCHING)
                 transport.startDiscovery(SERVICE_ID, star = true)
-                seen.entries.firstOrNull { Pairing.matches(gestureCode, it.value) }?.let { (id, _) ->
-                    hostEndpoint = id
-                    transport.requestConnection(localAdvert, id)
-                }
-                searchJob = launch {
-                    delay(SEARCH_MS)
-                    if (_state.value.phase == RoomPhase.SEARCHING) {
-                        _state.update { it.copy(phase = RoomPhase.NO_ROOM) }
-                        stopRadio()
-                    }
+                knockNext()
+                searchJob = launch(session) {
+                    delay(searchMs)
+                    if (_state.value.phase == RoomPhase.SEARCHING) noRoom()
                 }
             }
         }
     }
 
-    /** Leaves or closes the room and forgets everything except files already downloaded. */
+    /**
+     * Leaves or closes the room and forgets everything except files already downloaded. Outside a
+     * room it only stops a prewarm, so the screen and the service may both call it.
+     */
     fun leave() {
         scope.launch {
+            if (_state.value.role == null) return@launch dropPrewarm()
             stopRadio()
             resetLocal()
+            io.coroutineContext.cancelChildren()
             _state.value = RoomState()
         }
     }
@@ -200,26 +279,37 @@ class RoomHub @Inject constructor(
     }
 
     private fun resetLocal() {
-        searchJob?.cancel()
-        runCatching {
-            transport.onEndpointFound = null
-            transport.onConnectionInitiated = null
-            transport.onConnected = null
-            transport.onPayloadReceived = null
-            transport.onDisconnected = null
-            transport.onStreamReceived = null
-            transport.onAuthDigits = null
-            transport.onEndpointLost = null
-        }
+        epoch++
+        session.cancel()
+        session = SupervisorJob()
+        unwireCallbacks()
         guests.clear()
         sharedOpeners.clear()
         wanted.clear()
+        backlog.clear()
         relay.clear()
+        admitted.clear()
         cache.clear()
-        digits.clear()
+        landing.values.forEach { it.end(false) }
+        landing.clear()
+        inflight.values.forEach { runCatching { it.close() } }
+        inflight.clear()
+        lastBytes.clear()
+        linkTokens.clear()
+        links.clear()
+        earlyShares.clear()
+        tried.clear()
+        missed.clear()
+        accepting.clear()
+        guesses = 0
+        mismatched = false
+        partials.values.forEach { partOf(it).delete() }
+        partials.clear()
+        restarted.clear()
         cacheDir().deleteRecursively()
         hostEndpoint = null
         nextLocalId = 1
+        manifestPages = RoomProtocol.PageSet()
     }
 
     // Sharing
@@ -233,7 +323,10 @@ class RoomHub @Inject constructor(
         }
     }
 
-    /** Offers every file under a picked folder, subfolders included, up to the per-member cap. */
+    /**
+     * Offers every file under a picked folder, subfolders included, up to the per-member cap.
+     * Each file keeps its folder path, starting with the picked folder's own name.
+     */
     fun addFolder(tree: Uri) {
         scope.launch {
             val files = withContext(Dispatchers.IO) { listTree(tree) }
@@ -243,23 +336,32 @@ class RoomHub @Inject constructor(
 
     private fun listTree(tree: Uri): List<Pair<Uri, FileMeta>> {
         val out = mutableListOf<Pair<Uri, FileMeta>>()
-        val pending = ArrayDeque(listOf(DocumentsContract.getTreeDocumentId(tree)))
+        val rootId = DocumentsContract.getTreeDocumentId(tree)
         val columns = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
             DocumentsContract.Document.COLUMN_DISPLAY_NAME,
             DocumentsContract.Document.COLUMN_MIME_TYPE,
             DocumentsContract.Document.COLUMN_SIZE,
         )
+        val rootName = runCatching {
+            context.contentResolver.query(DocumentsContract.buildDocumentUriUsingTree(tree, rootId), columns, null, null, null)
+                ?.use { c -> if (c.moveToFirst()) c.getString(1) else null }
+        }.getOrNull()
+        val pending = ArrayDeque(listOf(rootId to RoomProtocol.childPath("", rootName)))
         while (pending.isNotEmpty() && out.size < RoomProtocol.MAX_FILES_PER_MEMBER) {
-            val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, pending.removeFirst())
+            val (dirId, path) = pending.removeFirst()
+            val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, dirId)
             runCatching {
                 context.contentResolver.query(children, columns, null, null, null)?.use { c ->
                     while (c.moveToNext() && out.size < RoomProtocol.MAX_FILES_PER_MEMBER) {
                         val id = c.getString(0)
-                        if (c.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) { pending += id; continue }
+                        if (c.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) {
+                            pending += id to RoomProtocol.childPath(path, c.getString(1))
+                            continue
+                        }
                         val size = if (c.isNull(3)) continue else c.getLong(3)
                         out += DocumentsContract.buildDocumentUriUsingTree(tree, id) to
-                            FileMeta("", RoomProtocol.safeName(c.getString(1)), size)
+                            FileMeta("", RoomProtocol.safeName(c.getString(1)), size, path)
                     }
                 }
             }.onFailure { Timber.w(it, "Could not list folder") }
@@ -312,15 +414,16 @@ class RoomHub @Inject constructor(
     fun decide(endpointId: String, allow: Boolean) {
         scope.launch {
             val g = guests[endpointId] ?: return@launch
+            if (links[endpointId]?.verified != true) return@launch
             if (allow) {
                 g.approved = true
                 transport.sendBytes(endpointId, RoomProtocol.frameText(RoomProtocol.T_APPROVED, endpointId))
                 refreshPending()
                 broadcastManifest()
+                _state.value.notes.forEach { sendNote(endpointId, it) }
             } else {
                 transport.sendBytes(endpointId, RoomProtocol.frame(RoomProtocol.T_DENIED))
                 guests.remove(endpointId)
-                digits.remove(endpointId)
                 refreshPending()
                 delay(DISCONNECT_GRACE_MS)
                 transport.disconnect(endpointId)
@@ -344,7 +447,8 @@ class RoomHub @Inject constructor(
     }
 
     private fun refreshPending() {
-        val pending = guests.filterValues { !it.approved }.map { PendingGuest(it.key, it.value.name, digits[it.key].orEmpty()) }
+        val pending = guests.filter { !it.value.approved && links[it.key]?.verified == true }
+            .map { PendingGuest(it.key, it.value.name) }
         _state.update { it.copy(pending = pending) }
     }
 
@@ -357,137 +461,353 @@ class RoomHub @Inject constructor(
             approved.map { GuestShare(it.key, it.value.name, it.value.files) },
         )
         _state.update { it.copy(manifest = manifest) }
-        val frame = RoomProtocol.frameText(RoomProtocol.T_MANIFEST_DOWN, RoomProtocol.encodeManifest(manifest))
-        approved.keys.forEach { transport.sendBytes(it, frame) }
+        val frames = RoomProtocol.manifestPages(manifest, ++listingRev)
+            .map { RoomProtocol.frameText(RoomProtocol.T_MANIFEST_DOWN, it) }
+        approved.keys.forEach { id -> frames.forEach { transport.sendBytes(id, it) } }
     }
+
+    /** Posts [text] to the room: the host shares it at once, a guest sends it up for the host to share. */
+    fun postNote(text: String) {
+        scope.launch {
+            if (!RoomProtocol.noteFits(text)) return@launch
+            val s = _state.value
+            when {
+                s.role == RoomRole.HOST -> shareNote(Note(myName, text))
+                s.phase == RoomPhase.IN_ROOM -> hostEndpoint?.let { sendNote(it, Note(myName, text)) }
+            }
+        }
+    }
+
+    // ponytail: no rate limit, a guest can flood notes; per-guest throttle if rooms get hostile.
+    private fun shareNote(note: Note) {
+        _state.update { it.copy(notes = (it.notes + note).takeLast(MAX_NOTES)) }
+        guests.filter { it.value.approved && links[it.key]?.verified == true }.keys.forEach { sendNote(it, note) }
+    }
+
+    private fun sendNote(endpointId: String, note: Note) =
+        transport.sendBytes(endpointId, RoomProtocol.frameText(RoomProtocol.T_NOTE, RoomProtocol.encodeNote(note)))
 
     private fun sendManifestUp() {
         val host = hostEndpoint ?: return
         if (_state.value.phase != RoomPhase.IN_ROOM) return
-        transport.sendBytes(
-            host,
-            RoomProtocol.frameText(RoomProtocol.T_MANIFEST_UP, RoomProtocol.encodeMetas(_state.value.shared)),
-        )
+        RoomProtocol.metaPages(_state.value.shared, ++listingRev)
+            .forEach { transport.sendBytes(host, RoomProtocol.frameText(RoomProtocol.T_MANIFEST_UP, it)) }
     }
 
     // Downloads
 
-    /** Ask for [globalId]; the file arrives as a stream and lands in [RoomState.transfers]. */
+    /**
+     * Ask for [globalId]; the file arrives as a stream and lands in [RoomState.transfers]. After a
+     * failed attempt this resumes from the bytes already kept.
+     */
     fun download(globalId: String) {
         scope.launch {
             val s = _state.value
             val file = s.manifest.files.firstOrNull { it.id == globalId } ?: return@launch
             if (file.ownerKey == s.myKey || s.transfers[globalId]?.status in ACTIVE) return@launch
-            wanted += globalId
-            setTransfer(globalId, Transfer(Transfer.Status.QUEUED, 0, file.size))
-            if (s.role == RoomRole.HOST) serve(HOST_KEY, globalId)
-            else hostEndpoint?.let { transport.sendBytes(it, RoomProtocol.frameText(RoomProtocol.T_REQUEST, globalId)) }
+            restarted -= globalId
+            if (wanted.size < MAX_PARALLEL) return@launch fetch(file)
+            backlog += globalId
+            setTransfer(globalId, Transfer(Transfer.Status.QUEUED, keptBytes(globalId), file.size))
         }
     }
 
-    /** Host: get [globalId] to [requester] (an endpoint id, or [HOST_KEY] for the host itself). */
-    private fun serve(requester: String, globalId: String) {
-        val file = _state.value.manifest.files.firstOrNull { it.id == globalId } ?: return
+    /** Starts held-back downloads while a slot is free; a file that left the room fails instead. */
+    private fun pump() {
+        while (wanted.size < MAX_PARALLEL) {
+            val gid = backlog.removeFirstOrNull() ?: return
+            _state.value.manifest.files.firstOrNull { it.id == gid }?.let(::fetch) ?: failTransfer(gid)
+        }
+    }
+
+    private fun fetch(file: RoomFile) {
+        val gid = file.id
+        wanted += gid
+        touch(gid)
+        if (_state.value.role == RoomRole.HOST) {
+            setTransfer(gid, Transfer(Transfer.Status.QUEUED, keptBytes(gid), file.size))
+            serve(HOST_KEY, gid, 0)
+            return
+        }
+        val dest = partials.getOrPut(gid) { downloadFile(file.name, file.path) }
+        val offset = freshPart(dest, file.size).length()
+        setTransfer(gid, Transfer(Transfer.Status.QUEUED, offset, file.size))
+        hostEndpoint?.let {
+            transport.sendBytes(it, RoomProtocol.frameText(RoomProtocol.T_REQUEST, RoomProtocol.request(gid, offset)))
+        }
+    }
+
+    /** Host: get [globalId] from byte [offset] to [requester] (an endpoint id, or [HOST_KEY] for the host itself). */
+    private fun serve(requester: String, globalId: String, offset: Long) {
+        val file = _state.value.manifest.files.firstOrNull { it.id == globalId } ?: return refuse(requester, globalId)
         val owner = file.ownerKey
         when {
-            owner == HOST_KEY -> if (requester != HOST_KEY) sendShared(requester, globalId)
-            cache[globalId]?.exists() == true -> deliver(requester, globalId, cache.getValue(globalId))
+            owner == HOST_KEY -> if (requester != HOST_KEY) sendShared(requester, globalId, offset)
+            cache[globalId]?.exists() == true -> deliver(requester, globalId, cache.getValue(globalId), offset)
+            requester != HOST_KEY && landing[globalId] != null ->
+                forward(requester, globalId, landing.getValue(globalId), admitted[globalId] ?: file.size, offset)
             guests.containsKey(owner) -> {
                 val fresh = relay[globalId] == null
-                relay.getOrPut(globalId) { ConcurrentHashMap.newKeySet() }.add(requester)
-                if (fresh) {
-                    transport.sendBytes(
-                        owner,
-                        RoomProtocol.frameText(RoomProtocol.T_PUSH, RoomProtocol.localIdOf(globalId)),
-                    )
-                }
+                relay.getOrPut(globalId) { ConcurrentHashMap() }[requester] = offset
+                if (fresh) push(file)
             }
-            else -> failTransfer(globalId)
+            else -> refuse(requester, globalId)
         }
     }
 
-    private fun deliver(requester: String, globalId: String, file: File) {
-        if (requester == HOST_KEY) io.launch { finish(globalId, file) }
-        else streamOut(requester, globalId, FileInputStream(file), file.length())
+    /** Host: [gid] will not reach [who], which frees the download slot it holds. */
+    private fun refuse(who: String, gid: String) {
+        if (who == HOST_KEY) failTransfer(gid)
+        else transport.sendBytes(who, RoomProtocol.frameText(RoomProtocol.T_FAILED, gid))
     }
 
-    private fun sendShared(endpointId: String, globalId: String) {
+    /**
+     * Host: ask a guest for its file, resuming whatever part of it the cache already holds. Refused
+     * when the cache would pass [relayCap] or the disk, counting what other relays still owe.
+     */
+    private fun push(file: RoomFile) {
+        val offset = freshPart(cacheFile(file.id), file.size).length()
+        val owed = relay.keys.sumOf { gid ->
+            val size = if (gid == file.id) file.size else admitted[gid] ?: 0
+            (size - partOf(cacheFile(gid)).length()).coerceAtLeast(0)
+        }
+        val onDisk = cacheDir().listFiles().orEmpty().sumOf { it.length() }
+        if (onDisk + owed > relayCap || cacheDir().usableSpace <= owed) return relayFailed(file.id)
+        admitted[file.id] = file.size
+        touch(file.id)
+        transport.sendBytes(
+            file.ownerKey,
+            RoomProtocol.frameText(RoomProtocol.T_PUSH, RoomProtocol.request(RoomProtocol.localIdOf(file.id), offset)),
+        )
+    }
+
+    /** Host: a relayed file will not come; everyone waiting for it hears so. */
+    private fun relayFailed(gid: String) {
+        admitted.remove(gid)
+        relay.remove(gid)?.keys?.forEach { refuse(it, gid) }
+    }
+
+    /** Host: stream a relayed file to [who] while it still lands; a part already gone fails instead. */
+    private fun forward(who: String, gid: String, growing: Landing, size: Long, from: Long) {
+        val input = runCatching { growing.open() }.getOrNull() ?: return refuse(who, gid)
+        streamOut(who, gid, input, size, from)
+    }
+
+    private fun deliver(requester: String, globalId: String, file: File, offset: Long) {
+        val e = epoch
+        if (requester == HOST_KEY) io.launch { if (e == epoch) finish(globalId, file) }
+        else streamOut(requester, globalId, FileInputStream(file), file.length(), offset)
+    }
+
+    /** Sends our own file; when it cannot, the other end hears so, as either end holds a slot until it does. */
+    private fun sendShared(endpointId: String, globalId: String, offset: Long) {
         val localId = RoomProtocol.localIdOf(globalId)
         val meta = _state.value.shared.firstOrNull { it.id == localId }
         val input = sharedOpeners[localId]?.let { runCatching { it() }.getOrNull() }
-        if (meta == null || input == null) return
-        streamOut(endpointId, globalId, input, meta.size)
+        if (meta == null || input == null) {
+            transport.sendBytes(endpointId, RoomProtocol.frameText(RoomProtocol.T_FAILED, globalId))
+            return
+        }
+        streamOut(endpointId, globalId, input, meta.size, offset)
     }
 
-    private fun streamOut(endpointId: String, globalId: String, body: InputStream, size: Long) {
-        val stream = SequenceInputStream(ByteArrayInputStream(RoomProtocol.header(globalId)), RoomProtocol.withDigest(body))
-        if (!transport.sendStream(endpointId, stream, size)) runCatching { body.close() }
+    private fun streamOut(endpointId: String, globalId: String, body: InputStream, size: Long, offset: Long) {
+        val skip = offset.coerceIn(0, size)
+        val stream = SequenceInputStream(
+            ByteArrayInputStream(RoomProtocol.header(globalId, skip)),
+            RoomProtocol.withDigest(body, skip),
+        )
+        if (!transport.sendStream(endpointId, stream, size - skip)) {
+            runCatching { body.close() }
+            transport.sendBytes(endpointId, RoomProtocol.frameText(RoomProtocol.T_FAILED, globalId))
+        }
     }
 
-    // Incoming
+    // Incoming. The transport is shared with the swap, so these are fixed objects reset can recognise.
+
+    private val onFound: (String, String) -> Unit = { endpointId, remoteName ->
+        seen[endpointId] = remoteName
+        scope.launch { if (_state.value.role == RoomRole.GUEST) knockNext() }
+    }
+    private val onLost: (String) -> Unit = { seen.remove(it) }
+    private val onToken: (String, ByteArray) -> Unit = { endpointId, token -> linkTokens[endpointId] = token }
+    private val onInitiated: (String, String) -> Unit = { endpointId, remoteName ->
+        scope.launch { initiated(endpointId, remoteName) }
+    }
+    private val onLinked: (String, String, Boolean) -> Unit = { endpointId, remoteName, _ ->
+        scope.launch { connected(endpointId, remoteName) }
+    }
+    private val onDropped: (String) -> Unit = { scope.launch { onGone(it) } }
+    private val onBytes: (String, ByteArray) -> Unit = { endpointId, data -> scope.launch { onMessage(endpointId, data) } }
+    private val onStreamIn: (String, InputStream) -> Unit = { endpointId, stream -> io.launch { onStream(endpointId, stream) } }
 
     private fun wireCallbacks() {
-        transport.onEndpointLost = { id -> seen.remove(id) }
-        transport.onEndpointFound = { endpointId, remoteName ->
-            seen[endpointId] = remoteName
-            scope.launch {
-                if (_state.value.role == RoomRole.GUEST && hostEndpoint == null &&
-                    Pairing.matches(code, remoteName)
-                ) {
-                    hostEndpoint = endpointId
-                    transport.requestConnection(localAdvert, endpointId)
-                }
-            }
+        transport.onEndpointLost = onLost
+        transport.onEndpointFound = onFound
+        transport.onAuthToken = onToken
+        transport.onConnectionInitiated = onInitiated
+        transport.onConnected = onLinked
+        transport.onDisconnected = onDropped
+        transport.onPayloadReceived = onBytes
+        transport.onStreamReceived = onStreamIn
+    }
+
+    /** Clears only the callbacks still ours, so a swap that took the transport over keeps its own. */
+    private fun unwireCallbacks() = runCatching {
+        transport.apply {
+            if (onEndpointLost === onLost) onEndpointLost = null
+            if (onEndpointFound === onFound) onEndpointFound = null
+            if (onAuthToken === onToken) onAuthToken = null
+            if (onConnectionInitiated === onInitiated) onConnectionInitiated = null
+            if (onConnected === onLinked) onConnected = null
+            if (onDisconnected === onDropped) onDisconnected = null
+            if (onPayloadReceived === onBytes) onPayloadReceived = null
+            if (onStreamReceived === onStreamIn) onStreamReceived = null
         }
-        transport.onAuthDigits = { endpointId, code -> digits[endpointId] = code }
-        transport.onConnectionInitiated = { endpointId, remoteName ->
-            scope.launch {
-                val ok = Pairing.matches(code, remoteName) && when (_state.value.role) {
-                    RoomRole.HOST -> guests.size < MAX_GUESTS
-                    RoomRole.GUEST -> endpointId == hostEndpoint
-                    null -> false
-                }
-                if (ok) transport.acceptConnection(endpointId) else transport.rejectConnection(endpointId)
-            }
+    }
+
+    private fun initiated(endpointId: String, remoteName: String) {
+        val s = _state.value
+        val ok = Pairing.matches(code, remoteName) && when (s.role) {
+            // Accepted links count before they connect, or a burst of knocks could pass the cap.
+            RoomRole.HOST -> !s.guessing && guests.size + accepting.size < RoomProtocol.MAX_GUESTS
+            RoomRole.GUEST -> endpointId == hostEndpoint && endpointId !in tried
+            null -> false
         }
-        transport.onConnected = { endpointId, _, _ ->
-            scope.launch {
-                when (_state.value.role) {
-                    RoomRole.HOST -> {
-                        guests[endpointId] = GuestInfo(name = "…")
-                        refreshPending()
-                    }
-                    RoomRole.GUEST -> if (endpointId == hostEndpoint) {
-                        searchJob?.cancel()
-                        transport.stopDiscovery()
-                        _state.update {
-                            it.copy(phase = RoomPhase.WAITING_APPROVAL, linkDigits = digits[endpointId].orEmpty())
-                        }
-                        transport.sendBytes(endpointId, RoomProtocol.frameText(RoomProtocol.T_HELLO, myName))
-                    }
-                    null -> Unit
-                }
-            }
+        if (!ok) return transport.rejectConnection(endpointId)
+        if (s.role == RoomRole.HOST) {
+            accepting += endpointId
+            expectVerified(endpointId) { endpointId in accepting }
         }
-        transport.onDisconnected = { endpointId -> scope.launch { onGone(endpointId) } }
-        transport.onPayloadReceived = { endpointId, data -> scope.launch { onMessage(endpointId, data) } }
-        transport.onStreamReceived = { endpointId, stream -> io.launch { onStream(endpointId, stream) } }
+        transport.acceptConnection(endpointId)
+    }
+
+    private fun connected(endpointId: String, remoteName: String) {
+        val role = _state.value.role
+        when (role) {
+            RoomRole.HOST -> if (accepting.remove(endpointId)) guests[endpointId] = GuestInfo(name = "…") else return
+            RoomRole.GUEST -> if (endpointId != hostEndpoint) return
+            null -> return
+        }
+        val link = Link(Pake.Session(Pake.generator(code)), Pake.context(localAdvert, remoteName, linkTokens[endpointId]))
+        links[endpointId] = link
+        if (role == RoomRole.HOST) {
+            expectVerified(endpointId) { links[endpointId] === link && !link.verified }
+        } else {
+            // The knock's timer covered reaching the room; the gesture check gets its own full window.
+            val k = ++knock
+            expectVerified(endpointId) { knock == k && hostEndpoint == endpointId && _state.value.phase == RoomPhase.SEARCHING }
+        }
+        transport.sendBytes(endpointId, RoomProtocol.frame(RoomProtocol.T_SHARE, link.session.share))
+        earlyShares.remove(endpointId)?.let { onShare(endpointId, link, it) }
+    }
+
+    /** Guest: connect to the first room in our gesture's bucket we have not already failed with. */
+    private fun knockNext() {
+        if (hostEndpoint != null || _state.value.phase != RoomPhase.SEARCHING) return
+        val (id, _) = Pairing.firstMatch(code, seen, tried) ?: return
+        hostEndpoint = id
+        val k = ++knock
+        transport.requestConnection(localAdvert, id)
+        // A request that fails never calls back, so a silent knock counts as a failed one.
+        expectVerified(id) { knock == k && hostEndpoint == id && _state.value.phase == RoomPhase.SEARCHING }
+    }
+
+    /** Hangs up on [endpointId] unless its gesture checked out within [verifyMs]; [still] says it did not. */
+    private fun expectVerified(endpointId: String, still: () -> Boolean) {
+        scope.launch(session) {
+            delay(verifyMs)
+            if (still()) gestureFailed(endpointId)
+        }
+    }
+
+    private fun onShare(endpointId: String, link: Link, share: ByteArray) {
+        if (link.keys != null) return
+        val keys = link.session.finish(share, link.context) ?: return gestureFailed(endpointId)
+        link.keys = keys
+        transport.sendBytes(endpointId, RoomProtocol.frame(RoomProtocol.T_CONFIRM, keys.myTag))
+    }
+
+    private fun onConfirm(endpointId: String, link: Link, tag: ByteArray) {
+        val keys = link.keys ?: return
+        if (link.verified) return
+        if (!keys.verify(tag)) return gestureFailed(endpointId)
+        link.verified = true
+        if (_state.value.role == RoomRole.HOST) {
+            refreshPending()
+        } else {
+            searchJob?.cancel()
+            transport.stopDiscovery()
+            _state.update { it.copy(phase = RoomPhase.WAITING_APPROVAL) }
+            transport.sendBytes(endpointId, RoomProtocol.frameText(RoomProtocol.T_HELLO, myName))
+        }
+    }
+
+    // Host: any link let in that never proved the gesture spent a guess, however it ended,
+    // or a silent peer could re-knock and hold guest slots without ever tripping [guessSpent].
+    private fun unproven(endpointId: String) = endpointId in accepting || links[endpointId]?.verified == false
+
+    /** Drops what we kept for one link; true when it swapped keys but never verified, a wrong gesture. */
+    private fun forget(endpointId: String): Boolean {
+        linkTokens.remove(endpointId)
+        earlyShares.remove(endpointId)
+        accepting.remove(endpointId)
+        val link = links.remove(endpointId)
+        return link?.keys != null && !link.verified
+    }
+
+    /** The peer does not hold this room's gesture, or is guessing it: hang up, and a guest tries the next room. */
+    private fun gestureFailed(endpointId: String) {
+        Timber.w("Gesture check with %s failed", endpointId)
+        val unproven = unproven(endpointId)
+        val mismatch = forget(endpointId)
+        runCatching { transport.disconnect(endpointId) }
+        if (_state.value.role == RoomRole.HOST) {
+            guests.remove(endpointId)
+            if (unproven) guessSpent()
+            refreshPending()
+        } else if (endpointId == hostEndpoint) {
+            knockFailed(endpointId, mismatch)
+        }
+    }
+
+    /** Host: past [MAX_GUESSES] someone is likely guessing the gesture, so the room stops taking knocks. */
+    private fun guessSpent() {
+        if (++guesses < MAX_GUESSES || _state.value.guessing) return
+        Timber.w("Room stopped advertising after %d failed gesture checks", guesses)
+        runCatching { transport.stopAdvertising() }
+        _state.update { it.copy(guessing = true) }
+    }
+
+    /** Guest: this room did not let us in; try the next, or give up after [MAX_JOIN_ATTEMPTS]. */
+    private fun knockFailed(endpointId: String, mismatch: Boolean) {
+        if (mismatch) mismatched = true
+        hostEndpoint = null
+        // Only a failed gesture check is final; a slow or dropped link to the right room gets another go.
+        if (mismatch || !missed.add(endpointId)) tried += endpointId
+        if (tried.size >= MAX_JOIN_ATTEMPTS) noRoom() else knockNext()
+    }
+
+    private fun noRoom() {
+        _state.update { it.copy(phase = RoomPhase.NO_ROOM, gestureMismatch = mismatched) }
+        stopRadio()
     }
 
     private fun onGone(endpointId: String) {
         val s = _state.value
+        val unproven = s.role == RoomRole.HOST && unproven(endpointId)
+        val mismatch = forget(endpointId)
         if (s.role == RoomRole.HOST) {
-            digits.remove(endpointId)
+            if (unproven) guessSpent()
             val g = guests.remove(endpointId) ?: return
             relay.values.forEach { it.remove(endpointId) }
-            relay.keys.filter { RoomProtocol.ownerOf(it) == endpointId }.forEach { gid ->
-                if (relay.remove(gid)?.contains(HOST_KEY) == true) failTransfer(gid)
-            }
+            relay.keys.filter { RoomProtocol.ownerOf(it) == endpointId }.forEach(::relayFailed)
             refreshPending()
             if (g.approved) broadcastManifest()
         } else if (endpointId == hostEndpoint && s.phase == RoomPhase.SEARCHING) {
-            hostEndpoint = null
+            knockFailed(endpointId, mismatch)
         } else if (endpointId == hostEndpoint && s.phase != RoomPhase.DENIED) {
+            backlog.clear()
             _state.update { st ->
                 st.copy(
                     phase = RoomPhase.CLOSED,
@@ -502,6 +822,19 @@ class RoomHub @Inject constructor(
     private fun onMessage(endpointId: String, data: ByteArray) {
         if (data.isEmpty()) return
         val body = data.copyOfRange(1, data.size)
+        val link = links[endpointId]
+        when (data[0]) {
+            RoomProtocol.T_SHARE -> {
+                if (link != null) onShare(endpointId, link, body)
+                else if (body.size == Pake.SHARE_SIZE) earlyShares[endpointId] = body
+                return
+            }
+            RoomProtocol.T_CONFIRM -> {
+                link?.let { onConfirm(endpointId, it, body) }
+                return
+            }
+        }
+        if (link?.verified != true) return
         val text = body.toString(Charsets.UTF_8)
         if (_state.value.role == RoomRole.HOST) hostMessage(endpointId, data[0], text) else guestMessage(endpointId, data[0], text)
     }
@@ -509,15 +842,22 @@ class RoomHub @Inject constructor(
     private fun hostMessage(endpointId: String, type: Byte, text: String) {
         val g = guests[endpointId] ?: return
         when (type) {
-            RoomProtocol.T_HELLO -> if (!g.approved) {
+            RoomProtocol.T_HELLO -> if (!g.named) {
+                g.named = true
                 g.name = RoomProtocol.safeName(text).take(MAX_NAME)
                 refreshPending()
             }
             RoomProtocol.T_MANIFEST_UP -> if (g.approved) {
-                g.files = RoomProtocol.decodeMetas(text)
+                val listing = RoomProtocol.decodeMetaPage(text)?.let(g.pages::add) ?: return
+                g.files = listing.files.take(RoomProtocol.MAX_FILES_PER_MEMBER)
                 broadcastManifest()
             }
-            RoomProtocol.T_REQUEST -> if (g.approved) serve(endpointId, text)
+            RoomProtocol.T_REQUEST -> if (g.approved) {
+                RoomProtocol.parseRequest(text)?.let { (gid, offset) -> serve(endpointId, gid, offset) }
+            }
+            RoomProtocol.T_FAILED -> if (g.approved && RoomProtocol.ownerOf(text) == endpointId) relayFailed(text)
+            // The host names the author; a guest cannot post as someone else.
+            RoomProtocol.T_NOTE -> if (g.approved) RoomProtocol.decodeNote(text)?.let { shareNote(Note(g.name, it.text)) }
         }
     }
 
@@ -530,85 +870,262 @@ class RoomHub @Inject constructor(
             }
             RoomProtocol.T_DENIED -> _state.update { it.copy(phase = RoomPhase.DENIED) }
             RoomProtocol.T_MANIFEST_DOWN -> if (_state.value.phase == RoomPhase.IN_ROOM) {
-                RoomProtocol.decodeManifest(text)?.let { m -> _state.update { it.copy(manifest = m) } }
+                val listing = RoomProtocol.decodeManifestPage(text)?.let(manifestPages::add) ?: return
+                val m = Manifest(listing.files.take(RoomProtocol.MAX_ROOM_FILES), listing.members)
+                _state.update { it.copy(manifest = m) }
             }
             RoomProtocol.T_PUSH -> if (_state.value.phase == RoomPhase.IN_ROOM) {
                 val s = _state.value
-                if (s.shared.any { it.id == text }) sendShared(endpointId, RoomProtocol.globalId(s.myKey, text))
+                val (localId, offset) = RoomProtocol.parseRequest(text) ?: return
+                sendShared(endpointId, RoomProtocol.globalId(s.myKey, localId), offset)
+            }
+            RoomProtocol.T_FAILED -> if (text in wanted) failTransfer(text)
+            RoomProtocol.T_NOTE -> if (_state.value.phase == RoomPhase.IN_ROOM) {
+                val note = RoomProtocol.decodeNote(text) ?: return
+                _state.update { it.copy(notes = (it.notes + note).takeLast(MAX_NOTES)) }
             }
         }
+    }
+
+    /** Runs [block] on the control thread unless the room was reset since [e]. */
+    private fun onControl(e: Int, block: () -> Unit) {
+        scope.launch { if (e == epoch) block() }
     }
 
     private fun onStream(endpointId: String, stream: InputStream) {
+        val e = epoch
         stream.use { input ->
-            val gid = RoomProtocol.readHeader(input) ?: return
+            val (gid, offset) = RoomProtocol.readHeader(input)?.let(RoomProtocol::parseRequest) ?: return
             val s = _state.value
-            val file = s.manifest.files.firstOrNull { it.id == gid } ?: return
+            val file = s.manifest.files.firstOrNull { it.id == gid }
             if (s.role == RoomRole.GUEST) {
                 if (endpointId != hostEndpoint || gid !in wanted) return
-                val dest = downloadFile(file.name)
-                if (receive(input, dest, gid, file.size)) finish(gid, dest)
+                val dest = partials[gid]
+                if (file == null || dest == null) return onControl(e) { failTransfer(gid) }
+                inflight[gid] = input
+                val outcome = receive(input, dest, gid, file.size, offset, e)
+                onControl(e) {
+                    if (!inflight.remove(gid, input)) return@onControl
+                    when (outcome) {
+                        Outcome.DONE -> {
+                            partials.remove(gid)
+                            finish(gid, dest)
+                        }
+                        Outcome.CUT -> failTransfer(gid)
+                        Outcome.BAD -> if (offset > 0 && restarted.add(gid)) {
+                            fetch(file)
+                        } else {
+                            partials.remove(gid)
+                            failTransfer(gid)
+                        }
+                    }
+                }
             } else {
+                if (file == null) {
+                    if (endpointId == RoomProtocol.ownerOf(gid)) onControl(e) { relayFailed(gid) }
+                    return
+                }
                 // The host only takes bytes from the guest that owns the file, and only if someone asked.
                 if (endpointId != file.ownerKey || relay[gid].isNullOrEmpty()) return
-                val dest = cacheDir().resolve(UUID.randomUUID().toString())
-                if (receive(input, dest, gid, file.size)) {
-                    cache[gid] = dest
-                    relay.remove(gid)?.forEach { deliver(it, gid, dest) }
-                } else {
-                    relay.remove(gid)
+                // A listing re-sent after the push could claim a larger size than the disk check allowed.
+                val size = admitted[gid]?.takeIf { it == file.size } ?: return onControl(e) { relayFailed(gid) }
+                val dest = cacheFile(gid)
+                val growing = Landing(partOf(dest), dest)
+                landing[gid] = growing
+                inflight[gid] = input
+                // Guests already waiting read the file as it lands instead of after it is whole.
+                onControl(e) {
+                    val waiting = relay[gid] ?: return@onControl
+                    waiting.keys.filter { it != HOST_KEY }.forEach { who ->
+                        waiting.remove(who)?.let { from -> forward(who, gid, growing, size, from) }
+                    }
+                }
+                var outcome = Outcome.CUT
+                try {
+                    outcome = receive(input, dest, gid, size, offset, e, growing)
+                } finally {
+                    growing.end(outcome == Outcome.DONE)
+                }
+                onControl(e) {
+                    landing.remove(gid, growing)
+                    if (!inflight.remove(gid, input)) return@onControl
+                    when (outcome) {
+                        Outcome.DONE -> {
+                            cache[gid] = dest
+                            admitted.remove(gid)
+                            relay.remove(gid)?.forEach { (who, from) -> deliver(who, gid, dest, from) }
+                        }
+                        Outcome.CUT -> relayFailed(gid)
+                        Outcome.BAD ->
+                            if (offset > 0 && !relay[gid].isNullOrEmpty() && restarted.add(gid)) push(file) else relayFailed(gid)
+                    }
                 }
             }
         }
     }
 
-    /** Copies exactly [size] bytes into [dest] and checks their SHA-256; anything else is a failed transfer. */
-    private fun receive(input: InputStream, dest: File, gid: String, size: Long): Boolean {
-        val hostWaiting = _state.value.role == RoomRole.GUEST || relay[gid]?.contains(HOST_KEY) == true
+    private enum class Outcome { DONE, CUT, BAD }
+
+    /**
+     * A relayed file growing in the cache. Readers see bytes as they land and fail at the end
+     * unless the upstream's checksum held, so a forwarded copy is never better than the cache.
+     */
+    private class Landing(private val part: File, private val dest: File) {
+        private var landed = 0L
+        private var ok: Boolean? = null
+        private var moved = false
+
+        @Synchronized fun grew(to: Long) {
+            landed = to
+            (this as Object).notifyAll()
+        }
+
+        @Synchronized fun end(passed: Boolean) {
+            ok = passed
+            (this as Object).notifyAll()
+        }
+
+        /** Under the lock so [open] never looks for the part after it moved; open readers keep the file. */
+        @Synchronized fun move() {
+            Files.move(part.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            moved = true
+        }
+
+        /** The whole file from byte 0, blocking for bytes still on their way. */
+        @Synchronized fun open(): InputStream {
+            val channel = FileChannel.open((if (moved) dest else part).toPath(), StandardOpenOption.READ)
+            return object : InputStream() {
+                private var pos = 0L
+                override fun read(): Int = ByteArray(1).let { if (read(it, 0, 1) < 0) -1 else it[0].toInt() and 0xff }
+                override fun read(b: ByteArray, off: Int, len: Int): Int {
+                    if (len == 0) return 0
+                    val ready = ready(pos)
+                    if (ready < 0) return -1
+                    val n = channel.read(ByteBuffer.wrap(b, off, minOf(len.toLong(), ready).toInt()), pos)
+                    if (n > 0) pos += n
+                    return n
+                }
+                override fun close() = channel.close()
+            }
+        }
+
+        /** Bytes readable past [pos], or -1 once a checked file ends; throws when the upstream failed. */
+        @Synchronized private fun ready(pos: Long): Long {
+            while (pos >= landed && ok == null) (this as Object).wait()
+            return when {
+                pos < landed -> landed - pos
+                ok == true -> -1
+                else -> throw IOException("relay upstream failed")
+            }
+        }
+    }
+
+    /**
+     * Writes the bytes after [offset] into [dest]'s part file and checks the whole file's SHA-256.
+     * A stream that stops early keeps the part for a resume; wrong or extra bytes delete it.
+     */
+    private fun receive(input: InputStream, dest: File, gid: String, size: Long, offset: Long, e: Int, growing: Landing? = null): Outcome {
+        val hostWaiting = _state.value.role == RoomRole.GUEST || relay[gid]?.containsKey(HOST_KEY) == true
+        val part = partOf(dest)
+        if (offset > size || offset > part.length()) {
+            part.delete()
+            return Outcome.BAD
+        }
         val started = System.currentTimeMillis()
-        if (hostWaiting) setTransfer(gid, Transfer(Transfer.Status.RECEIVING, 0, size, startedAt = started))
-        val part = File(dest.path + ".part")
-        val ok = runCatching {
-            var count = 0L
-            var lastReport = 0L
+        var count = offset
+        val outcome = try {
             val digest = MessageDigest.getInstance("SHA-256")
-            part.outputStream().use { out ->
-                val buf = ByteArray(BUFFER)
-                while (count < size) {
+            val buf = ByteArray(BUFFER)
+            RandomAccessFile(part, "rw").use { it.setLength(offset) }
+            growing?.grew(offset)
+            part.inputStream().use { prefix ->
+                var n = prefix.read(buf)
+                while (n >= 0) {
+                    digest.update(buf, 0, n)
+                    n = prefix.read(buf)
+                }
+            }
+            if (hostWaiting) setTransfer(gid, Transfer(Transfer.Status.RECEIVING, count, size, startedAt = started, from = offset))
+            var lastReport = System.nanoTime()
+            FileOutputStream(part, true).use { out ->
+                while (count < size && e == epoch) {
                     val n = input.read(buf, 0, minOf(buf.size.toLong(), size - count).toInt())
                     if (n < 0) break
+                    touch(gid)
                     count += n
                     digest.update(buf, 0, n)
                     out.write(buf, 0, n)
-                    if (hostWaiting && count - lastReport >= REPORT_EVERY) {
-                        lastReport = count
-                        setTransfer(gid, Transfer(Transfer.Status.RECEIVING, count, size, startedAt = started))
+                    growing?.grew(count)
+                    if (hostWaiting && System.nanoTime() - lastReport >= REPORT_NANOS) {
+                        lastReport = System.nanoTime()
+                        setTransfer(gid, Transfer(Transfer.Status.RECEIVING, count, size, startedAt = started, from = offset))
                     }
                 }
             }
-            check(count == size) { "stream ended at $count of $size" }
-            check(RoomProtocol.trailerMatches(input, digest.digest())) { "checksum mismatch or extra bytes" }
-            Files.move(part.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        }.onFailure { Timber.w(it, "Room transfer %s failed", gid) }.isSuccess
-        if (!ok) {
-            part.delete()
-            dest.delete()
-            if (hostWaiting) failTransfer(gid)
+            when {
+                count < size || e != epoch -> Outcome.CUT
+                !RoomProtocol.trailerMatches(input, digest.digest()) -> Outcome.BAD
+                else -> {
+                    if (growing != null) growing.move()
+                    else Files.move(part.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    Outcome.DONE
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Room transfer %s stopped at %d of %d", gid, count, size)
+            Outcome.CUT
         }
-        return ok
+        if (outcome == Outcome.BAD) {
+            Timber.w("Room transfer %s failed its checksum", gid)
+            part.delete()
+        }
+        return outcome
     }
 
     private fun finish(gid: String, file: File) {
         // Host copying a relayed file out of the cache; guests already wrote straight to the download.
-        val name = _state.value.manifest.files.firstOrNull { it.id == gid }?.name ?: "file"
-        val dest = if (file.parentFile == cacheDir()) downloadFile(name).also { file.copyTo(it, overwrite = true) } else file
+        val meta = _state.value.manifest.files.firstOrNull { it.id == gid }
+        val dest = if (file.parentFile == cacheDir()) {
+            downloadFile(meta?.name ?: "file", meta?.path.orEmpty()).also {
+                val part = partOf(it).toPath()
+                // A hard link costs nothing where cache and downloads share a file system; else a native copy.
+                runCatching { Files.deleteIfExists(part); Files.createLink(part, file.toPath()) }
+                    .getOrElse { Files.copy(file.toPath(), part, StandardCopyOption.REPLACE_EXISTING) }
+                Files.move(part, it.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        } else file
         wanted -= gid
+        restarted -= gid
         setTransfer(gid, Transfer(Transfer.Status.DONE, dest.length(), dest.length(), dest.path))
+        scope.launch { pump() }
+    }
+
+    private fun touch(gid: String) {
+        lastBytes[gid] = System.currentTimeMillis()
+    }
+
+    /** Fails files that made no progress for [idleMs], whatever stopped them, so their slots free up. */
+    private fun checkIdle() {
+        val stale = System.currentTimeMillis() - idleMs
+        lastBytes.filterValues { it < stale }.keys.forEach { gid ->
+            lastBytes.remove(gid)
+            inflight.remove(gid)?.let { runCatching { it.close() } }
+            if (relay.containsKey(gid)) relayFailed(gid)
+            if (gid in wanted) failTransfer(gid)
+        }
     }
 
     private fun failTransfer(gid: String) {
         wanted -= gid
-        setTransfer(gid, Transfer(Transfer.Status.FAILED))
+        val total = _state.value.manifest.files.firstOrNull { it.id == gid }?.size ?: 0
+        setTransfer(gid, Transfer(Transfer.Status.FAILED, keptBytes(gid), total))
+        scope.launch { pump() }
+    }
+
+    /** Bytes of [gid] already on disk from earlier attempts. */
+    private fun keptBytes(gid: String): Long {
+        val dest = if (_state.value.role == RoomRole.HOST) cacheFile(gid) else partials[gid] ?: return 0
+        return partOf(dest).length()
     }
 
     private fun setTransfer(gid: String, t: Transfer) =
@@ -618,27 +1135,55 @@ class RoomHub @Inject constructor(
 
     private fun cacheDir() = File(context.cacheDir, "room").apply { mkdirs() }
 
+    /** Peer-chosen ids never reach the file system; the cache name only derives from them. */
+    private fun cacheFile(gid: String) = File(cacheDir(), UUID.nameUUIDFromBytes(gid.toByteArray()).toString())
+
+    private fun partOf(dest: File) = File(dest.path + ".part")
+
+    /** [dest]'s part file, emptied when it is longer than the file can be. */
+    private fun freshPart(dest: File, size: Long): File = partOf(dest).apply {
+        if (!exists() || length() > size) writeBytes(ByteArray(0))
+    }
+
     private fun downloadDir() = (context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir)
         .resolve("Ping").apply { mkdirs() }
 
     /**
-     * A path inside [downloadDir] that no earlier or concurrent download uses. The empty file
-     * created here holds the name until the transfer replaces it or fails.
+     * A path inside [downloadDir], under the file's folder [path] when it has one, that no earlier
+     * or concurrent download uses. The empty part file created here holds the name until the
+     * transfer completes or gives up.
      */
-    private fun downloadFile(name: String): File = synchronized(downloadLock) {
-        val dir = downloadDir()
+    private fun downloadFile(name: String, path: String): File = synchronized(downloadLock) {
+        val root = downloadDir()
+        val dir = RoomProtocol.safePath(path).takeIf { it.isNotEmpty() }?.let { File(root, it) }
+            ?.takeIf { it.canonicalPath.startsWith(root.canonicalPath + File.separator) && (it.isDirectory || it.mkdirs()) }
+            ?: root
         val taken = dir.list()?.map { it.removeSuffix(".part") }?.toSet().orEmpty()
-        File(dir, RoomProtocol.uniqueName(RoomProtocol.safeName(name), taken)).also { it.createNewFile() }
+        File(dir, RoomProtocol.uniqueName(RoomProtocol.safeName(name), taken)).also { partOf(it).createNewFile() }
     }
 
     private companion object {
-        const val SERVICE_ID = "com.ping.app.room"
-        const val MAX_GUESTS = 7
+        const val SERVICE_ID = "com.ping.app.room.v2"
+        /** Rooms a guest may fail the gesture check with per search; each is an online guess. */
+        const val MAX_JOIN_ATTEMPTS = 3
+        /** Failed gesture checks a host takes before it stops advertising. */
+        const val MAX_GUESSES = 5
+        /** A connection must prove the gesture within this long, so silent links free their slot. */
+        const val VERIFY_MS = 10_000L
         const val MAX_NAME = 30
+        const val MAX_NOTES = 50
         const val SEARCH_MS = 30_000L
+        /** A transfer with no new bytes for this long gives up its slot. */
+        const val IDLE_MS = 30_000L
+        const val IDLE_TICK_MS = 1_000L
+        // ponytail: no eviction, the relay cache only empties when the room closes; LRU if rooms run long.
+        const val RELAY_CAP = 2L shl 30
         const val DISCONNECT_GRACE_MS = 500L
-        const val BUFFER = 32 * 1024
-        const val REPORT_EVERY = 128 * 1024L
+        /** Downloads in flight at once: enough to hide each request's round trip, few enough to keep streams fast. */
+        const val MAX_PARALLEL = 3
+        const val BUFFER = RoomProtocol.BUFFER
+        /** Progress by time, not bytes: a fast link would otherwise rebuild the state many times a second. */
+        const val REPORT_NANOS = 200_000_000L
         val ACTIVE = setOf(Transfer.Status.QUEUED, Transfer.Status.RECEIVING)
     }
 }

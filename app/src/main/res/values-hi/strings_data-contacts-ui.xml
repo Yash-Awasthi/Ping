@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_passphrase_title">बैकअप सुरक्षित करें</string>
+    <string name="backup_passphrase_message">पासफ़्रेज़ वैकल्पिक है। खाली छोड़ने पर एक सादी फ़ाइल सेव होगी जिसे कोई भी पढ़ सकता है।</string>
+    <string name="restore_passphrase_title">लॉक किया हुआ बैकअप</string>
+    <string name="restore_passphrase_message">वह पासफ़्रेज़ डालें जिसके साथ यह बैकअप सेव किया गया था।</string>
+    <string name="restore_passphrase_wrong">पासफ़्रेज़ गलत है, या फ़ाइल खराब है।</string>
+    <string name="backup_passphrase_hint">पासफ़्रेज़</string>
+    <string name="action_continue">जारी रखें</string>
+    <string name="profile_share_card">मेरा कार्ड शेयर करें (.vcf)</string>
+    <string name="profile_share_empty">पहले अपना कार्ड सेव करें।</string>
+    <string name="shortcut_my_card">मेरा कार्ड भेजें</string>
+    <string name="favourite_add">पसंदीदा में जोड़ें</string>
+    <string name="favourite_remove">पसंदीदा से हटाएँ</string>
+    <string name="favourite_on">पसंदीदा</string>
+    <string name="favourite_off">पसंदीदा नहीं</string>
+    <string name="action_back">वापस</string>
+    <string name="indicator_scanning">स्कैन हो रहा है…</string>
+    <string name="indicator_connecting">कनेक्ट हो रहा है…</string>
+    <string name="indicator_paired">पेयर हो गया</string>
+    <string name="indicator_error">गड़बड़ी</string>
+    <string name="indicator_idle">निष्क्रिय</string>
+    <string name="onboarding_title">अदला-बदली कैसे होती है</string>
+    <string name="onboarding_step_profile">प्रोफ़ाइल में अपना कार्ड बनाएँ।</string>
+    <string name="onboarding_step_gesture">आप और आपका दोस्त दोनों हाथ से एक जैसा इशारा करें।</string>
+    <string name="onboarding_step_hold">फ़ोन एक-दूसरे को ढूँढ लें, तब तक इशारा स्थिर रखें।</string>
+    <string name="onboarding_practice">अभ्यास करें</string>
+    <string name="onboarding_dismiss">समझ गया</string>
+</resources>

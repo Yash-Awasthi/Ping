@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [main, fresh]
+    branches: [main, fresh, "feature/**", "gesture-*"]
   pull_request:
 
 jobs:
@@ -21,13 +21,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v6.4.0
 
       - name: unit tests
-        run: ./gradlew test --no-daemon --configuration-cache
+        run: ./gradlew testDebugUnitTest --no-daemon --configuration-cache
 
       - name: compile instrumented tests
         run: ./gradlew assembleDebugAndroidTest --no-daemon --configuration-cache
 
       - name: lint
-        run: ./gradlew lint --no-daemon --configuration-cache
+        run: ./gradlew lintDebug --no-daemon --configuration-cache
 
       - name: assemble debug
         run: ./gradlew assembleDebug --no-daemon --configuration-cache

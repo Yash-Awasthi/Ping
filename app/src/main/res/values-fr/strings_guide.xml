@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="guide_fist">Poing (aussi 🤛 gauche, 🤜 droite, 👊 vers le bas)</string>
+    <string name="guide_open_palm">Paume ouverte, doigts serrés</string>
+    <string name="guide_spread">Main ouverte, doigts écartés</string>
+    <string name="guide_vulcan">Salut vulcain : écart entre le majeur et l\'annulaire</string>
+    <string name="guide_back">Dos de la main</string>
+    <string name="guide_push">Pousser à gauche / à droite</string>
+    <string name="guide_side">Main tendue sur le côté</string>
+    <string name="guide_palm_down">Paume vers le bas</string>
+    <string name="guide_one_finger">Un doigt vers le haut, le bas, la gauche, la droite</string>
+    <string name="guide_peace">Paix : index et majeur</string>
+    <string name="guide_crossed">Doigts croisés</string>
+    <string name="guide_rock_on">Cornes du rock</string>
+    <string name="guide_love_you">Je t\'aime</string>
+    <string name="guide_call_me">Appelle-moi</string>
+    <string name="guide_thumbs">Pouce levé / baissé</string>
+    <string name="guide_thumb_index">Pouce et index tendus</string>
+    <string name="guide_ok">OK : pouce et index qui se touchent, les autres tendus</string>
+    <string name="guide_pinch">Pincement</string>
+    <string name="guide_three_four">Trois ou quatre doigts</string>
+    <string name="guide_wave">Coucou : main ouverte de gauche à droite</string>
+    <string name="guide_circle">Dessiner un cercle dans l\'air, dans un sens ou dans l\'autre</string>
+    <string name="guide_swipe">Balayage : un geste vers la gauche, la droite, le haut ou le bas, puis arrêt</string>
+    <string name="guide_both_hands">Les deux mains ensemble, avec n\'importe quelle pose ci-dessus</string>
+</resources>

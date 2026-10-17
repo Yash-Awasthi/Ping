@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="roll_of_total">de %1$d</string>
+    <string name="roll_action_mark_present">Marcar presente</string>
+    <string name="roll_action_mark_missing">Marcar ausente</string>
+    <string name="roll_action_edit">Editar estudiante</string>
+
+    <!-- Gesture names: shown only, never part of the pairing code. -->
+    <string name="gesture_hand_left">mano izquierda</string>
+    <string name="gesture_hand_right">mano derecha</string>
+    <string name="gesture_sided">%1$s (%2$s)</string>
+    <string name="gesture_both_hands">ambas manos · %1$s</string>
+    <string name="gesture_dir_up">hacia arriba</string>
+    <string name="gesture_dir_right">hacia la derecha</string>
+    <string name="gesture_dir_down">hacia abajo</string>
+    <string name="gesture_dir_left">hacia la izquierda</string>
+    <string name="gesture_circle_cw">círculo en sentido horario</string>
+    <string name="gesture_circle_ccw">círculo en sentido antihorario</string>
+    <string name="gesture_wave">saludo con la mano</string>
+    <string name="gesture_swipe_left">deslizar a la izquierda</string>
+    <string name="gesture_swipe_right">deslizar a la derecha</string>
+    <string name="gesture_swipe_up">deslizar hacia arriba</string>
+    <string name="gesture_swipe_down">deslizar hacia abajo</string>
+    <string name="gesture_ok">OK</string>
+    <string name="gesture_pinch">pellizco</string>
+    <string name="gesture_pinched_fingers">dedos juntos en punta</string>
+    <string name="gesture_fist">puño</string>
+    <string name="gesture_fist_toward">puño %1$s</string>
+    <string name="gesture_thumbs_up">pulgar arriba</string>
+    <string name="gesture_thumbs_down">pulgar abajo</string>
+    <string name="gesture_thumb_toward">pulgar %1$s</string>
+    <string name="gesture_pointing">señalando %1$s</string>
+    <string name="gesture_crossed">dedos cruzados</string>
+    <string name="gesture_peace">paz %1$s</string>
+    <string name="gesture_rock_on">cuernos rockeros</string>
+    <string name="gesture_love_you">te quiero</string>
+    <string name="gesture_call_me">llámame</string>
+    <string name="gesture_finger_gun">pistola con los dedos</string>
+    <string name="gesture_three_fingers">tres dedos %1$s</string>
+    <string name="gesture_four_fingers">cuatro dedos %1$s</string>
+    <plurals name="gesture_fingers_out">
+        <item quantity="one">%1$d dedo extendido, %2$s</item>
+        <item quantity="many">%1$d dedos extendidos, %2$s</item>
+        <item quantity="other">%1$d dedos extendidos, %2$s</item>
+    </plurals>
+    <string name="gesture_vulcan">saludo vulcano</string>
+    <string name="gesture_spread">dedos separados</string>
+    <string name="gesture_some_apart">mano abierta, algunos dedos separados</string>
+    <string name="gesture_back_of_hand">dorso de la mano</string>
+    <string name="gesture_hand_out_right">mano extendida a la derecha</string>
+    <string name="gesture_hand_out_left">mano extendida a la izquierda</string>
+    <string name="gesture_push_right">empujar a la derecha</string>
+    <string name="gesture_push_left">empujar a la izquierda</string>
+    <string name="gesture_palm_down">palma hacia abajo</string>
+    <string name="gesture_open_palm">palma abierta</string>
+</resources>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_passphrase_title">Proteger backup</string>
+    <string name="backup_passphrase_message">Frase-senha opcional. Deixe em branco para salvar um arquivo comum que qualquer pessoa pode ler.</string>
+    <string name="restore_passphrase_title">Backup bloqueado</string>
+    <string name="restore_passphrase_message">Digite a frase-senha com que este backup foi salvo.</string>
+    <string name="restore_passphrase_wrong">Frase-senha errada, ou o arquivo está danificado.</string>
+    <string name="backup_passphrase_hint">Frase-senha</string>
+    <string name="action_continue">Continuar</string>
+    <string name="profile_share_card">Compartilhar meu cartão (.vcf)</string>
+    <string name="profile_share_empty">Salve seu cartão primeiro.</string>
+    <string name="shortcut_my_card">Enviar meu cartão</string>
+    <string name="favourite_add">Adicionar aos favoritos</string>
+    <string name="favourite_remove">Remover dos favoritos</string>
+    <string name="favourite_on">Favorito</string>
+    <string name="favourite_off">Não é favorito</string>
+    <string name="action_back">Voltar</string>
+    <string name="indicator_scanning">Procurando…</string>
+    <string name="indicator_connecting">Conectando…</string>
+    <string name="indicator_paired">Pareado</string>
+    <string name="indicator_error">Erro</string>
+    <string name="indicator_idle">Inativo</string>
+    <string name="onboarding_title">Como funciona uma troca</string>
+    <string name="onboarding_step_profile">Configure seu cartão no Perfil.</string>
+    <string name="onboarding_step_gesture">Você e seu amigo fazem o mesmo gesto com a mão.</string>
+    <string name="onboarding_step_hold">Mantenha o gesto firme até os celulares se encontrarem.</string>
+    <string name="onboarding_practice">Praticar</string>
+    <string name="onboarding_dismiss">Entendi</string>
+</resources>

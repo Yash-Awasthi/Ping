@@ -1,12 +1,16 @@
 package com.ping.app.auth
 
+import android.content.res.Resources
+import androidx.annotation.StringRes
+import com.ping.app.R.plurals as PL
+import com.ping.app.R.string as S
 import com.ping.app.auth.GestureFingerprint.Motion
 import com.ping.app.auth.GestureFingerprint.Palm
 
 /**
  * Best-effort emoji and name for a [GestureFingerprint], shown to the user while they hold a
  * pose. Matching never uses this text — only the fingerprint code — so a wrong guess here
- * cannot break a swap.
+ * cannot break a swap, and translating it cannot either.
  */
 object GestureNames {
 
@@ -16,21 +20,45 @@ object GestureNames {
     private const val R = 0b01000
     private const val P = 0b10000
     private const val ALL = 0b11111
+    private const val NON_THUMB_ALL = I or M or R or P
 
-    /** One entry of the in-app gesture guide. */
-    data class Entry(val emoji: String, val name: String)
-
-    fun label(fp: GestureFingerprint): String {
-        val motion = fp.motion
-        val base = if (motion != null) motionLabel(fp, motion) else poseLabel(fp)
-        val sided = if (fp.hand != null) "$base (${fp.hand.text})" else base
-        return if (fp.partner != null) "👏 both hands · $sided" else sided
+    /** Formats a string resource with its arguments, e.g. `res.getString(id, *args)`. */
+    fun interface Text {
+        fun get(id: Int, args: Array<out Any>): String
+        operator fun invoke(id: Int, vararg args: Any) = get(id, args)
+        /** Test fakes may resolve plurals like plain strings; [label] with Resources overrides it. */
+        fun plural(id: Int, count: Int, vararg args: Any): String = get(id, args)
     }
 
-    private fun motionLabel(fp: GestureFingerprint, motion: Motion): String = when (motion) {
-        Motion.WAVE -> "👋 wave"
-        Motion.CIRCLE_CW -> "${fingerEmoji(fp.fingerMask)} circle clockwise ↻"
-        Motion.CIRCLE_CCW -> "${fingerEmoji(fp.fingerMask)} circle counter-clockwise ↺"
+    /** One entry of the in-app gesture guide. */
+    data class Entry(val emoji: String, @StringRes val name: Int)
+
+    fun label(fp: GestureFingerprint, res: Resources): String = label(
+        fp,
+        object : Text {
+            override fun get(id: Int, args: Array<out Any>) = res.getString(id, *args)
+            override fun plural(id: Int, count: Int, vararg args: Any) = res.getQuantityString(id, count, *args)
+        },
+    )
+
+    fun label(fp: GestureFingerprint, t: Text): String {
+        val motion = fp.motion
+        val base = if (motion != null) motionLabel(fp, motion, t) else poseLabel(fp, t)
+        val sided = if (fp.hand != null) t(S.gesture_sided, base, t(fp.hand.text)) else base
+        return if (fp.partner != null) "👏 " + t(S.gesture_both_hands, sided) else sided
+    }
+
+    private fun motionLabel(fp: GestureFingerprint, motion: Motion, t: Text): String {
+        val name = t(motion.text)
+        return when (motion) {
+            Motion.WAVE -> "👋 $name"
+            Motion.CIRCLE_CW -> "${fingerEmoji(fp.fingerMask)} $name ↻"
+            Motion.CIRCLE_CCW -> "${fingerEmoji(fp.fingerMask)} $name ↺"
+            Motion.SWIPE_LEFT -> "${fingerEmoji(fp.fingerMask)} $name ←"
+            Motion.SWIPE_RIGHT -> "${fingerEmoji(fp.fingerMask)} $name →"
+            Motion.SWIPE_UP -> "${fingerEmoji(fp.fingerMask)} $name ↑"
+            Motion.SWIPE_DOWN -> "${fingerEmoji(fp.fingerMask)} $name ↓"
+        }
     }
 
     private fun fingerEmoji(mask: Int) = when (mask) {
@@ -40,73 +68,84 @@ object GestureNames {
         else -> "🖐️"
     }
 
-    private fun poseLabel(fp: GestureFingerprint): String {
+    private fun poseLabel(fp: GestureFingerprint, t: Text): String {
         val mask = fp.fingerMask
         val dir = fp.angleBucket
-        val toward = when (dir) { 0 -> "up"; 1 -> "right"; 2 -> "down"; else -> "left" }
+        val toward = t(
+            when (dir) { 0 -> S.gesture_dir_up; 1 -> S.gesture_dir_right; 2 -> S.gesture_dir_down; else -> S.gesture_dir_left },
+        )
         if (fp.pinch) {
             return when {
-                mask and (M or R or P) == (M or R or P) -> "👌 OK"
-                mask and (M or R or P) == 0 -> "🤏 pinch"
-                else -> "🤌 pinched fingers"
+                mask and (M or R or P) == (M or R or P) -> "👌 " + t(S.gesture_ok)
+                mask and (M or R or P) == 0 -> "🤏 " + t(S.gesture_pinch)
+                else -> "🤌 " + t(S.gesture_pinched_fingers)
             }
         }
         return when (mask) {
-            0 -> when (dir) { 1 -> "🤜 fist right"; 3 -> "🤛 fist left"; 2 -> "👊 fist down"; else -> "✊ fist" }
-            T -> when (dir) { 2 -> "👎 thumbs down"; 0 -> "👍 thumbs up"; else -> "👍 thumb $toward" }
-            I -> when (dir) { 2 -> "👇 pointing down"; 1 -> "👉 pointing right"; 3 -> "👈 pointing left"; else -> "☝️ pointing up" }
-            I or M -> if (fp.crossed) "🤞 fingers crossed" else "✌️ peace $toward"
-            I or P -> "🤘 rock on"
-            T or I or P -> "🤟 love you"
-            T or P -> "🤙 call me"
-            T or I -> "🫰 finger gun"
-            I or M or R -> "3️⃣ three fingers $toward"
-            NON_THUMB_ALL -> "4️⃣ four fingers $toward"
-            ALL -> openHand(fp, dir)
-            else -> "🖐️ ${fp.openFingers} fingers out, $toward"
+            0 -> when (dir) {
+                1 -> "🤜 " + t(S.gesture_fist_toward, toward)
+                3 -> "🤛 " + t(S.gesture_fist_toward, toward)
+                2 -> "👊 " + t(S.gesture_fist_toward, toward)
+                else -> "✊ " + t(S.gesture_fist)
+            }
+            T -> when (dir) {
+                2 -> "👎 " + t(S.gesture_thumbs_down)
+                0 -> "👍 " + t(S.gesture_thumbs_up)
+                else -> "👍 " + t(S.gesture_thumb_toward, toward)
+            }
+            I -> (when (dir) { 2 -> "👇 "; 1 -> "👉 "; 3 -> "👈 "; else -> "☝️ " }) + t(S.gesture_pointing, toward)
+            I or M -> if (fp.crossed) "🤞 " + t(S.gesture_crossed) else "✌️ " + t(S.gesture_peace, toward)
+            I or P -> "🤘 " + t(S.gesture_rock_on)
+            T or I or P -> "🤟 " + t(S.gesture_love_you)
+            T or P -> "🤙 " + t(S.gesture_call_me)
+            T or I -> "🫰 " + t(S.gesture_finger_gun)
+            I or M or R -> "3️⃣ " + t(S.gesture_three_fingers, toward)
+            NON_THUMB_ALL -> "4️⃣ " + t(S.gesture_four_fingers, toward)
+            ALL -> openHand(fp, dir, t)
+            else -> "🖐️ " + t.plural(PL.gesture_fingers_out, fp.openFingers, fp.openFingers, toward)
         }
     }
 
-    private const val NON_THUMB_ALL = I or M or R or P
-
-    private fun openHand(fp: GestureFingerprint, dir: Int): String {
-        if (fp.gaps == 0b010) return "🖖 vulcan salute"
-        if (fp.gaps == 0b111) return "🖐️ fingers spread"
-        if (fp.gaps != 0) return "🖐️ open hand, some fingers apart"
-        return when {
-            fp.palm == Palm.AWAY -> "🤚 back of hand"
-            fp.palm == Palm.EDGE && dir == 1 -> "🫱 hand out to the right"
-            fp.palm == Palm.EDGE && dir == 3 -> "🫲 hand out to the left"
-            dir == 1 -> "🫸 push right"
-            dir == 3 -> "🫷 push left"
-            dir == 2 -> "🫳 palm down"
-            else -> "✋ open palm"
+    private fun openHand(fp: GestureFingerprint, dir: Int, t: Text): String {
+        val (emoji, id) = when {
+            fp.gaps == 0b010 -> "🖖" to S.gesture_vulcan
+            fp.gaps == 0b111 -> "🖐️" to S.gesture_spread
+            fp.gaps != 0 -> "🖐️" to S.gesture_some_apart
+            fp.palm == Palm.AWAY -> "🤚" to S.gesture_back_of_hand
+            fp.palm == Palm.EDGE && dir == 1 -> "🫱" to S.gesture_hand_out_right
+            fp.palm == Palm.EDGE && dir == 3 -> "🫲" to S.gesture_hand_out_left
+            dir == 1 -> "🫸" to S.gesture_push_right
+            dir == 3 -> "🫷" to S.gesture_push_left
+            dir == 2 -> "🫳" to S.gesture_palm_down
+            else -> "✋" to S.gesture_open_palm
         }
+        return "$emoji " + t(id)
     }
 
     /** What the gesture guide lists: the poses and motions Ping tells apart. */
     val guide: List<Entry> = listOf(
-        Entry("✊", "Fist (also 🤛 left, 🤜 right, 👊 down)"),
-        Entry("✋", "Open palm, fingers together"),
-        Entry("🖐️", "Open hand, fingers spread"),
-        Entry("🖖", "Vulcan salute: gap between middle and ring"),
-        Entry("🤚", "Back of the hand"),
-        Entry("🫷 🫸", "Push left / push right"),
-        Entry("🫱 🫲", "Hand out to the side"),
-        Entry("🫳", "Palm down"),
-        Entry("☝️ 👇 👈 👉", "One finger up, down, left, right"),
-        Entry("✌️", "Peace: index and middle"),
-        Entry("🤞", "Fingers crossed"),
-        Entry("🤘", "Rock on"),
-        Entry("🤟", "Love you"),
-        Entry("🤙", "Call me"),
-        Entry("👍 👎", "Thumbs up / down"),
-        Entry("🫰", "Thumb and index out"),
-        Entry("👌", "OK: thumb and index touching, others out"),
-        Entry("🤏 🤌", "Pinch"),
-        Entry("3️⃣ 4️⃣", "Three or four fingers"),
-        Entry("👋", "Wave: open hand side to side"),
-        Entry("↻ ↺", "Draw a circle in the air, either way round"),
-        Entry("👏 🙏 🤝 🫶", "Both hands together, with any of the poses above"),
+        Entry("✊", S.guide_fist),
+        Entry("✋", S.guide_open_palm),
+        Entry("🖐️", S.guide_spread),
+        Entry("🖖", S.guide_vulcan),
+        Entry("🤚", S.guide_back),
+        Entry("🫷 🫸", S.guide_push),
+        Entry("🫱 🫲", S.guide_side),
+        Entry("🫳", S.guide_palm_down),
+        Entry("☝️ 👇 👈 👉", S.guide_one_finger),
+        Entry("✌️", S.guide_peace),
+        Entry("🤞", S.guide_crossed),
+        Entry("🤘", S.guide_rock_on),
+        Entry("🤟", S.guide_love_you),
+        Entry("🤙", S.guide_call_me),
+        Entry("👍 👎", S.guide_thumbs),
+        Entry("🫰", S.guide_thumb_index),
+        Entry("👌", S.guide_ok),
+        Entry("🤏 🤌", S.guide_pinch),
+        Entry("3️⃣ 4️⃣", S.guide_three_four),
+        Entry("👋", S.guide_wave),
+        Entry("↻ ↺", S.guide_circle),
+        Entry("← → ↑ ↓", S.guide_swipe),
+        Entry("👏 🙏 🤝 🫶", S.guide_both_hands),
     )
 }

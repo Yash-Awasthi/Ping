@@ -8,41 +8,23 @@ import androidx.core.app.NotificationCompat
 import com.ping.app.R
 import com.ping.app.data.ContactRepository
 import com.ping.app.data.ProfileRepository
-import com.ping.app.model.Contact
 import com.ping.app.model.ExchangeSession
-import com.ping.app.utils.CryptoUtils
+import com.ping.app.model.Profile
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import timber.log.Timber
-import java.security.KeyPair
-import java.security.PublicKey
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
-import javax.crypto.SecretKey
 import javax.inject.Inject
 
 /**
- * The Ping swap engine.
- *
- * Matchmaking by gesture:
- *  - We advertise `<codeToken>|<sessionNonce>`, a hash of the gesture code, never the code.
- *  - When we discover a peer we only request a connection if its token equals ours,
- *    and we only accept an incoming connection whose token equals ours.
- *  - Once connected we swap ephemeral ECDH keys and both users compare a six-digit
- *    code. No card leaves this phone until its user confirms the codes match.
+ * Foreground shell around [ExchangeEngine]: keeps the swap alive while the screen is away.
  *
  * Discovery starts when the swap screen opens ([prewarm]) so peers are already known by the
- * time the gesture locks. If no matching peer appears within [WINDOW_MS] of the lock the
- * session ends as NO_MATCH.
- * Everything is offline — Nearby Connections uses BLE + Wi-Fi Direct directly.
+ * time the gesture locks. Everything is offline — the transport uses BLE + Wi-Fi Direct directly.
  */
 @AndroidEntryPoint
 class NearbyExchangeService : Service() {
@@ -51,30 +33,11 @@ class NearbyExchangeService : Service() {
     @Inject lateinit var profileRepo: ProfileRepository
     @Inject lateinit var contactRepo: ContactRepository
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-    /** Null until the gesture locks; callbacks only buffer endpoints before that. */
-    private var gestureCode: String? = null
-    private lateinit var localName: String
-    private var scanning = false
-    /** Every Ping endpoint in range, endpointId to advertisement. Main thread only. */
-    private val seen = LinkedHashMap<String, String>()
-    private lateinit var keyPair: KeyPair
-
-    /** Per-session suffix: keeps the advertisement unique and the initiator tie-break fair. */
-    private val sessionNonce = UUID.randomUUID().toString().take(8)
-
-    /** Per-endpoint negotiated AES key, set after we receive the peer's pubkey. */
-    private val sessionKeys = ConcurrentHashMap<String, SecretKey>()
-    /** Endpoints we've already sent our card to, so we don't double-send. */
-    private val cardSent = ConcurrentHashMap.newKeySet<String>()
-    /** Set once the local user has confirmed the short authentication string. */
-    @Volatile private var confirmed = false
-    /** Peer card that arrived before the local user confirmed. */
-    @Volatile private var pendingCardJson: String? = null
-
-    @Volatile private var connectedEndpoint: String? = null
-    private var windowJob: Job? = null
+    // Main is single-threaded, which the engine's state confinement relies on.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var engine: ExchangeEngine? = null
+    private var engineCode: String? = null
+    private var fields: Set<String> = Profile.FIELDS
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -84,224 +47,38 @@ class NearbyExchangeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_CONFIRM -> { onUserConfirmed(); return START_NOT_STICKY }
-            ACTION_REJECT -> { onUserRejected(); return START_NOT_STICKY }
-        }
         startForeground(NOTIF_ID, buildNotification(getString(R.string.notif_starting)))
-        if (!scanning) {
-            scanning = true
-            wireCallbacks()
-            transport.startDiscovery(SERVICE_ID)
+        val code = intent?.getStringExtra(EXTRA_GESTURE_CODE)
+        // An engine is bound to one gesture; a new one gets a fresh engine, not the old search.
+        if (code != null && engineCode != null && code != engineCode) {
+            engine?.abandon()
+            engine = null
+            engineCode = null
         }
-        intent?.getStringExtra(EXTRA_GESTURE_CODE)?.let(::begin)
+        val e = engine ?: ExchangeEngine(
+            transport = transport,
+            scope = scope,
+            cardProvider = { Json.encodeToString(profileRepo.getOrCreate().toShareableMap(fields)).toByteArray() },
+            saveContact = contactRepo::saveReceived,
+            onStop = {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            },
+            session = _session,
+        ).also { engine = it }
+        e.scan()
+        if (code != null) {
+            intent.getStringArrayExtra(EXTRA_FIELDS)?.let { fields = it.toSet() }
+            e.begin(code)
+            engineCode = code
+        }
         return START_NOT_STICKY
     }
 
-    private fun begin(code: String) {
-        if (gestureCode != null) return
-        gestureCode = code
-        keyPair = CryptoUtils.generateEphemeralKeyPair()
-        // The advertised name is readable by any scanner in range, so it carries the
-        // token rather than the code, and never the user's display name.
-        localName = Pairing.advertisement(code, sessionNonce)
-        _session.value = ExchangeSession(code, ExchangeSession.State.SEARCHING)
-        transport.startAdvertising(localName, SERVICE_ID)
-        Timber.i("Ping searching for a matching gesture")
-        Pairing.firstMatch(code, seen)?.let { onMatch(it.key, it.value) }
-        updateOthers()
-
-        // Pairing window: if nothing connects in time, give up.
-        windowJob = scope.launch {
-            delay(WINDOW_MS)
-            if (_session.value?.state == ExchangeSession.State.SEARCHING) {
-                Timber.i("Pairing window elapsed with no match")
-                _session.value = _session.value?.copy(state = ExchangeSession.State.NO_MATCH)
-                shutdown()
-            }
-        }
-    }
-
-    private fun wireCallbacks() {
-        transport.onEndpointFound = onEndpointFound@{ endpointId, remoteName ->
-            seen[endpointId] = remoteName
-            val code = gestureCode ?: return@onEndpointFound
-            if (Pairing.matches(code, remoteName)) onMatch(endpointId, remoteName)
-            else updateOthers()
-        }
-
-        transport.onEndpointLost = { endpointId ->
-            seen.remove(endpointId)
-            updateOthers()
-        }
-
-        transport.onConnectionInitiated = { endpointId, remoteName ->
-            val code = gestureCode
-            if (code != null && Pairing.matches(code, remoteName) && connectedEndpoint in listOf(null, endpointId)) {
-                transport.acceptConnection(endpointId)
-            } else {
-                Timber.w("Rejecting %s: token mismatch or session already taken", endpointId)
-                transport.rejectConnection(endpointId)
-            }
-        }
-
-        transport.onConnected = { endpointId, _, _ ->
-            if (connectedEndpoint == null) {
-                connectedEndpoint = endpointId
-                markConnecting()
-                transport.stopAdvertising()
-                transport.stopDiscovery()
-                // Send our public key first; card follows once we have theirs.
-                transport.sendBytes(endpointId, frame(TYPE_KEY, CryptoUtils.encodePublicKey(keyPair.public)))
-                Timber.i("Connected to %s — sent public key", endpointId)
-            } else if (endpointId != connectedEndpoint) {
-                transport.rejectConnection(endpointId)
-            }
-        }
-
-        transport.onPayloadReceived = { endpointId, data -> handlePayload(endpointId, data) }
-
-        transport.onDisconnected = { endpointId ->
-            Timber.d("Disconnected %s", endpointId)
-            if (endpointId == connectedEndpoint &&
-                _session.value?.state != ExchangeSession.State.COMPLETED
-            ) {
-                _session.value = _session.value?.copy(state = ExchangeSession.State.ERROR)
-                shutdown()
-            }
-        }
-    }
-
-    private fun onMatch(endpointId: String, remoteName: String) {
-        if (connectedEndpoint != null) return
-        // Deterministic tie-break: only the lexicographically-smaller name
-        // initiates, so both sides don't request each other simultaneously.
-        if (Pairing.shouldInitiate(localName, remoteName)) {
-            Timber.i("Match found (%s) — requesting connection", endpointId)
-            transport.requestConnection(localName, endpointId)
-        } else {
-            Timber.i("Match found (%s) — waiting for their request", endpointId)
-        }
-        markConnecting()
-    }
-
-    private fun updateOthers() {
-        val code = gestureCode ?: return
-        val others = Pairing.othersNearby(code, seen)
-        _session.value?.takeIf { it.othersNearby != others }?.let { _session.value = it.copy(othersNearby = others) }
-    }
-
-    private fun handlePayload(endpointId: String, data: ByteArray) {
-        if (data.isEmpty()) return
-        val type = data[0]
-        val body = data.copyOfRange(1, data.size)
-        when (type) {
-            TYPE_KEY -> {
-                if (endpointId != connectedEndpoint || sessionKeys.containsKey(endpointId)) return
-                val peerPub: PublicKey = runCatching { CryptoUtils.decodePublicKey(body) }
-                    .getOrElse { Timber.e(it, "Bad peer key"); return }
-                val key = CryptoUtils.deriveSharedKey(keyPair.private, peerPub)
-                sessionKeys[endpointId] = key
-                val sas = CryptoUtils.shortAuthString(CryptoUtils.encodePublicKey(keyPair.public), body)
-                _session.value = _session.value?.copy(
-                    state = ExchangeSession.State.AWAITING_CONFIRM,
-                    sas = sas,
-                )
-            }
-            TYPE_CARD -> {
-                val key = sessionKeys[endpointId] ?: run { Timber.w("Card before key"); return }
-                val json = runCatching { String(CryptoUtils.decrypt(key, body)) }
-                    .getOrElse { Timber.e(it, "Card decrypt failed"); return }
-                if (confirmed) saveContact(json) else pendingCardJson = json
-            }
-        }
-    }
-
-    private fun onUserConfirmed() {
-        val endpoint = connectedEndpoint ?: return
-        val key = sessionKeys[endpoint] ?: return
-        if (_session.value?.state != ExchangeSession.State.AWAITING_CONFIRM) return
-        confirmed = true
-        _session.value = _session.value?.copy(state = ExchangeSession.State.EXCHANGING)
-        sendCard(endpoint, key)
-        pendingCardJson?.let { saveContact(it) }
-    }
-
-    private fun onUserRejected() {
-        _session.value = _session.value?.copy(state = ExchangeSession.State.CANCELLED)
-        shutdown()
-    }
-
-    private fun sendCard(endpointId: String, key: SecretKey) {
-        if (!cardSent.add(endpointId)) return
-        scope.launch {
-            val map = profileRepo.getOrCreate().toShareableMap()
-            val sealed = CryptoUtils.encrypt(key, Json.encodeToString(map).toByteArray())
-            transport.sendBytes(endpointId, frame(TYPE_CARD, sealed))
-            Timber.i("Card sent to %s", endpointId)
-        }
-    }
-
-    private fun saveContact(json: String) {
-        scope.launch {
-            val map = runCatching { Json.decodeFromString<Map<String, String>>(json) }
-                .getOrElse { emptyMap() }
-            val contact = Contact.fromMap(map)
-            if (contact.isEmptyCard) {
-                Timber.w("Rejected an empty card")
-                _session.value = _session.value?.copy(
-                    state = ExchangeSession.State.ERROR,
-                    errorMessage = "The other person has not set up their card.",
-                )
-                shutdown()
-                return@launch
-            }
-            val saved = contactRepo.saveReceived(contact)
-            Timber.i("Saved contact: %s", saved.displayName)
-            _session.value = _session.value?.copy(
-                state = ExchangeSession.State.COMPLETED,
-                receivedContact = saved
-            )
-            shutdown()
-        }
-    }
-
-    private fun markConnecting() {
-        if (_session.value?.state == ExchangeSession.State.SEARCHING) {
-            _session.value = _session.value?.copy(state = ExchangeSession.State.CONNECTING)
-        }
-    }
-
-    private fun shutdown() {
-        windowJob?.cancel()
-        runCatching {
-            transport.stopAdvertising()
-            transport.stopDiscovery()
-            transport.stopAllEndpoints()
-        }
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-
     override fun onDestroy() {
-        runCatching {
-            transport.onEndpointFound = null
-            transport.onConnectionInitiated = null
-            transport.onEndpointLost = null
-            transport.onConnected = null
-            transport.onPayloadReceived = null
-            transport.onDisconnected = null
-            transport.stopAdvertising()
-            transport.stopDiscovery()
-            transport.stopAllEndpoints()
-        }
+        engine?.close()
         scope.coroutineContext[Job]?.cancel()
         super.onDestroy()
-    }
-
-    private fun frame(type: Byte, body: ByteArray): ByteArray = ByteArray(body.size + 1).also {
-        it[0] = type
-        System.arraycopy(body, 0, it, 1, body.size)
     }
 
     private fun buildNotification(text: String) =
@@ -313,18 +90,10 @@ class NearbyExchangeService : Service() {
             .build()
 
     companion object {
-        private const val SERVICE_ID = "com.ping.app.swap"
         private const val NOTIF_ID = 42
         private const val EXTRA_GESTURE_CODE = "gesture_code"
-        private const val ACTION_CONFIRM = "com.ping.app.action.CONFIRM"
-        private const val ACTION_REJECT = "com.ping.app.action.REJECT"
-        /** Pairing window — both people must be searching within this window. */
-        const val WINDOW_SECONDS = 30
-        private const val WINDOW_MS = WINDOW_SECONDS * 1000L
-
-        // Payload framing: first byte = type.
-        private const val TYPE_KEY: Byte = 1
-        private const val TYPE_CARD: Byte = 2
+        private const val EXTRA_FIELDS = "fields"
+        const val WINDOW_SECONDS = ExchangeEngine.WINDOW_SECONDS
 
         private val _session = MutableStateFlow<ExchangeSession?>(null)
         /** Latest session state, observed by the Exchange screen. */
@@ -335,25 +104,12 @@ class NearbyExchangeService : Service() {
             context.startForegroundService(Intent(context, NearbyExchangeService::class.java))
         }
 
-        /** Start a swap keyed to the locked [gestureCode]. */
-        fun start(context: Context, gestureCode: String) {
+        /** Start a swap keyed to the locked [gestureCode], sharing only the card [fields]. */
+        fun start(context: Context, gestureCode: String, fields: Set<String> = Profile.FIELDS) {
             val intent = Intent(context, NearbyExchangeService::class.java)
                 .putExtra(EXTRA_GESTURE_CODE, gestureCode)
+                .putExtra(EXTRA_FIELDS, fields.toTypedArray())
             context.startForegroundService(intent)
-        }
-
-        /** The user saw the same six digits on both phones. */
-        fun confirm(context: Context) {
-            context.startService(
-                Intent(context, NearbyExchangeService::class.java).setAction(ACTION_CONFIRM)
-            )
-        }
-
-        /** The digits differ, or the user does not recognise the peer. */
-        fun reject(context: Context) {
-            context.startService(
-                Intent(context, NearbyExchangeService::class.java).setAction(ACTION_REJECT)
-            )
         }
 
         fun stop(context: Context) {

@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ping</string>
+
+    <!-- Bottom nav -->
+    <string name="nav_home">होम</string>
+    <string name="nav_profile">प्रोफ़ाइल</string>
+    <string name="nav_contacts">संपर्क</string>
+
+    <!-- Home -->
+    <string name="home_tagline">एक जैसा इशारा करें, संपर्कों की अदला-बदली करें।</string>
+    <string name="home_greeting">नमस्ते, %1$s</string>
+    <string name="home_greeting_no_profile">शुरू करने के लिए अपना कार्ड बनाएँ</string>
+    <plurals name="home_contact_count">
+        <item quantity="one">%1$d संपर्क</item>
+        <item quantity="other">%1$d संपर्क</item>
+    </plurals>
+    <string name="home_share_button">शेयर करें</string>
+    <string name="home_share_hint">एक इशारा तय करें, फिर दोनों शेयर करें दबाएँ।</string>
+    <string name="home_share_needs_profile">पहले अपनी प्रोफ़ाइल भरें ताकि आपके पास शेयर करने के लिए कुछ हो।</string>
+
+    <string name="home_room_button">फ़ाइल रूम</string>
+    <string name="home_practice_button">इशारों का अभ्यास करें</string>
+    <string name="practice_title">अभ्यास</string>
+    <string name="home_room_hint">आस-पास फ़ाइलें शेयर करें</string>
+    <string name="home_roll_button">हाज़िरी</string>
+    <string name="home_more">Ping इस्तेमाल करने के और तरीके</string>
+    <string name="home_practice_hint">इशारे सीखें</string>
+    <string name="home_roll_hint">क्लास की हाज़िरी</string>
+    <string name="roll_tab_take">हाज़िरी लें</string>
+    <string name="roll_tab_check_in">हाज़िरी दें</string>
+    <string name="roll_admin_intro">हाज़िरी शुरू करें और यह स्क्रीन खुली रखें। कमरे में मौजूद छात्र अपने फ़ोन पर हाज़िरी दें दबाते हैं और यहाँ दिखने लगते हैं; कोई कनेक्ट नहीं होता, इसलिए किसी भी आकार की क्लास में यह काम करता है।</string>
+    <string name="roll_class_label">क्लास का नाम</string>
+    <string name="roll_start">हाज़िरी शुरू करें</string>
+    <string name="roll_stop">हाज़िरी खत्म करें</string>
+    <string name="roll_history">पिछले सत्र</string>
+    <string name="roll_export">CSV एक्सपोर्ट करें</string>
+    <string name="roll_admin_title">हाज़िरी लें</string>
+    <string name="roll_class_list">क्लास की सूची</string>
+    <plurals name="roll_students">
+        <item quantity="one">%1$d छात्र</item>
+        <item quantity="other">%1$d छात्र</item>
+    </plurals>
+    <string name="roll_import">CSV इंपोर्ट करें</string>
+    <string name="roll_import_hint">एक CSV जिसमें रोल नंबर का कॉलम और नाम का एक वैकल्पिक कॉलम हो। इससे गैरहाज़िर छात्र पहले सत्र से ही दिखते हैं।</string>
+    <string name="roll_import_failed">यह क्लास सूची पढ़ी नहीं जा सकी।</string>
+    <plurals name="roll_imported">
+        <item quantity="one">%1$d छात्र इंपोर्ट किया गया</item>
+        <item quantity="other">%1$d छात्र इंपोर्ट किए गए</item>
+    </plurals>
+    <string name="roll_manage">प्रबंधित करें</string>
+    <string name="roll_hide">छिपाएँ</string>
+    <string name="roll_fraction">%1$d/%2$d</string>
+    <plurals name="roll_count_present">
+        <item quantity="one">%1$d हाज़िर</item>
+        <item quantity="other">%1$d हाज़िर</item>
+    </plurals>
+    <plurals name="roll_count_missing">
+        <item quantity="one">%1$d गैरहाज़िर</item>
+        <item quantity="other">%1$d गैरहाज़िर</item>
+    </plurals>
+    <plurals name="roll_count_flagged">
+        <item quantity="one">%1$d चिह्नित</item>
+        <item quantity="other">%1$d चिह्नित</item>
+    </plurals>
+    <string name="roll_filter_all">सभी</string>
+    <string name="roll_filter_missing">गैरहाज़िर</string>
+    <string name="roll_filter_present">हाज़िर</string>
+    <string name="roll_filter_flagged">चिह्नित</string>
+    <string name="roll_view_list">सूची</string>
+    <string name="roll_view_grid">ग्रिड</string>
+    <string name="roll_search">नाम या रोल नंबर खोजें</string>
+    <string name="roll_empty_roster">अभी कोई छात्र नहीं है। क्लास की सूची इंपोर्ट करें, या छात्र हाज़िरी देते ही यहाँ दिखेंगे।</string>
+    <string name="roll_grid_hint">किसी सीट को हाथ से चिह्नित करने के लिए उस पर टैप करें; छात्र की जानकारी बदलने के लिए दबाकर रखें।</string>
+    <string name="roll_seat_present">%1$s, %2$s, हाज़िर</string>
+    <string name="roll_seat_missing">%1$s, %2$s, गैरहाज़िर</string>
+    <string name="roll_live">लाइव</string>
+    <plurals name="roll_rate">
+        <item quantity="one">%2$d सत्र में से %1$d में हाज़िर (%3$d%%)</item>
+        <item quantity="other">%2$d सत्रों में से %1$d में हाज़िर (%3$d%%)</item>
+    </plurals>
+    <string name="roll_remove">क्लास से हटाएँ</string>
+    <string name="roll_remove_confirm">हटाने के लिए फिर से टैप करें</string>
+    <string name="roll_no_phone">अभी कोई फ़ोन नहीं</string>
+    <string name="roll_flag_manual">हाथ से चिह्नित</string>
+    <string name="roll_flag_other_phone">दूसरा फ़ोन</string>
+    <string name="roll_flag_new_roll">क्लास सूची में नहीं</string>
+    <string name="roll_student_intro">एक बार अपना रोल नंबर डालें, फिर जब आपके शिक्षक हाज़िरी शुरू करें तो हाज़िरी खोजें दबाएँ। अगली बार आपकी क्लास मिलते ही आपकी हाज़िरी अपने-आप लग जाएगी।</string>
+    <string name="roll_number">रोल नंबर</string>
+    <string name="roll_find">हाज़िरी खोजें</string>
+    <string name="roll_searching">आपके शिक्षक का फ़ोन खोजा जा रहा है…</string>
+    <string name="roll_join">%1$s में हाज़िरी दें</string>
+    <string name="roll_checked_in">%1$s को भेजा गया…</string>
+    <string name="roll_confirmed">✓ %1$s में हाज़िर दर्ज</string>
+    <string name="roll_stay_hint">सही का निशान दिखने तक यह स्क्रीन खुली रखें; आमतौर पर कुछ ही सेकंड लगते हैं।</string>
+    <string name="roll_last_done">पिछली हाज़िरी: %1$s</string>
+
+    <!-- File room -->
+    <string name="room_title">फ़ाइल रूम</string>
+    <string name="room_intro">आस-पास के लोगों के साथ बिना इंटरनेट फ़ाइलें शेयर करें। एक फ़ोन रूम होस्ट करता है; बाकी सब वही इशारा करके जुड़ते हैं। जब तक कोई डाउनलोड नहीं दबाता, सिर्फ़ फ़ाइलों के नाम शेयर होते हैं।</string>
+    <string name="room_host">रूम होस्ट करें</string>
+    <string name="room_join">रूम से जुड़ें</string>
+    <string name="room_lock_prompt">रूम का इशारा कैमरे के सामने करें</string>
+    <string name="room_open">रूम खुला है। मेहमान आपका इशारा करके जुड़ते हैं; हर एक को आप मंज़ूरी देते हैं।</string>
+    <string name="room_searching">इस इशारे वाला रूम खोजा जा रहा है…</string>
+    <string name="room_waiting_approval">कनेक्ट हो गया। होस्ट के अंदर आने देने का इंतज़ार है…</string>
+    <string name="room_in">आप रूम में हैं।</string>
+    <string name="room_denied">होस्ट ने आपको अंदर नहीं आने दिया।</string>
+    <string name="room_none">आस-पास कोई रूम नहीं मिला। इशारा जाँचें और फिर कोशिश करें।</string>
+    <string name="room_closed">रूम बंद हो गया।</string>
+    <string name="room_wants_in">%1$s जुड़ना चाहते हैं</string>
+    <string name="room_allow">अनुमति दें</string>
+    <string name="room_deny">मना करें</string>
+    <string name="room_add_files">फ़ाइलें जोड़ें</string>
+    <string name="room_add_folder">फ़ोल्डर जोड़ें</string>
+    <string name="room_host_hint">ऐसा रूम खोलें जिससे दूसरे आपके इशारे से जुड़ें</string>
+    <string name="room_join_hint">रूम का इशारा करके उसे खोजें</string>
+    <string name="room_you_host">आप होस्ट कर रहे हैं</string>
+    <string name="room_you_guest">फ़ाइल रूम</string>
+    <plurals name="room_member_count">
+        <item quantity="one">%1$d व्यक्ति</item>
+        <item quantity="other">%1$d लोग</item>
+    </plurals>
+    <string name="room_allow_all">सभी %1$d को अंदर आने दें</string>
+    <string name="room_download_all">सब डाउनलोड करें (%1$d)</string>
+    <string name="room_speed">%1$s/s · %2$s बाकी</string>
+    <string name="room_leave">छोड़ें</string>
+    <string name="room_you_share">आप शेयर कर रहे हैं</string>
+    <string name="room_stop_sharing">हटाएँ</string>
+    <string name="room_in_room">रूम में फ़ाइलें</string>
+    <string name="room_no_files">अभी तक किसी ने कोई फ़ाइल शेयर नहीं की है।</string>
+    <string name="room_file_meta">%1$s · %2$s से</string>
+    <string name="room_download">डाउनलोड करें</string>
+    <string name="room_retry">फिर कोशिश करें</string>
+    <string name="room_resume">जारी रखें</string>
+    <string name="room_receiving">मिल रहा है…</string>
+    <string name="room_open_file">खोलें</string>
+    <string name="notif_room">फ़ाइल रूम खुला है</string>
+
+    <!-- Exchange -->
+    <string name="someone">कोई</string>
+    <string name="action_cancel">रद्द करें</string>
+    <string name="action_done">हो गया</string>
+    <string name="exchange_gesture_locked">इशारा लॉक हुआ: %1$s</string>
+    <string name="status_connecting">मैच मिल गया! कनेक्ट हो रहा है…</string>
+    <string name="status_exchanging">कार्ड की अदला-बदली हो रही है…</string>
+    <string name="exchange_completed">%1$s के साथ अदला-बदली हो गई!</string>
+    <string name="stage_gesture">इशारा</string>
+    <string name="stage_find">खोज</string>
+    <string name="stage_check">जाँच</string>
+    <string name="stage_swap">अदला-बदली</string>
+    <plurals name="exchange_others_nearby">
+        <item quantity="one">आस-पास %1$d फ़ोन कोई दूसरा इशारा कर रहा है। एक इशारा तय करें और फिर कोशिश करें।</item>
+        <item quantity="other">आस-पास %1$d फ़ोन कोई दूसरा इशारा कर रहे हैं। एक इशारा तय करें और फिर कोशिश करें।</item>
+    </plurals>
+    <string name="exchange_cancelled">रद्द किया गया</string>
+    <string name="exchange_error_generic">कुछ गड़बड़ हो गई। फिर कोशिश करें।</string>
+    <string name="exchange_no_match">आस-पास कोई मैच नहीं मिला। दोनों वही इशारा करें और फिर कोशिश करें।</string>
+    <string name="exchange_waiting_peer_countdown">आस-पास उसी इशारे का इंतज़ार… %1$d से.</string>
+    <string name="exchange_two_gestures">दो इशारों वाला पासवर्ड</string>
+    <string name="exchange_second_gesture">पहला इशारा लॉक हो गया। अब कोई दूसरा इशारा करें।</string>
+    <string name="gesture_guide_button">इशारों की गाइड</string>
+    <string name="custom_gestures_title">आपके इशारे</string>
+    <string name="custom_gestures_intro">कोई मुद्रा तब तक बनाए रखें जब तक वह लॉक न हो जाए, फिर उसे जोड़ें। दोनों को जोड़कर एक क्रम बनाने के लिए दूसरी मुद्रा जोड़ें। जो भी वही मुद्राएँ उसी क्रम में करे, उससे मैच होगा, चाहे वे सेव हों या नहीं।</string>
+    <string name="custom_gesture_add_step">यह मुद्रा जोड़ें</string>
+    <string name="custom_gesture_clear">फिर से शुरू करें</string>
+    <string name="custom_gesture_name">नाम</string>
+    <string name="custom_gestures_pick">या सेव किया हुआ इशारा इस्तेमाल करें</string>
+    <string name="gesture_guide_title">Ping जिन इशारों को पहचानता है</string>
+    <string name="gesture_guide_intro">दोनों फ़ोन पर एक जैसा इशारा होना चाहिए। नाम बस एक अंदाज़ा हैं; असल में आकार, दिशा और हलचल मायने रखती है। मुद्रा को कुछ पल स्थिर रखें, या हलचल जारी रखें।</string>
+    <string name="exchange_retry">फिर कोशिश करें</string>
+
+    <!-- Gesture camera states -->
+    <string name="gesture_no_hand">कोई हाथ नहीं दिखा — कैमरा अपने हाथ की ओर करें</string>
+    <string name="gesture_detecting">%1$s — %2$d%% स्थिर</string>
+    <string name="gesture_model_error">कैमरा मॉडल लोड नहीं हो सका — ऐप रीस्टार्ट करें।</string>
+    <string name="gesture_camera_preview_desc">इशारा पहचानने के लिए कैमरा प्रीव्यू</string>
+
+    <!-- Profile -->
+    <string name="profile_title">आपका कार्ड</string>
+    <string name="profile_subtitle">अदला-बदली करने पर लोगों को यही मिलता है।</string>
+    <string name="hint_name">नाम</string>
+    <string name="hint_phone">फ़ोन</string>
+    <string name="hint_email">ईमेल</string>
+    <string name="hint_social">सोशल / हैंडल</string>
+    <string name="hint_note">नोट (2 पंक्तियाँ)</string>
+    <string name="profile_preview_label">आपका कार्ड</string>
+    <string name="profile_privacy">सिर्फ़ वही भेजा जाता है जो आप भरते हैं, और वह भी तभी जब दूसरा फ़ोन साबित कर दे कि उसके पास वही इशारा है।</string>
+    <string name="profile_save">कार्ड सेव करें</string>
+    <string name="profile_saved">कार्ड सेव हो गया</string>
+    <string name="profile_name_required">पहले नाम डालें।</string>
+
+    <!-- Contacts -->
+    <string name="empty_contacts">अभी कोई संपर्क नहीं है।\nकिसी से कार्ड की अदला-बदली के लिए शेयर करें दबाएँ।</string>
+    <string name="contact_unknown_name">अज्ञात</string>
+    <string name="contact_label_phone">फ़ोन</string>
+    <string name="contact_label_email">ईमेल</string>
+    <string name="contact_label_social">सोशल</string>
+    <string name="contact_label_note">नोट</string>
+    <string name="action_call">कॉल करें</string>
+    <string name="action_email_verb">ईमेल करें</string>
+    <string name="action_copy">कॉपी करें</string>
+    <string name="action_delete">मिटाएँ</string>
+    <string name="action_close">बंद करें</string>
+    <string name="contact_copied">कॉपी हो गया</string>
+    <string name="contact_label_name">नाम</string>
+    <string name="contact_label_memo">हम कहाँ मिले</string>
+    <string name="exchange_memo_hint">मीटअप, कॉन्फ़्रेंस, कैफ़े…</string>
+    <string name="contact_memo_hint">आपका मेमो इसी फ़ोन पर रहता है। इसकी कभी अदला-बदली नहीं होती और न ही यह शेयर होता है; सिर्फ़ आपके अपने बैकअप में यह रहता है।</string>
+    <string name="contact_edit_title">संपर्क संपादित करें</string>
+    <string name="contact_swapped_on">अदला-बदली: %1$s</string>
+    <string name="action_edit">संपादित करें</string>
+    <string name="action_save">सेव करें</string>
+    <string name="shortcut_swap">संपर्क की अदला-बदली</string>
+    <string name="shortcut_room">फ़ाइल रूम</string>
+    <string name="contacts_import">इंपोर्ट करें</string>
+    <string name="contacts_favourites">पसंदीदा</string>
+    <string name="contacts_everyone">सभी</string>
+    <string name="contacts_import_failed">यह फ़ाइल पढ़ी नहीं जा सकी।</string>
+    <plurals name="contacts_imported">
+        <item quantity="one">%1$d संपर्क इंपोर्ट किया गया</item>
+        <item quantity="other">%1$d संपर्क इंपोर्ट किए गए</item>
+    </plurals>
+    <plurals name="contacts_count">
+        <item quantity="one">%1$d व्यक्ति</item>
+        <item quantity="other">%1$d लोग</item>
+    </plurals>
+    <string name="contacts_search_hint">संपर्क खोजें</string>
+    <string name="contacts_no_results">कोई संपर्क मेल नहीं खाता।</string>
+    <string name="action_add_to_phone">फ़ोन में जोड़ें</string>
+    <string name="action_share_vcard">vCard शेयर करें</string>
+    <plurals name="contacts_export_all">
+        <item quantity="one">%1$d संपर्क को vCard के रूप में एक्सपोर्ट करें</item>
+        <item quantity="other">%1$d संपर्कों को vCard के रूप में एक्सपोर्ट करें</item>
+    </plurals>
+    <string name="contacts_more">और विकल्प</string>
+    <string name="contacts_backup">बैकअप लें (मेमो के साथ)</string>
+    <string name="contacts_restore">बैकअप वापस लाएँ</string>
+    <string name="contacts_backup_saved">बैकअप सेव हो गया। इसमें आपके निजी मेमो भी हैं, इसलिए इसे सुरक्षित रखें।</string>
+    <string name="contacts_backup_failed">बैकअप सेव नहीं हो सका।</string>
+    <string name="contacts_restore_failed">यह ऐसा Ping बैकअप नहीं है जिसे यह वर्शन पढ़ सके, या यह बहुत बड़ा है।</string>
+    <plurals name="contacts_restored">
+        <item quantity="one">%1$d संपर्क वापस लाया गया</item>
+        <item quantity="other">%1$d संपर्क वापस लाए गए</item>
+    </plurals>
+
+    <!-- Permissions -->
+    <string name="perm_rationale_title">Ping को कुछ अनुमतियाँ चाहिए</string>
+    <string name="perm_rationale_subtitle">इनसे Ping आपके ठीक बगल वाले लोगों को खोजकर उनसे कार्ड की अदला-बदली कर पाता है। आपके डिवाइस से कुछ भी बाहर नहीं जाता।</string>
+    <string name="perm_rationale_open_settings">सेटिंग्स खोलें</string>
+    <string name="perm_rationale_not_now">अभी नहीं</string>
+
+    <!-- Foreground service notification -->
+    <string name="notif_title">Ping</string>
+    <string name="notif_starting">मैच खोजा जा रहा है…</string>
+</resources>
