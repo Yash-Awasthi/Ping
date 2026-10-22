@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [main, fresh, "feature/**", "gesture-*"]
+    branches: [master, fresh, "feature/**", "gesture-*"]
   pull_request:
 
 jobs:
