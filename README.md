@@ -19,6 +19,12 @@ No server. No cloud. No account. Your data never leaves your phone.
 
 ---
 
+## 📸 Screenshots
+
+<a href="docs/screenshots/showcase.jpg"><img src="docs/screenshots/showcase.jpg" width="100%" alt="Ping home screen with the share gesture and the filled contact card"></a>
+
+---
+
 ## ✨ Features
 
 | Feature | Description |
